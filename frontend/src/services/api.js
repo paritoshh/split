@@ -29,7 +29,7 @@ const getBaseUrl = () => {
   if (isCapacitor) {
     // Mobile app - use your Windows machine IP address
     // TODO: Change this to your deployed server URL when you deploy
-    return 'http://192.168.1.254:8000';
+    return 'http://192.168.1.4:8000';
   }
   
   // Web app - use environment variable or empty for proxy
