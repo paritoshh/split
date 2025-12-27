@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Which frontend URLs can access our API
     # This is a security feature to prevent unauthorized websites from using our API
     # Includes: localhost for dev, capacitor for mobile app, local network IP
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000,capacitor://localhost,http://localhost,http://192.168.1.55:5173,*"
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,capacitor://localhost,http://localhost,http://192.168.1.254:5173,*"
     
     class Config:
         # Tell Pydantic to read from .env file
