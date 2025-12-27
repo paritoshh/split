@@ -1,0 +1,39 @@
+# ===========================================
+# SPLIT APP - Python Dependencies
+# ===========================================
+# Install with: pip install -r requirements.txt
+# ===========================================
+
+# --- Web Framework ---
+fastapi==0.109.0          # Modern, fast web framework for building APIs
+uvicorn[standard]==0.27.0 # ASGI server to run FastAPI
+
+# --- Database ---
+sqlalchemy==2.0.25        # ORM - maps Python classes to database tables
+alembic==1.13.1           # Database migrations - version control for DB schema
+
+# --- Authentication ---
+python-jose[cryptography]==3.3.0  # JWT token creation and verification
+passlib[bcrypt]==1.7.4    # Password hashing (secure storage)
+python-multipart==0.0.6   # Required for form data (login forms)
+
+# --- Data Validation ---
+pydantic==2.5.3           # Data validation using Python type hints
+pydantic-settings==2.1.0  # Settings management with .env files
+email-validator==2.1.0    # Email validation
+
+# --- HTTP & API ---
+httpx==0.26.0             # Async HTTP client (for external API calls)
+requests==2.31.0          # Sync HTTP client
+
+# --- AI & ML ---
+openai==1.10.0            # OpenAI API for AI features
+# pillow==10.2.0          # Image processing (for receipt OCR)
+
+# --- Utilities ---
+python-dotenv==1.0.0      # Load environment variables from .env file
+
+# --- Development ---
+pytest==7.4.4             # Testing framework
+pytest-asyncio==0.23.3    # Async testing support
+

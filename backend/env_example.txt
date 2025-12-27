@@ -1,0 +1,31 @@
+# ===========================================
+# ENVIRONMENT VARIABLES
+# ===========================================
+# Rename this file to .env and fill in your values
+# Command: mv env_example.txt .env
+# ===========================================
+
+# --- Database ---
+# SQLite (for development - simple, no setup needed)
+DATABASE_URL=sqlite:///./split.db
+
+# PostgreSQL (for production - uncomment and fill in)
+# DATABASE_URL=postgresql://username:password@localhost:5432/split_db
+
+# --- Security ---
+# Secret key for JWT tokens - generate a random string
+# You can generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=your-super-secret-key-change-this-in-production
+
+# JWT token expiration time in minutes
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# --- AI Features ---
+# Get your API key from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# --- App Settings ---
+APP_NAME=Split App
+DEBUG=True
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+

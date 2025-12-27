@@ -1,0 +1,70 @@
+"""
+===========================================
+CONFIGURATION SETTINGS
+===========================================
+This file manages all application settings.
+It reads values from environment variables (from .env file).
+
+Why use a config file?
+- Keep sensitive data (API keys, passwords) out of code
+- Easy to change settings without modifying code
+- Different settings for development vs production
+===========================================
+"""
+
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+
+class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+    
+    Pydantic automatically:
+    1. Reads from .env file
+    2. Validates the values
+    3. Converts types (str to int, etc.)
+    """
+    
+    # --- App Info ---
+    app_name: str = "Split App"
+    debug: bool = True
+    
+    # --- Database ---
+    # SQLite URL format: sqlite:///./filename.db
+    # PostgreSQL URL format: postgresql://user:pass@host:port/dbname
+    database_url: str = "sqlite:///./split.db"
+    
+    # --- Security ---
+    # Secret key for creating JWT tokens
+    # IMPORTANT: Change this in production!
+    secret_key: str = "your-super-secret-key-change-this"
+    
+    # How long before a login token expires (in minutes)
+    access_token_expire_minutes: int = 1440  # 24 hours
+    
+    # Algorithm for JWT encoding
+    algorithm: str = "HS256"
+    
+    # --- AI Features ---
+    # OpenAI API key for smart features
+    openai_api_key: Optional[str] = None
+    
+    # --- CORS ---
+    # Which frontend URLs can access our API
+    # This is a security feature to prevent unauthorized websites from using our API
+    # Includes: localhost for dev, capacitor for mobile app, local network IP
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,capacitor://localhost,http://localhost,http://192.168.1.55:5173,*"
+    
+    class Config:
+        # Tell Pydantic to read from .env file
+        env_file = ".env"
+        # Make variable names case-insensitive
+        # So DATABASE_URL in .env maps to database_url here
+        env_file_encoding = "utf-8"
+
+
+# Create a single instance to use throughout the app
+# Import this wherever you need settings: from app.config import settings
+settings = Settings()
+
