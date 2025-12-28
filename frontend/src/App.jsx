@@ -150,9 +150,22 @@ function AuthProvider({ children }) {
     })
     setUser(userResponse.data)
     
-    // Check if we should offer biometric setup (native app + biometric available + not enabled yet)
-    if (biometricService.isNativeApp() && biometricAvailable && !biometricEnabled) {
-      setShowBiometricPrompt(true)
+    // Check if we should offer biometric setup (native app only)
+    // Re-check availability here to avoid race condition with initial state
+    if (biometricService.isNativeApp()) {
+      try {
+        const { isAvailable } = await biometricService.isBiometricAvailable()
+        const isEnabled = await biometricService.isBiometricEnabled()
+        
+        console.log('Biometric check after login:', { isAvailable, isEnabled })
+        
+        if (isAvailable && !isEnabled) {
+          setBiometricAvailable(true)
+          setShowBiometricPrompt(true)
+        }
+      } catch (error) {
+        console.log('Biometric check failed:', error)
+      }
     }
     
     return userResponse.data
