@@ -72,26 +72,26 @@ function DashboardPage() {
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-white mb-1">
-            Welcome back, {user?.name?.split(' ')[0]}! 👋
+      {/* Header - compact on mobile */}
+      <div className="flex items-center justify-between gap-2 mb-4 lg:mb-8">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl lg:text-3xl font-display font-bold text-white truncate">
+            Hi, {user?.name?.split(' ')[0]}! 👋
           </h1>
-          <p className="text-gray-400">Here's your expense summary</p>
+          <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">Here's your expense summary</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={fetchData}
-            className="btn-secondary p-3"
+            className="p-2 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <Link to="/add-expense" className="btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Expense
+          <Link to="/add-expense" className="btn-primary flex items-center gap-1 text-xs sm:text-sm">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
           </Link>
         </div>
       </div>
@@ -102,101 +102,89 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* Balance Cards */}
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
+      {/* Balance Cards - compact grid on mobile */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-6 mb-4 lg:mb-8">
         {/* Total Balance */}
-        <div className="card">
-          <p className="text-gray-400 text-sm mb-2">Total Balance</p>
-          <p className={`text-3xl font-bold ${totalBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {totalBalance >= 0 ? '+' : ''}₹{Math.abs(totalBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            {totalBalance >= 0 ? 'You are owed overall' : 'You owe overall'}
+        <div className="card text-center sm:text-left">
+          <p className="text-gray-400 text-[10px] sm:text-xs lg:text-sm mb-1">Total</p>
+          <p className={`text-sm sm:text-lg lg:text-2xl font-bold ${totalBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            ₹{Math.abs(totalBalance).toFixed(0)}
           </p>
         </div>
 
         {/* You Are Owed */}
-        <div className="card">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-green-400" />
-            <p className="text-gray-400 text-sm">You are owed</p>
+        <div className="card text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-1 mb-1">
+            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+            <p className="text-gray-400 text-[10px] sm:text-xs lg:text-sm">Owed</p>
           </div>
-          <p className="text-3xl font-bold text-green-400">
-            +₹{youAreOwed.reduce((sum, b) => sum + b.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            from {youAreOwed.length} {youAreOwed.length === 1 ? 'person' : 'people'}
+          <p className="text-sm sm:text-lg lg:text-2xl font-bold text-green-400">
+            ₹{youAreOwed.reduce((sum, b) => sum + b.amount, 0).toFixed(0)}
           </p>
         </div>
 
         {/* You Owe */}
-        <div className="card">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="w-5 h-5 text-red-400" />
-            <p className="text-gray-400 text-sm">You owe</p>
+        <div className="card text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-1 mb-1">
+            <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
+            <p className="text-gray-400 text-[10px] sm:text-xs lg:text-sm">Owe</p>
           </div>
-          <p className="text-3xl font-bold text-red-400">
-            -₹{Math.abs(youOwe.reduce((sum, b) => sum + b.amount, 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            to {youOwe.length} {youOwe.length === 1 ? 'person' : 'people'}
+          <p className="text-sm sm:text-lg lg:text-2xl font-bold text-red-400">
+            ₹{Math.abs(youOwe.reduce((sum, b) => sum + b.amount, 0)).toFixed(0)}
           </p>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-4 lg:gap-8">
         {/* Groups Section */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-display font-semibold text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary-400" />
-              Your Groups
+          <div className="flex items-center justify-between mb-2 lg:mb-4">
+            <h2 className="text-sm sm:text-base lg:text-xl font-display font-semibold text-white flex items-center gap-1 lg:gap-2">
+              <Users className="w-4 h-4 lg:w-5 lg:h-5 text-primary-400" />
+              Groups
             </h2>
-            <Link to="/groups" className="text-primary-400 hover:text-primary-300 text-sm flex items-center gap-1">
-              View all
-              <ArrowRight className="w-4 h-4" />
+            <Link to="/groups" className="text-primary-400 hover:text-primary-300 text-xs flex items-center gap-1">
+              All
+              <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
+            <div className="space-y-2">
+              {[1, 2].map(i => (
                 <div key={i} className="card animate-pulse">
-                  <div className="h-5 bg-dark-200 rounded w-1/3 mb-2" />
-                  <div className="h-4 bg-dark-200 rounded w-1/4" />
+                  <div className="h-4 bg-dark-200 rounded w-1/3 mb-1" />
+                  <div className="h-3 bg-dark-200 rounded w-1/4" />
                 </div>
               ))}
             </div>
           ) : groups.length === 0 ? (
-            <div className="card text-center py-8">
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-4">No groups yet</p>
-              <Link to="/groups" className="btn-primary inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Create Group
+            <div className="card text-center py-4">
+              <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-400 text-xs mb-2">No groups yet</p>
+              <Link to="/groups" className="btn-primary text-xs py-1.5 px-3">
+                <Plus className="w-3 h-3 inline mr-1" />
+                Create
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
-              {groups.slice(0, 4).map(group => (
+            <div className="space-y-2">
+              {groups.slice(0, 3).map(group => (
                 <Link
                   key={group.id}
                   to={`/groups/${group.id}`}
                   className="card block hover:border-primary-500/50"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-white">{group.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-white text-sm truncate">{group.name}</h3>
+                      <p className="text-[10px] sm:text-xs text-gray-500">
+                        {group.member_count} members
                       </p>
                     </div>
-                    <div className={`text-right ${group.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      <p className="font-semibold">
-                        {group.your_balance >= 0 ? '+' : ''}₹{Math.abs(group.your_balance || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {group.your_balance >= 0 ? 'you are owed' : 'you owe'}
+                    <div className={`text-right flex-shrink-0 ml-2 ${group.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <p className="font-semibold text-sm">
+                        ₹{Math.abs(group.your_balance || 0).toFixed(0)}
                       </p>
                     </div>
                   </div>
@@ -208,34 +196,34 @@ function DashboardPage() {
 
         {/* Recent Expenses Section */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-display font-semibold text-white flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-secondary-400" />
-              Recent Expenses
+          <div className="flex items-center justify-between mb-2 lg:mb-4">
+            <h2 className="text-sm sm:text-base lg:text-xl font-display font-semibold text-white flex items-center gap-1 lg:gap-2">
+              <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-secondary-400" />
+              Recent
             </h2>
           </div>
 
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
+            <div className="space-y-2">
+              {[1, 2].map(i => (
                 <div key={i} className="card animate-pulse">
-                  <div className="h-5 bg-dark-200 rounded w-2/3 mb-2" />
-                  <div className="h-4 bg-dark-200 rounded w-1/3" />
+                  <div className="h-4 bg-dark-200 rounded w-2/3 mb-1" />
+                  <div className="h-3 bg-dark-200 rounded w-1/3" />
                 </div>
               ))}
             </div>
           ) : expenses.length === 0 ? (
-            <div className="card text-center py-8">
-              <Receipt className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-4">No expenses yet</p>
-              <Link to="/add-expense" className="btn-primary inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Add Expense
+            <div className="card text-center py-4">
+              <Receipt className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-400 text-xs mb-2">No expenses yet</p>
+              <Link to="/add-expense" className="btn-primary text-xs py-1.5 px-3">
+                <Plus className="w-3 h-3 inline mr-1" />
+                Add
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
-              {expenses.map(expense => {
+            <div className="space-y-2">
+              {expenses.slice(0, 4).map(expense => {
                 // Determine if user paid or owes
                 const userPaid = expense.paid_by_id === user?.id
                 const userSplit = expense.splits?.find(s => s.user_id === user?.id)
@@ -248,25 +236,22 @@ function DashboardPage() {
                     to={`/expenses/${expense.id}`}
                     className="card block hover:border-primary-500/30 transition-all"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
                           ${getCategoryColor(expense.category)}`}>
-                          <Receipt className="w-5 h-5" />
+                          <Receipt className="w-4 h-4" />
                         </div>
-                        <div>
-                          <h3 className="font-medium text-white">{expense.description}</h3>
-                          <p className="text-sm text-gray-500">
+                        <div className="min-w-0">
+                          <h3 className="font-medium text-white text-sm truncate">{expense.description}</h3>
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
                             {expense.group_name || 'Personal'} • {formatDate(expense.expense_date)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`font-semibold ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {balance >= 0 ? '+' : ''}₹{Math.abs(balance).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {userPaid ? 'you lent' : 'you owe'}
+                      <div className="text-right flex-shrink-0">
+                        <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ₹{Math.abs(balance).toFixed(0)}
                         </p>
                       </div>
                     </div>
@@ -278,34 +263,30 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Balance Details */}
+      {/* Balance Details - compact on mobile */}
       {balances.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-display font-semibold text-white mb-4">
-            Balance Details
+        <div className="mt-4 lg:mt-8">
+          <h2 className="text-sm sm:text-base lg:text-xl font-display font-semibold text-white mb-2 lg:mb-4">
+            Balances
           </h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-2 lg:gap-4">
             {balances.map(balance => (
               <div key={balance.user_id} className="card">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                      <span className="text-primary-400 font-semibold">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary-400 font-semibold text-sm">
                         {balance.user_name?.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium text-white">{balance.user_name}</p>
-                      <p className="text-sm text-gray-500">{balance.user_email}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-white text-sm truncate">{balance.user_name}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{balance.user_email}</p>
                     </div>
                   </div>
-                  <div className={`text-right ${balance.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    <p className="font-semibold">
-                      {balance.amount >= 0 ? 'owes you' : 'you owe'}
-                    </p>
-                    <p className="text-lg font-bold">
-                      ₹{Math.abs(balance.amount).toFixed(2)}
-                    </p>
+                  <div className={`text-right flex-shrink-0 ${balance.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <p className="text-xs">{balance.amount >= 0 ? 'owes you' : 'you owe'}</p>
+                    <p className="text-sm font-bold">₹{Math.abs(balance.amount).toFixed(0)}</p>
                   </div>
                 </div>
                 
@@ -315,11 +296,11 @@ function DashboardPage() {
                     setSelectedBalance(balance)
                     setShowSettleModal(true)
                   }}
-                  className="w-full mt-4 py-2 px-4 rounded-lg border border-primary-500/50 text-primary-400 
-                    hover:bg-primary-500/10 transition-colors flex items-center justify-center gap-2"
+                  className="w-full mt-2 py-1.5 px-3 rounded-lg border border-primary-500/50 text-primary-400 
+                    hover:bg-primary-500/10 transition-colors flex items-center justify-center gap-1 text-xs"
                 >
-                  <Banknote className="w-4 h-4" />
-                  {balance.amount < 0 ? 'Settle Up' : 'Record Payment'}
+                  <Banknote className="w-3 h-3" />
+                  {balance.amount < 0 ? 'Settle' : 'Record'}
                 </button>
               </div>
             ))}

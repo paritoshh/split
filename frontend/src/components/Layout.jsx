@@ -194,8 +194,8 @@ function Layout({ children }) {
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 lg:ml-64 p-6 lg:p-8">
+        {/* Main Content - compact padding on mobile */}
+        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8">
           {children}
         </main>
       </div>

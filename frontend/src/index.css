@@ -34,32 +34,37 @@
 
 /* Custom Component Classes */
 @layer components {
-  /* Primary button style */
+  /* Primary button style - smaller on mobile */
   .btn-primary {
     @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold 
-           py-3 px-6 rounded-xl transition-all duration-200 
+           py-2 px-4 text-sm rounded-lg transition-all duration-200 
            shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40
            active:scale-95;
   }
   
-  /* Secondary button style */
+  /* Secondary button style - smaller on mobile */
   .btn-secondary {
     @apply bg-dark-100 hover:bg-dark-200 text-gray-100 font-medium 
-           py-3 px-6 rounded-xl transition-all duration-200 
+           py-2 px-4 text-sm rounded-lg transition-all duration-200 
            border border-gray-700 hover:border-gray-600;
   }
   
-  /* Input field style */
+  /* Input field style - compact on mobile */
   .input-field {
-    @apply w-full bg-dark-100 border border-gray-700 rounded-xl 
-           py-3 px-4 text-gray-100 placeholder-gray-500
+    @apply w-full bg-dark-100 border border-gray-700 rounded-lg 
+           py-2 px-3 text-sm text-gray-100 placeholder-gray-500
            focus:outline-none focus:border-primary-500 focus:ring-2 
            focus:ring-primary-500/20 transition-all duration-200;
   }
   
-  /* Card style */
+  /* Input label style */
+  .input-label {
+    @apply block text-xs font-medium text-gray-400 mb-1;
+  }
+  
+  /* Card style - compact on mobile */
   .card {
-    @apply bg-dark-100 rounded-2xl p-6 border border-gray-800
+    @apply bg-dark-100 rounded-xl p-3 border border-gray-800
            hover:border-gray-700 transition-all duration-200;
   }
   
@@ -67,6 +72,29 @@
   .gradient-text {
     @apply bg-gradient-to-r from-primary-400 via-primary-500 to-secondary-400 
            bg-clip-text text-transparent;
+  }
+}
+
+/* Desktop overrides - larger sizes on big screens */
+@media (min-width: 1024px) {
+  .btn-primary {
+    @apply py-3 px-6 text-base rounded-xl;
+  }
+  
+  .btn-secondary {
+    @apply py-3 px-6 text-base rounded-xl;
+  }
+  
+  .input-field {
+    @apply py-3 px-4 text-base rounded-xl;
+  }
+  
+  .input-label {
+    @apply text-sm mb-2;
+  }
+  
+  .card {
+    @apply rounded-2xl p-6;
   }
 }
 
