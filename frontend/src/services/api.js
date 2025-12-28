@@ -39,6 +39,7 @@ const getBaseUrl = () => {
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: getBaseUrl(),
+  timeout: 15000, // 15 second timeout - prevents app from hanging
   headers: {
     'Content-Type': 'application/json',
   },
@@ -88,11 +89,20 @@ api.interceptors.response.use(
       }
     }
     
-    // Return a friendly error message
-    const message = error.response?.data?.detail || 
-                    error.message || 
-                    'Something went wrong'
+    // Handle specific error types with friendly messages
+    let message = 'Something went wrong'
     
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      message = 'Connection timed out. Please check your internet connection and try again.'
+    } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      message = 'Unable to connect to server. Please check if you are on the same WiFi network.'
+    } else if (error.response?.data?.detail) {
+      message = error.response.data.detail
+    } else if (error.message) {
+      message = error.message
+    }
+    
+    console.error('API Error:', error.code, error.message) // For debugging
     return Promise.reject(new Error(message))
   }
 )
