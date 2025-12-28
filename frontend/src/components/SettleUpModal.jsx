@@ -16,9 +16,17 @@ import {
   AlertCircle,
   Banknote,
   CreditCard,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react'
 import { settlementsAPI } from '../services/api'
+
+// Detect iOS
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
 
 const paymentMethods = [
   { value: 'upi', label: 'UPI (GPay/PhonePe)', icon: Smartphone },
@@ -74,17 +82,46 @@ function SettleUpModal({
     }
   }
 
-  const openUPIApp = () => {
-    if (upiInfo?.upi_link) {
-      // Create a temporary <a> tag to open UPI link
-      // This ensures proper intent handling on Android
-      const link = document.createElement('a')
-      link.href = upiInfo.upi_link
-      link.target = '_blank'
-      link.rel = 'noopener noreferrer'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+  const [copiedUPI, setCopiedUPI] = useState(false)
+
+  const openUPIApp = (appType = 'default') => {
+    if (!upiInfo) return
+
+    let link = upiInfo.upi_link // Default Android upi:// link
+
+    // For iOS, use specific app schemes
+    if (isIOS()) {
+      const { payee_upi_id, payee_name, amount, transaction_note } = upiInfo
+      const encodedName = encodeURIComponent(payee_name)
+      const encodedNote = encodeURIComponent(transaction_note)
+      
+      if (appType === 'gpay') {
+        // Google Pay iOS scheme
+        link = `gpay://upi/pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+      } else if (appType === 'phonepe') {
+        // PhonePe iOS scheme  
+        link = `phonepe://pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+      } else if (appType === 'paytm') {
+        // Paytm iOS scheme
+        link = `paytmmp://pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+      }
+    }
+
+    // Create a temporary <a> tag to open the link
+    const a = document.createElement('a')
+    a.href = link
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const copyUPIId = () => {
+    if (upiInfo?.payee_upi_id) {
+      navigator.clipboard.writeText(upiInfo.payee_upi_id)
+      setCopiedUPI(true)
+      setTimeout(() => setCopiedUPI(false), 2000)
     }
   }
 
@@ -270,7 +307,20 @@ function SettleUpModal({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">UPI ID</span>
-                  <span className="text-white font-mono">{upiInfo.payee_upi_id}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-mono text-sm">{upiInfo.payee_upi_id}</span>
+                    <button 
+                      onClick={copyUPIId}
+                      className="p-1 rounded hover:bg-dark-300 transition-colors"
+                      title="Copy UPI ID"
+                    >
+                      {copiedUPI ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Amount</span>
@@ -278,18 +328,52 @@ function SettleUpModal({
                 </div>
               </div>
 
-              {/* Open UPI App Button */}
-              <button
-                onClick={openUPIApp}
-                className="w-full btn-primary flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-5 h-5" />
-                Open UPI App to Pay
-              </button>
-
-              <p className="text-center text-sm text-gray-500">
-                This will open GPay, PhonePe, or your default UPI app
-              </p>
+              {/* iOS: Show app-specific buttons */}
+              {isIOS() ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-400 text-center mb-2">Choose your UPI app:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => openUPIApp('gpay')}
+                      className="p-3 bg-dark-200 rounded-xl hover:bg-dark-300 transition-colors flex flex-col items-center gap-1"
+                    >
+                      <span className="text-2xl">💳</span>
+                      <span className="text-xs text-gray-300">GPay</span>
+                    </button>
+                    <button
+                      onClick={() => openUPIApp('phonepe')}
+                      className="p-3 bg-dark-200 rounded-xl hover:bg-dark-300 transition-colors flex flex-col items-center gap-1"
+                    >
+                      <span className="text-2xl">📱</span>
+                      <span className="text-xs text-gray-300">PhonePe</span>
+                    </button>
+                    <button
+                      onClick={() => openUPIApp('paytm')}
+                      className="p-3 bg-dark-200 rounded-xl hover:bg-dark-300 transition-colors flex flex-col items-center gap-1"
+                    >
+                      <span className="text-2xl">💰</span>
+                      <span className="text-xs text-gray-300">Paytm</span>
+                    </button>
+                  </div>
+                  <p className="text-center text-xs text-gray-500 mt-2">
+                    Or copy the UPI ID above and pay manually in any UPI app
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Android: Single button that opens app chooser */}
+                  <button
+                    onClick={() => openUPIApp('default')}
+                    className="w-full btn-primary flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    Open UPI App to Pay
+                  </button>
+                  <p className="text-center text-sm text-gray-500">
+                    This will open GPay, PhonePe, or your default UPI app
+                  </p>
+                </>
+              )}
 
               {/* After payment */}
               <div className="border-t border-gray-700 pt-4 mt-4">
