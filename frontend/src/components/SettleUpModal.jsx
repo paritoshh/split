@@ -76,7 +76,15 @@ function SettleUpModal({
 
   const openUPIApp = () => {
     if (upiInfo?.upi_link) {
-      window.location.href = upiInfo.upi_link
+      // Create a temporary <a> tag to open UPI link
+      // This ensures proper intent handling on Android
+      const link = document.createElement('a')
+      link.href = upiInfo.upi_link
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
   }
 

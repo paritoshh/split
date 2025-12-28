@@ -199,11 +199,11 @@ async def generate_upi_link(
         )
     
     # Build transaction note
-    note = f"SplitApp settlement from {current_user.name}"
+    note = f"Hisab settlement from {current_user.name}"
     if group_id:
         group = db.query(Group).filter(Group.id == group_id).first()
         if group:
-            note = f"SplitApp: {group.name} settlement"
+            note = f"Hisab: {group.name} settlement"
     
     # Build UPI deep link
     # Format: upi://pay?pa=UPI_ID&pn=NAME&am=AMOUNT&cu=INR&tn=NOTE
