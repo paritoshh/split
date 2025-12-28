@@ -15,6 +15,7 @@ import { useAuth } from '../App'
 import { groupsAPI, expensesAPI } from '../services/api'
 import Layout from '../components/Layout'
 import UserSearchSelect from '../components/UserSearchSelect'
+import VoiceExpenseModal from '../components/VoiceExpenseModal'
 import {
   Plus,
   Users,
@@ -26,7 +27,8 @@ import {
   TrendingDown,
   Trash2,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  Mic
 } from 'lucide-react'
 
 function GroupDetailPage() {
@@ -42,6 +44,7 @@ function GroupDetailPage() {
   const [showAddMember, setShowAddMember] = useState(false)
   const [showDeleteGroup, setShowDeleteGroup] = useState(false)
   const [showDeleteExpense, setShowDeleteExpense] = useState(null)
+  const [showVoiceExpense, setShowVoiceExpense] = useState(false)
   const [activeTab, setActiveTab] = useState('expenses')
   const [deleteLoading, setDeleteLoading] = useState(false)
 
@@ -153,6 +156,13 @@ function GroupDetailPage() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
+          <button
+            onClick={() => setShowVoiceExpense(true)}
+            className="p-2 rounded-lg bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 transition-colors"
+            title="Voice Expense"
+          >
+            <Mic className="w-4 h-4" />
+          </button>
           <Link
             to={`/add-expense?group=${groupId}`}
             className="btn-primary flex items-center gap-1 text-xs"
@@ -479,6 +489,15 @@ function GroupDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Voice Expense Modal */}
+      <VoiceExpenseModal
+        isOpen={showVoiceExpense}
+        onClose={() => setShowVoiceExpense(false)}
+        groupId={groupId}
+        groupMembers={group.members || []}
+        onExpenseCreated={fetchData}
+      />
     </Layout>
   )
 }
