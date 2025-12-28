@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     """
     
     # --- App Info ---
-    app_name: str = "Split App"
+    app_name: str = "Hisab"
     debug: bool = True
     
     # --- Database ---

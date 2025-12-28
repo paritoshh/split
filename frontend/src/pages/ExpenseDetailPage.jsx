@@ -325,30 +325,30 @@ function ExpenseDetailPage() {
         </div>
       )}
 
-      <div className="max-w-2xl space-y-6">
-        {/* Main Info Card */}
+      <div className="space-y-3 lg:space-y-6">
+        {/* Main Info Card - compact on mobile */}
         <div className="card">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 bg-primary-500/20 rounded-2xl flex items-center justify-center text-3xl">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary-500/20 rounded-xl flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
               {categoryInfo.emoji}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <input
                     type="text"
                     value={editData.description}
                     onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                    className="input-field text-xl font-bold"
+                    className="input-field text-sm sm:text-base font-bold"
                     placeholder="Description"
                   />
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl text-primary-400">₹</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-lg text-primary-400">₹</span>
                     <input
                       type="number"
                       value={editData.amount}
                       onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
-                      className="input-field text-2xl font-bold w-40"
+                      className="input-field text-lg font-bold w-28"
                       placeholder="Amount"
                       min="0"
                       step="0.01"
@@ -357,9 +357,9 @@ function ExpenseDetailPage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold text-white mb-1">{expense?.description}</h2>
-                  <p className="text-3xl font-bold text-primary-400">
-                    ₹{expense?.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  <h2 className="text-base sm:text-lg font-bold text-white mb-0.5 truncate">{expense?.description}</h2>
+                  <p className="text-xl sm:text-2xl font-bold text-primary-400">
+                    ₹{Math.round(expense?.amount || 0).toLocaleString('en-IN')}
                   </p>
                 </>
               )}
@@ -368,56 +368,55 @@ function ExpenseDetailPage() {
 
           {/* Balance Info */}
           {!isEditing && balance !== 0 && (
-            <div className={`mt-4 p-3 rounded-xl ${balance > 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+            <div className={`mt-2 p-2 rounded-lg text-sm ${balance > 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
               <p className={`font-medium ${balance > 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {balance > 0 
-                  ? `You lent ₹${balance.toFixed(2)}` 
-                  : `You owe ₹${Math.abs(balance).toFixed(2)}`
+                  ? `You lent ₹${Math.round(balance)}` 
+                  : `You owe ₹${Math.round(Math.abs(balance))}`
                 }
               </p>
             </div>
           )}
         </div>
 
-        {/* Details Card */}
-        <div className="card space-y-4">
+        {/* Details Card - compact on mobile */}
+        <div className="card space-y-2 sm:space-y-3">
           {/* Paid By */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-              <span className="text-primary-400 font-semibold">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-primary-400 font-semibold text-sm">
                 {expense?.paid_by_name?.charAt(0).toUpperCase()}
               </span>
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Paid by</p>
-              <p className="text-white font-medium">
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500">Paid by</p>
+              <p className="text-white font-medium text-sm truncate">
                 {expense?.paid_by_name}
-                {userPaid && <span className="text-gray-500 ml-2">(you)</span>}
+                {userPaid && <span className="text-gray-500 ml-1">(you)</span>}
               </p>
             </div>
           </div>
 
           {/* Date */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-gray-400" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-4 h-4 text-gray-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-500">Date</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-gray-500">Date</p>
               {isEditing ? (
                 <input
                   type="date"
                   value={editData.expense_date}
                   onChange={(e) => setEditData({ ...editData, expense_date: e.target.value })}
-                  className="input-field mt-1"
+                  className="input-field mt-0.5"
                 />
               ) : (
-                <p className="text-white font-medium">
+                <p className="text-white font-medium text-sm">
                   {new Date(expense?.expense_date).toLocaleDateString('en-IN', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
                   })}
                 </p>
               )}
@@ -425,17 +424,17 @@ function ExpenseDetailPage() {
           </div>
 
           {/* Category */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center">
-              <Tag className="w-5 h-5 text-gray-400" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
+              <Tag className="w-4 h-4 text-gray-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-500">Category</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-gray-500">Category</p>
               {isEditing ? (
                 <select
                   value={editData.category}
                   onChange={(e) => setEditData({ ...editData, category: e.target.value })}
-                  className="input-field mt-1"
+                  className="input-field mt-0.5"
                 >
                   {categories.map(cat => (
                     <option key={cat.value} value={cat.value}>
@@ -444,31 +443,31 @@ function ExpenseDetailPage() {
                   ))}
                 </select>
               ) : (
-                <p className="text-white font-medium">
+                <p className="text-white font-medium text-sm">
                   {categoryInfo.emoji} {categoryInfo.label}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Notes - hidden on mobile unless exists */}
           {(expense?.notes || isEditing) && (
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center">
-                <FileText className="w-5 h-5 text-gray-400" />
+            <div className="flex items-start gap-2">
+              <div className="w-8 h-8 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-gray-400" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-500">Notes</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-500">Notes</p>
                 {isEditing ? (
                   <textarea
                     value={editData.notes}
                     onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                    className="input-field mt-1 resize-none"
-                    rows={3}
+                    className="input-field mt-0.5 resize-none"
+                    rows={2}
                     placeholder="Add notes..."
                   />
                 ) : (
-                  <p className="text-white">{expense?.notes || 'No notes'}</p>
+                  <p className="text-white text-sm">{expense?.notes || 'No notes'}</p>
                 )}
               </div>
             </div>
@@ -476,39 +475,27 @@ function ExpenseDetailPage() {
 
           {/* Split Type */}
           {!isEditing && (
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center">
-                <Users className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-dark-200 rounded-full flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 text-gray-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Split Type</p>
-                <p className="text-white font-medium capitalize">{expense?.split_type}</p>
+                <p className="text-[10px] text-gray-500">Split</p>
+                <p className="text-white font-medium text-sm capitalize">{expense?.split_type}</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Splits Card */}
+        {/* Splits Card - compact on mobile */}
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Split Details</h3>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 className="text-sm sm:text-base font-semibold text-white">Split Details</h3>
             {isEditing && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={selectAllMembers}
-                  className="text-sm text-primary-400 hover:text-primary-300"
-                >
-                  Select All
-                </button>
+              <div className="flex gap-1 text-xs">
+                <button type="button" onClick={selectAllMembers} className="text-primary-400">All</button>
                 <span className="text-gray-600">|</span>
-                <button
-                  type="button"
-                  onClick={deselectAllMembers}
-                  className="text-sm text-gray-400 hover:text-gray-300"
-                >
-                  Clear
-                </button>
+                <button type="button" onClick={deselectAllMembers} className="text-gray-400">Clear</button>
               </div>
             )}
           </div>

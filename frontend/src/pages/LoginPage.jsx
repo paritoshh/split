@@ -50,7 +50,7 @@ function LoginPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
               <Split className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-display font-bold text-white">SplitApp</span>
+            <span className="text-2xl font-display font-bold text-white">Hisab</span>
           </Link>
           
           {/* Heading */}

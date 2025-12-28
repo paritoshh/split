@@ -51,7 +51,7 @@ function Layout({ children }) {
           <div className="w-7 h-7 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
             <Split className="w-4 h-4 text-white" />
           </div>
-          <span className="text-base font-display font-bold text-white">SplitApp</span>
+          <span className="text-base font-display font-bold text-white">Hisab</span>
         </Link>
 
         <div className="flex items-center gap-1">
@@ -78,7 +78,7 @@ function Layout({ children }) {
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
                   <Split className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-lg font-display font-bold text-white">SplitApp</span>
+                <span className="text-lg font-display font-bold text-white">Hisab</span>
               </Link>
               <button onClick={() => setSidebarOpen(false)}>
                 <X className="w-5 h-5 text-gray-400" />
@@ -142,7 +142,7 @@ function Layout({ children }) {
               <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
                 <Split className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-display font-bold text-white">SplitApp</span>
+              <span className="text-xl font-display font-bold text-white">Hisab</span>
             </Link>
           </div>
 

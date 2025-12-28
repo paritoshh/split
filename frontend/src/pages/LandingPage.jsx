@@ -38,7 +38,7 @@ function LandingPage() {
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
             <Split className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-display font-bold text-white">SplitApp</span>
+          <span className="text-2xl font-display font-bold text-white">Hisab</span>
         </Link>
         
         <div className="flex items-center gap-4">
@@ -271,7 +271,7 @@ function LandingPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
               <Split className="w-4 h-4 text-white" />
             </div>
-            <span className="font-display font-semibold text-white">SplitApp</span>
+            <span className="font-display font-semibold text-white">Hisab</span>
           </div>
           
           <p className="text-gray-500 text-sm">
@@ -279,7 +279,7 @@ function LandingPage() {
           </p>
           
           <p className="text-gray-500 text-sm">
-            © 2024 SplitApp. All rights reserved.
+            © 2024 Hisab. All rights reserved.
           </p>
         </div>
       </footer>

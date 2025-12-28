@@ -1,6 +1,6 @@
 {
-  "appId": "com.splitapp.app",
-  "appName": "SplitApp",
+  "appId": "com.hisab.app",
+  "appName": "Hisab",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

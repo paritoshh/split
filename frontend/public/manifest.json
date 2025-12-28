@@ -1,6 +1,6 @@
 {
-  "name": "SplitApp - Expense Sharing",
-  "short_name": "SplitApp",
+  "name": "Hisab - Expense Sharing",
+  "short_name": "Hisab",
   "description": "Split expenses with friends easily. Track who owes whom and settle up via UPI.",
   "start_url": "/",
   "display": "standalone",
@@ -77,4 +77,3 @@
     }
   ]
 }
-
