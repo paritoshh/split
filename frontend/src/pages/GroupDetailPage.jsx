@@ -130,79 +130,76 @@ function GroupDetailPage() {
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      {/* Header - compact on mobile */}
+      <div className="flex items-center gap-2 mb-3 lg:mb-6">
         <button
           onClick={() => navigate('/groups')}
-          className="p-2 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
+          className="p-1.5 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-400" />
+          <ArrowLeft className="w-4 h-4 text-gray-400" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-display font-bold text-white">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl lg:text-3xl font-display font-bold text-white truncate">
             {group.name}
           </h1>
-          {group.description && (
-            <p className="text-gray-400 mt-1">{group.description}</p>
-          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {isCreator && (
             <button
               onClick={() => setShowDeleteGroup(true)}
-              className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+              className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
               title="Delete Group"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
           <Link
             to={`/add-expense?group=${groupId}`}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-1 text-xs"
           >
-            <Plus className="w-5 h-5" />
-            Add Expense
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
           </Link>
         </div>
       </div>
 
-      {/* Balance Cards */}
+      {/* Balance Cards - compact grid on mobile */}
       {balances && (
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <div className="card">
-            <p className="text-gray-400 text-sm mb-1">Total Expenses</p>
-            <p className="text-2xl font-bold text-white">
-              ₹{balances.total_expenses?.toLocaleString('en-IN') || '0'}
+        <div className="grid grid-cols-4 gap-1 sm:gap-2 lg:gap-4 mb-3 lg:mb-8">
+          <div className="card text-center">
+            <p className="text-gray-400 text-[9px] sm:text-xs mb-0.5">Total</p>
+            <p className="text-xs sm:text-lg lg:text-2xl font-bold text-white">
+              ₹{Math.round(balances.total_expenses || 0)}
             </p>
           </div>
-          <div className="card">
-            <p className="text-gray-400 text-sm mb-1">You Paid</p>
-            <p className="text-2xl font-bold text-blue-400">
-              ₹{balances.your_total_paid?.toLocaleString('en-IN') || '0'}
+          <div className="card text-center">
+            <p className="text-gray-400 text-[9px] sm:text-xs mb-0.5">Paid</p>
+            <p className="text-xs sm:text-lg lg:text-2xl font-bold text-blue-400">
+              ₹{Math.round(balances.your_total_paid || 0)}
             </p>
           </div>
-          <div className="card">
-            <p className="text-gray-400 text-sm mb-1">Your Share</p>
-            <p className="text-2xl font-bold text-purple-400">
-              ₹{balances.your_total_share?.toLocaleString('en-IN') || '0'}
+          <div className="card text-center">
+            <p className="text-gray-400 text-[9px] sm:text-xs mb-0.5">Share</p>
+            <p className="text-xs sm:text-lg lg:text-2xl font-bold text-purple-400">
+              ₹{Math.round(balances.your_total_share || 0)}
             </p>
           </div>
-          <div className="card">
-            <p className="text-gray-400 text-sm mb-1">Your Balance</p>
-            <p className={`text-2xl font-bold ${balances.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {balances.your_balance >= 0 ? '+' : ''}₹{balances.your_balance?.toFixed(2) || '0'}
+          <div className="card text-center">
+            <p className="text-gray-400 text-[9px] sm:text-xs mb-0.5">Balance</p>
+            <p className={`text-xs sm:text-lg lg:text-2xl font-bold ${balances.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              ₹{Math.round(Math.abs(balances.your_balance || 0))}
             </p>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-dark-100 rounded-xl p-1 mb-6">
+      {/* Tabs - compact on mobile */}
+      <div className="flex gap-0.5 bg-dark-100 rounded-lg p-0.5 mb-3 lg:mb-6">
         {['expenses', 'members', 'balances'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all
+            className={`flex-1 py-1.5 sm:py-2 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all
               ${activeTab === tab
                 ? 'bg-dark-200 text-white'
                 : 'text-gray-400 hover:text-white'
@@ -213,19 +210,19 @@ function GroupDetailPage() {
         ))}
       </div>
 
-      {/* Expenses Tab */}
+      {/* Expenses Tab - compact on mobile */}
       {activeTab === 'expenses' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {expenses.length === 0 ? (
-            <div className="text-center py-12">
-              <Receipt className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-4">No expenses yet</p>
+            <div className="text-center py-6">
+              <Receipt className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-400 text-sm mb-2">No expenses yet</p>
               <Link
                 to={`/add-expense?group=${groupId}`}
-                className="btn-primary inline-flex items-center gap-2"
+                className="btn-primary text-xs py-1.5 px-3"
               >
-                <Plus className="w-4 h-4" />
-                Add First Expense
+                <Plus className="w-3 h-3 inline mr-1" />
+                Add First
               </Link>
             </div>
           ) : (
@@ -237,90 +234,86 @@ function GroupDetailPage() {
               const canDelete = expense.paid_by_id === user?.id
 
               return (
-                <div key={expense.id} className="card group hover:border-primary-500/30 transition-all">
-                  <div className="flex items-center justify-between">
-                    <Link 
-                      to={`/expenses/${expense.id}`}
-                      className="flex items-center gap-4 flex-1"
-                    >
-                      <div className="w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center">
-                        <Receipt className="w-5 h-5 text-primary-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors">
-                          {expense.description}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          Paid by {expense.paid_by_name} • {formatDate(expense.expense_date)}
-                        </p>
-                      </div>
-                    </Link>
-                    <div className="flex items-center gap-4">
-                      <Link to={`/expenses/${expense.id}`} className="text-right">
-                        <p className="font-semibold text-white">
-                          ₹{expense.amount.toLocaleString('en-IN')}
-                        </p>
-                        {balance !== 0 && (
-                          <p className={`text-sm ${balance > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {balance > 0 ? `you lent ₹${balance.toFixed(2)}` : `you owe ₹${Math.abs(balance).toFixed(2)}`}
-                          </p>
-                        )}
-                      </Link>
-                      {canDelete && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setShowDeleteExpense(expense)
-                          }}
-                          className="p-2 rounded-lg opacity-0 group-hover:opacity-100 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all"
-                          title="Delete Expense"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-primary-400 transition-colors" />
+                <Link 
+                  key={expense.id} 
+                  to={`/expenses/${expense.id}`}
+                  className="card block hover:border-primary-500/30 transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-primary-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Receipt className="w-4 h-4 text-primary-400" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-white text-sm truncate">
+                        {expense.description}
+                      </h3>
+                      <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                        {expense.paid_by_name} • {formatDate(expense.expense_date)}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-semibold text-white text-sm">
+                        ₹{Math.round(expense.amount)}
+                      </p>
+                      {balance !== 0 && (
+                        <p className={`text-[10px] ${balance > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {balance > 0 ? `+₹${Math.round(balance)}` : `-₹${Math.round(Math.abs(balance))}`}
+                        </p>
+                      )}
+                    </div>
+                    {canDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setShowDeleteExpense(expense)
+                        }}
+                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all flex-shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
-                </div>
+                </Link>
               )
             })
           )}
         </div>
       )}
 
-      {/* Members Tab */}
+      {/* Members Tab - compact on mobile */}
       {activeTab === 'members' && (
         <div>
           {isAdmin && (
             <button
               onClick={() => setShowAddMember(true)}
-              className="btn-secondary flex items-center gap-2 mb-4"
+              className="btn-secondary flex items-center gap-1 mb-3 text-xs py-1.5 px-3"
             >
-              <UserPlus className="w-5 h-5" />
+              <UserPlus className="w-4 h-4" />
               Add Member
             </button>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {group.members?.map(member => (
-              <div key={member.id} className="card flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-primary-400 font-semibold">
+              <div key={member.id} className="card flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary-400 font-semibold text-sm">
                       {member.user_name?.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <div>
-                    <p className="font-medium text-white">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white text-sm truncate">
                       {member.user_name}
                       {member.user_id === user?.id && (
-                        <span className="text-gray-500 text-sm ml-2">(you)</span>
+                        <span className="text-gray-500 text-xs ml-1">(you)</span>
                       )}
                     </p>
-                    <p className="text-sm text-gray-500">{member.user_email}</p>
+                    <p className="text-[10px] text-gray-500 truncate">{member.user_email}</p>
                   </div>
                 </div>
-                <span className={`text-sm px-3 py-1 rounded-full
+                <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0
                   ${member.role === 'admin'
                     ? 'bg-primary-500/20 text-primary-400'
                     : 'bg-gray-700/50 text-gray-400'
@@ -333,35 +326,35 @@ function GroupDetailPage() {
         </div>
       )}
 
-      {/* Balances Tab */}
+      {/* Balances Tab - compact on mobile */}
       {activeTab === 'balances' && balances?.balances && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {balances.balances.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">All settled up! 🎉</p>
+            <div className="text-center py-6">
+              <p className="text-gray-400 text-sm">All settled up! 🎉</p>
             </div>
           ) : (
             balances.balances.map(balance => (
-              <div key={balance.user_id} className="card flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div key={balance.user_id} className="card flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   {balance.amount > 0 ? (
-                    <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-green-400" />
+                    <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-green-400" />
                     </div>
                   ) : (
-                    <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
-                      <TrendingDown className="w-5 h-5 text-red-400" />
+                    <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingDown className="w-4 h-4 text-red-400" />
                     </div>
                   )}
-                  <div>
-                    <p className="font-medium text-white">{balance.user_name}</p>
-                    <p className="text-sm text-gray-500">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white text-sm truncate">{balance.user_name}</p>
+                    <p className="text-[10px] text-gray-500">
                       {balance.amount > 0 ? 'owes you' : 'you owe'}
                     </p>
                   </div>
                 </div>
-                <p className={`text-xl font-bold ${balance.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  ₹{Math.abs(balance.amount).toFixed(2)}
+                <p className={`text-sm font-bold flex-shrink-0 ${balance.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  ₹{Math.round(Math.abs(balance.amount))}
                 </p>
               </div>
             ))

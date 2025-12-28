@@ -128,51 +128,51 @@ function NotificationBell() {
         )}
       </button>
 
-      {/* Dropdown - always use absolute positioning relative to button */}
+      {/* Dropdown - fixed on mobile, absolute on desktop */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-dark-100 border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-fade-in">
+        <div className="fixed sm:absolute inset-x-2 sm:inset-x-auto top-16 sm:top-full sm:right-0 sm:mt-2 sm:w-72 lg:w-80 bg-dark-100 border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-[100] animate-fade-in max-h-[70vh] sm:max-h-[400px]">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <h3 className="font-semibold text-white">Notifications</h3>
+          <div className="flex items-center justify-between p-3 border-b border-gray-700">
+            <h3 className="font-semibold text-white text-sm">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1"
               >
-                <CheckCheck className="w-4 h-4" />
-                Mark all read
+                <CheckCheck className="w-3 h-3" />
+                Mark all
               </button>
             )}
           </div>
 
           {/* Notification List */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="overflow-y-auto max-h-[calc(70vh-50px)] sm:max-h-[350px]">
             {loading ? (
-              <div className="p-8 text-center">
-                <div className="w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mx-auto" />
+              <div className="p-6 text-center">
+                <div className="w-5 h-5 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin mx-auto" />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-8 text-center">
-                <Bell className="w-10 h-10 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-400">No notifications</p>
+              <div className="p-6 text-center">
+                <Bell className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">No notifications</p>
               </div>
             ) : (
               notifications.map(notification => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-b border-gray-800 hover:bg-dark-200 transition-colors
+                  className={`p-3 border-b border-gray-800 hover:bg-dark-200 transition-colors
                     ${!notification.is_read ? 'bg-primary-500/5' : ''}`}
                 >
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 mt-1">
+                  <div className="flex gap-2">
+                    <div className="flex-shrink-0 mt-0.5">
                       {getIcon(notification.notification_type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.is_read ? 'text-white font-medium' : 'text-gray-300'}`}>
+                      <p className={`text-xs ${!notification.is_read ? 'text-white font-medium' : 'text-gray-300'}`}>
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">{notification.message}</p>
-                      <p className="text-xs text-gray-600 mt-2">{formatTime(notification.created_at)}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                      <p className="text-[10px] text-gray-600 mt-1">{formatTime(notification.created_at)}</p>
                     </div>
                     {!notification.is_read && (
                       <button
@@ -180,7 +180,7 @@ function NotificationBell() {
                         className="flex-shrink-0 p-1 text-gray-500 hover:text-primary-400"
                         title="Mark as read"
                       >
-                        <Check className="w-4 h-4" />
+                        <Check className="w-3 h-3" />
                       </button>
                     )}
                   </div>

@@ -300,19 +300,18 @@ function AddExpensePage() {
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      {/* Header - compact on mobile */}
+      <div className="flex items-center gap-2 mb-4 lg:mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
+          className="p-1.5 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-400" />
+          <ArrowLeft className="w-4 h-4 text-gray-400" />
         </button>
         <div>
-          <h1 className="text-3xl font-display font-bold text-white">
+          <h1 className="text-lg sm:text-xl lg:text-3xl font-display font-bold text-white">
             Add Expense
           </h1>
-          <p className="text-gray-400">Record a new shared expense</p>
         </div>
       </div>
 
@@ -325,21 +324,19 @@ function AddExpensePage() {
       <form onSubmit={handleSubmit} className="max-w-2xl">
         {/* Step 1: Basic Details */}
         {step === 1 && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-3 lg:space-y-6 animate-fade-in">
             {/* Amount */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Amount
-              </label>
+              <label className="input-label">Amount</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">₹</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg sm:text-2xl text-gray-400">₹</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="input-field pl-12 text-3xl font-bold h-16"
+                  className="input-field pl-8 sm:pl-12 text-xl sm:text-2xl font-bold h-12 sm:h-14"
                   placeholder="0.00"
                   required
                   autoFocus
@@ -349,16 +346,14 @@ function AddExpensePage() {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Description
-              </label>
+              <label className="input-label">Description</label>
               <div className="relative">
-                <FileText className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="input-field pl-12"
+                  className="input-field pl-9"
                   placeholder="What was this for?"
                   required
                 />
@@ -367,45 +362,39 @@ function AddExpensePage() {
 
             {/* Group */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Group <span className="text-gray-500">(optional)</span>
-              </label>
+              <label className="input-label">Group <span className="text-gray-500">(optional)</span></label>
               <div className="relative">
-                <Users className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <select
                   value={formData.group_id}
                   onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
-                  className="input-field pl-12 appearance-none"
+                  className="input-field pl-9 appearance-none"
                 >
-                  <option value="">No group (split with individuals)</option>
+                  <option value="">No group</option>
                   {groups.map(group => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
+                    <option key={group.id} value={group.id}>{group.name}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* Category */}
+            {/* Category - compact grid */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Category
-              </label>
-              <div className="grid grid-cols-4 gap-2">
+              <label className="input-label">Category</label>
+              <div className="grid grid-cols-4 gap-1.5">
                 {categories.map(cat => (
                   <button
                     key={cat.value}
                     type="button"
                     onClick={() => setFormData({ ...formData, category: cat.value })}
-                    className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-1
+                    className={`p-1.5 sm:p-2 rounded-lg border transition-all flex flex-col items-center
                       ${formData.category === cat.value
                         ? 'bg-primary-500/20 border-primary-500 text-primary-400'
-                        : 'bg-dark-100 border-gray-700 text-gray-400 hover:border-gray-600'
+                        : 'bg-dark-100 border-gray-700 text-gray-400'
                       }`}
                   >
-                    <span className="text-xl">{cat.emoji}</span>
-                    <span className="text-xs">{cat.label}</span>
+                    <span className="text-base sm:text-lg">{cat.emoji}</span>
+                    <span className="text-[8px] sm:text-[10px] truncate w-full text-center">{cat.label.split(' ')[0]}</span>
                   </button>
                 ))}
               </div>
@@ -413,30 +402,26 @@ function AddExpensePage() {
 
             {/* Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Date
-              </label>
+              <label className="input-label">Date</label>
               <div className="relative">
-                <Calendar className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="date"
                   value={formData.expense_date}
                   onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
-                  className="input-field pl-12"
+                  className="input-field pl-9"
                 />
               </div>
             </div>
 
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Notes <span className="text-gray-500">(optional)</span>
-              </label>
+            {/* Notes - hidden on mobile by default */}
+            <div className="hidden sm:block">
+              <label className="input-label">Notes <span className="text-gray-500">(optional)</span></label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="input-field resize-none"
-                rows={3}
+                rows={2}
                 placeholder="Any additional details..."
               />
             </div>
@@ -446,10 +431,10 @@ function AddExpensePage() {
               type="button"
               onClick={() => setStep(2)}
               disabled={!formData.amount || !formData.description}
-              className="w-full btn-primary flex items-center justify-center gap-2"
+              className="w-full btn-primary flex items-center justify-center gap-1"
             >
-              Next: Split Options
-              <ArrowRight className="w-5 h-5" />
+              Next
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}

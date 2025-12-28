@@ -274,46 +274,46 @@ function ExpenseDetailPage() {
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      {/* Header - compact on mobile */}
+      <div className="flex items-center justify-between mb-3 lg:mb-6">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
+            className="p-1.5 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-400" />
+            <ArrowLeft className="w-4 h-4 text-gray-400" />
           </button>
           <div>
-            <h1 className="text-2xl font-display font-bold text-white">
-              Expense Details
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-display font-bold text-white">
+              Expense
             </h1>
-            <p className="text-gray-400">
+            <p className="text-xs text-gray-400">
               {expense?.group_name ? (
                 <Link to={`/groups/${expense.group_id}`} className="hover:text-primary-400">
                   {expense.group_name}
                 </Link>
               ) : (
-                'Personal expense'
+                'Personal'
               )}
             </p>
           </div>
         </div>
 
         {isCreator && !isEditing && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setIsEditing(true)}
-              className="p-2 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
+              className="p-1.5 rounded-lg bg-dark-100 hover:bg-dark-200 transition-colors"
               title="Edit"
             >
-              <Edit2 className="w-5 h-5 text-gray-400" />
+              <Edit2 className="w-4 h-4 text-gray-400" />
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+              className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
               title="Delete"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )}
