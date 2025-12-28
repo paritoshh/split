@@ -19,6 +19,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import api from './services/api'
+import * as biometricService from './services/biometric'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -30,6 +31,7 @@ import GroupDetailPage from './pages/GroupDetailPage'
 import AddExpensePage from './pages/AddExpensePage'
 import ExpenseDetailPage from './pages/ExpenseDetailPage'
 import ProfilePage from './pages/ProfilePage'
+import BiometricSetupPrompt from './components/BiometricSetupPrompt'
 
 // Create Auth Context
 // Context allows sharing state across components without passing props
@@ -49,10 +51,55 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
+  
+  // Biometric state
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricEnabled, setBiometricEnabled] = useState(false)
+  const [biometricType, setBiometricType] = useState('none')
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false)
+
+  // Check biometric availability on mount
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const { isAvailable, biometryType } = await biometricService.isBiometricAvailable()
+      setBiometricAvailable(isAvailable)
+      setBiometricType(biometryType)
+      
+      const isEnabled = await biometricService.isBiometricEnabled()
+      setBiometricEnabled(isEnabled)
+    }
+    checkBiometric()
+  }, [])
 
   // Check if user is logged in on app load
   useEffect(() => {
     const checkAuth = async () => {
+      // First, try biometric login if enabled
+      if (biometricService.isNativeApp()) {
+        const isEnabled = await biometricService.isBiometricEnabled()
+        if (isEnabled) {
+          const result = await biometricService.authenticateWithBiometric()
+          if (result.success) {
+            // Verify token is still valid
+            try {
+              const response = await api.get('/api/auth/me', {
+                headers: { Authorization: `Bearer ${result.token}` }
+              })
+              localStorage.setItem('token', result.token)
+              setToken(result.token)
+              setUser(response.data)
+              setLoading(false)
+              return
+            } catch (error) {
+              // Token expired, clear biometric credentials
+              await biometricService.disableBiometric()
+              setBiometricEnabled(false)
+            }
+          }
+        }
+      }
+      
+      // Fall back to regular token check
       if (token) {
         try {
           const response = await api.get('/api/auth/me')
@@ -66,7 +113,7 @@ function AuthProvider({ children }) {
       setLoading(false)
     }
     checkAuth()
-  }, [token])
+  }, []) // Run only on mount
 
   // Login function
   const login = async (email, password) => {
@@ -86,7 +133,38 @@ function AuthProvider({ children }) {
     })
     setUser(userResponse.data)
     
+    // Check if we should offer biometric setup (native app + biometric available + not enabled yet)
+    if (biometricService.isNativeApp() && biometricAvailable && !biometricEnabled) {
+      setShowBiometricPrompt(true)
+    }
+    
     return userResponse.data
+  }
+
+  // Enable biometric login
+  const enableBiometricLogin = async () => {
+    if (!token || !user) return { success: false, error: 'Not logged in' }
+    
+    const result = await biometricService.enableBiometric(token, user)
+    if (result.success) {
+      setBiometricEnabled(true)
+    }
+    setShowBiometricPrompt(false)
+    return result
+  }
+
+  // Disable biometric login
+  const disableBiometricLogin = async () => {
+    const result = await biometricService.disableBiometric()
+    if (result.success) {
+      setBiometricEnabled(false)
+    }
+    return result
+  }
+
+  // Skip biometric setup
+  const skipBiometricSetup = () => {
+    setShowBiometricPrompt(false)
   }
 
   // Register function
@@ -96,10 +174,11 @@ function AuthProvider({ children }) {
   }
 
   // Logout function
-  const logout = () => {
+  const logout = async () => {
     localStorage.removeItem('token')
     setToken(null)
     setUser(null)
+    // Note: We don't disable biometric on logout - user may want to login with fingerprint again
   }
 
   const value = {
@@ -110,7 +189,15 @@ function AuthProvider({ children }) {
     login,
     register,
     logout,
-    isAuthenticated: !!token && !!user
+    isAuthenticated: !!token && !!user,
+    // Biometric
+    biometricAvailable,
+    biometricEnabled,
+    biometricType,
+    showBiometricPrompt,
+    enableBiometricLogin,
+    disableBiometricLogin,
+    skipBiometricSetup
   }
 
   return (
@@ -186,6 +273,9 @@ function App() {
           {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        
+        {/* Biometric Setup Prompt - shows after login on native app */}
+        <BiometricSetupPrompt />
       </AuthProvider>
     </BrowserRouter>
   )

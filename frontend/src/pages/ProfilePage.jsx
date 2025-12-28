@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { authAPI } from '../services/api'
+import { isNativeApp, getBiometryTypeName } from '../services/biometric'
 import Layout from '../components/Layout'
 import {
   User,
@@ -20,12 +21,24 @@ import {
   Save,
   ArrowLeft,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Fingerprint,
+  Shield,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react'
 
 function ProfilePage() {
   const navigate = useNavigate()
-  const { user, setUser } = useAuth()
+  const { 
+    user, 
+    setUser,
+    biometricAvailable,
+    biometricEnabled,
+    biometricType,
+    enableBiometricLogin,
+    disableBiometricLogin
+  } = useAuth()
   
   const [formData, setFormData] = useState({
     name: '',
@@ -33,8 +46,13 @@ function ProfilePage() {
     upi_id: ''
   })
   const [loading, setLoading] = useState(false)
+  const [biometricLoading, setBiometricLoading] = useState(false)
   const [error, setError] = useState('')
+  const [biometricError, setBiometricError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const isNative = isNativeApp()
+  const biometryName = getBiometryTypeName(biometricType)
 
   useEffect(() => {
     if (user) {
@@ -206,6 +224,69 @@ function ProfilePage() {
             </button>
           </form>
         </div>
+
+        {/* Biometric Login Section - Only show on native app */}
+        {isNative && biometricAvailable && (
+          <div className="card mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center">
+                  <Fingerprint className="w-5 h-5 text-primary-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">{biometryName} Login</h3>
+                  <p className="text-sm text-gray-400">
+                    {biometricEnabled ? 'Enabled' : 'Disabled'}
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                onClick={async () => {
+                  setBiometricLoading(true)
+                  setBiometricError('')
+                  
+                  if (biometricEnabled) {
+                    const result = await disableBiometricLogin()
+                    if (!result.success) {
+                      setBiometricError(result.error || 'Failed to disable')
+                    }
+                  } else {
+                    const result = await enableBiometricLogin()
+                    if (!result.success) {
+                      setBiometricError(result.error || 'Failed to enable')
+                    }
+                  }
+                  
+                  setBiometricLoading(false)
+                }}
+                disabled={biometricLoading}
+                className="relative"
+              >
+                {biometricLoading ? (
+                  <div className="w-6 h-6 border-2 border-gray-600 border-t-primary-500 rounded-full animate-spin" />
+                ) : biometricEnabled ? (
+                  <ToggleRight className="w-10 h-10 text-primary-500" />
+                ) : (
+                  <ToggleLeft className="w-10 h-10 text-gray-600" />
+                )}
+              </button>
+            </div>
+            
+            {biometricError && (
+              <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-xs">{biometricError}</p>
+              </div>
+            )}
+            
+            <div className="mt-3 p-3 bg-dark-200 rounded-lg">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <Shield className="w-4 h-4 text-green-400" />
+                <span>Your credentials are stored securely on this device</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* UPI Info Card */}
         <div className="card bg-gradient-to-br from-primary-500/10 to-secondary-500/10 border-primary-500/30">
