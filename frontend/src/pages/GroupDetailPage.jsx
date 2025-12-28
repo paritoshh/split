@@ -230,8 +230,20 @@ function GroupDetailPage() {
               const userPaid = expense.paid_by_id === user?.id
               const userSplit = expense.splits?.find(s => s.user_id === user?.id)
               const userShare = userSplit?.amount || 0
-              const balance = userPaid ? expense.amount - userShare : -userShare
+              const expenseBalance = userPaid ? expense.amount - userShare : -userShare
               const canDelete = expense.paid_by_id === user?.id
+              
+              // Check if this expense is "settled" based on overall balance with payer
+              // An expense is settled if:
+              // 1. You owed money (expenseBalance < 0) BUT
+              // 2. Your overall balance with the payer is now 0 or positive (they owe you or even)
+              let isSettled = false
+              if (expenseBalance < 0 && balances?.balances) {
+                // Find balance with the payer
+                const balanceWithPayer = balances.balances.find(b => b.user_id === expense.paid_by_id)
+                // If no balance record exists OR balance >= 0, consider it settled
+                isSettled = !balanceWithPayer || balanceWithPayer.amount >= 0
+              }
 
               return (
                 <Link 
@@ -255,10 +267,17 @@ function GroupDetailPage() {
                       <p className="font-semibold text-white text-sm">
                         ₹{Math.round(expense.amount)}
                       </p>
-                      {balance !== 0 && (
-                        <p className={`text-[10px] ${balance > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {balance > 0 ? `+₹${Math.round(balance)}` : `-₹${Math.round(Math.abs(balance))}`}
-                        </p>
+                      {expenseBalance !== 0 && (
+                        <div className="flex items-center justify-end gap-1">
+                          <p className={`text-[10px] ${expenseBalance > 0 ? 'text-green-400' : isSettled ? 'text-gray-400 line-through' : 'text-red-400'}`}>
+                            {expenseBalance > 0 ? `+₹${Math.round(expenseBalance)}` : `-₹${Math.round(Math.abs(expenseBalance))}`}
+                          </p>
+                          {isSettled && (
+                            <span className="text-[8px] bg-green-500/20 text-green-400 px-1 rounded">
+                              Settled
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                     {canDelete && (
