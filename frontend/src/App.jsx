@@ -74,38 +74,55 @@ function AuthProvider({ children }) {
   // Check if user is logged in on app load
   useEffect(() => {
     const checkAuth = async () => {
-      // First, try biometric login if enabled
+      let biometricSuccess = false
+      
+      // First, try biometric login if enabled (native app only)
       if (biometricService.isNativeApp()) {
-        const isEnabled = await biometricService.isBiometricEnabled()
-        if (isEnabled) {
-          const result = await biometricService.authenticateWithBiometric()
-          if (result.success) {
-            // Verify token is still valid
-            try {
-              const response = await api.get('/api/auth/me', {
-                headers: { Authorization: `Bearer ${result.token}` }
-              })
-              localStorage.setItem('token', result.token)
-              setToken(result.token)
-              setUser(response.data)
-              setLoading(false)
-              return
-            } catch (error) {
-              // Token expired, clear biometric credentials
-              await biometricService.disableBiometric()
-              setBiometricEnabled(false)
+        try {
+          const isEnabled = await biometricService.isBiometricEnabled()
+          if (isEnabled) {
+            const result = await biometricService.authenticateWithBiometric()
+            if (result.success && result.token) {
+              // Verify token is still valid
+              try {
+                const response = await api.get('/api/auth/me', {
+                  headers: { Authorization: `Bearer ${result.token}` }
+                })
+                localStorage.setItem('token', result.token)
+                setToken(result.token)
+                setUser(response.data)
+                biometricSuccess = true
+              } catch (error) {
+                // Token expired, clear biometric credentials
+                console.log('Biometric token expired, clearing...')
+                await biometricService.disableBiometric()
+                setBiometricEnabled(false)
+              }
             }
+            // If user cancelled biometric, just continue to normal login screen
           }
+        } catch (error) {
+          console.log('Biometric check failed:', error)
+          // Continue to regular auth check
         }
       }
       
-      // Fall back to regular token check
-      if (token) {
+      // If biometric login succeeded, we're done
+      if (biometricSuccess) {
+        setLoading(false)
+        return
+      }
+      
+      // Fall back to regular token check (from localStorage)
+      const storedToken = localStorage.getItem('token')
+      if (storedToken) {
         try {
           const response = await api.get('/api/auth/me')
           setUser(response.data)
+          setToken(storedToken)
         } catch (error) {
           // Token invalid or expired
+          console.log('Stored token invalid, clearing...')
           localStorage.removeItem('token')
           setToken(null)
         }
