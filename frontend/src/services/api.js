@@ -178,3 +178,15 @@ export const settlementsAPI = {
   getUserUPIId: (userId) => api.get(`/api/settlements/user/${userId}/upi-id`),
 }
 
+// AI Features
+export const aiAPI = {
+  parseVoiceExpense: (transcript, groupMembers) => api.post('/api/ai/parse-voice-expense', {
+    transcript,
+    group_members: groupMembers.map(m => ({
+      user_id: m.user_id,
+      user_name: m.user_name
+    }))
+  }),
+  getStatus: () => api.get('/api/ai/status'),
+}
+

@@ -3,8 +3,9 @@
  * VOICE EXPENSE MODAL
  * ===========================================
  * Create expenses using voice input.
- * - Records voice and converts to text
- * - Parses text to extract expense details
+ * - Records voice and converts to text (Web Speech API)
+ * - Parses text using AI (OpenAI GPT-4o-mini)
+ * - Falls back to regex parsing if AI unavailable
  * - Shows draft for review before submitting
  * - Handles duplicate names with selection UI
  * ===========================================
@@ -12,7 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../App'
-import { expensesAPI } from '../services/api'
+import { expensesAPI, aiAPI } from '../services/api'
 import { 
   parseVoiceExpense, 
   isSpeechRecognitionSupported,
@@ -31,7 +32,9 @@ import {
   Calendar,
   RefreshCw,
   ChevronDown,
-  Check
+  Check,
+  Sparkles,
+  Zap
 } from 'lucide-react'
 
 function VoiceExpenseModal({ 
@@ -50,7 +53,8 @@ function VoiceExpenseModal({
   
   // Parsed expense state
   const [parsedExpense, setParsedExpense] = useState(null)
-  const [step, setStep] = useState('record') // record, review, submit
+  const [step, setStep] = useState('record') // record, parsing, review, submit
+  const [parsingMode, setParsingMode] = useState(null) // 'ai' or 'local'
   
   // Editable draft fields
   const [draftAmount, setDraftAmount] = useState('')
@@ -61,14 +65,25 @@ function VoiceExpenseModal({
   
   // Loading/error state
   const [loading, setLoading] = useState(false)
+  const [parsing, setParsing] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  
+  // AI status
+  const [aiEnabled, setAiEnabled] = useState(false)
   
   // Speech recognition ref
   const recognitionRef = useRef(null)
 
   // Check if speech recognition is supported
   const isSupported = isSpeechRecognitionSupported()
+
+  // Check AI status on mount
+  useEffect(() => {
+    aiAPI.getStatus()
+      .then(res => setAiEnabled(res.data.ai_enabled))
+      .catch(() => setAiEnabled(false))
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -84,6 +99,7 @@ function VoiceExpenseModal({
     setInterimTranscript('')
     setParsedExpense(null)
     setStep('record')
+    setParsingMode(null)
     setDraftAmount('')
     setDraftDescription('')
     setDraftDate(new Date().toISOString().split('T')[0])
@@ -92,6 +108,7 @@ function VoiceExpenseModal({
     setError('')
     setSuccess(false)
     setIsListening(false)
+    setParsing(false)
   }
 
   const startListening = () => {
@@ -118,11 +135,11 @@ function VoiceExpenseModal({
       let final = ''
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
+        const transcriptText = event.results[i][0].transcript
         if (event.results[i].isFinal) {
-          final += transcript
+          final += transcriptText
         } else {
-          interim += transcript
+          interim += transcriptText
         }
       }
 
@@ -164,15 +181,59 @@ function VoiceExpenseModal({
     setIsListening(false)
   }
 
-  const handleParseVoice = () => {
+  const handleParseVoice = async () => {
     const fullTranscript = (transcript + ' ' + interimTranscript).trim()
     if (!fullTranscript) {
       setError('No voice input detected. Please try again.')
       return
     }
 
-    // Parse the voice input
-    const parsed = parseVoiceExpense(fullTranscript, groupMembers)
+    setStep('parsing')
+    setParsing(true)
+    setError('')
+
+    let parsed = null
+
+    // Try AI parsing first if enabled
+    if (aiEnabled) {
+      try {
+        const response = await aiAPI.parseVoiceExpense(fullTranscript, groupMembers)
+        const aiResult = response.data
+
+        if (aiResult.success) {
+          setParsingMode('ai')
+          parsed = {
+            amount: aiResult.amount,
+            description: aiResult.description,
+            matchedMembers: aiResult.matched_members.map(m => ({
+              user_id: m.user_id,
+              user_name: m.user_name,
+              confidence: m.confidence
+            })),
+            ambiguousNames: aiResult.ambiguous_names.map(a => ({
+              searchedName: a.searched_name,
+              possibleMatches: a.possible_matches.map(p => ({
+                user_id: p.user_id,
+                user_name: p.user_name,
+                confidence: p.confidence
+              }))
+            })),
+            unmatchedNames: aiResult.unmatched_names,
+            confidence: aiResult.confidence,
+            rawTranscript: fullTranscript
+          }
+        }
+      } catch (err) {
+        console.warn('AI parsing failed, falling back to local:', err.message)
+      }
+    }
+
+    // Fallback to local parsing
+    if (!parsed) {
+      setParsingMode('local')
+      parsed = parseVoiceExpense(fullTranscript, groupMembers)
+    }
+
     setParsedExpense(parsed)
 
     // Set draft values
@@ -196,6 +257,7 @@ function VoiceExpenseModal({
     })
     setAmbiguousSelections(ambiguous)
 
+    setParsing(false)
     setStep('review')
   }
 
@@ -280,9 +342,18 @@ function VoiceExpenseModal({
               <Mic className="w-5 h-5 text-primary-400" />
             </div>
             <div>
-              <h2 className="text-lg font-display font-bold text-white">Voice Expense</h2>
+              <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
+                Voice Expense
+                {aiEnabled && (
+                  <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    AI
+                  </span>
+                )}
+              </h2>
               <p className="text-xs text-gray-500">
-                {step === 'record' ? 'Speak to create expense' : 'Review and submit'}
+                {step === 'record' ? 'Speak to create expense' : 
+                 step === 'parsing' ? 'Analyzing your speech...' : 'Review and submit'}
               </p>
             </div>
           </div>
@@ -312,6 +383,17 @@ function VoiceExpenseModal({
           {/* Recording Step */}
           {step === 'record' && (
             <div className="space-y-4">
+              {/* AI Status Badge */}
+              {aiEnabled && (
+                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  <div>
+                    <p className="text-sm text-purple-300 font-medium">AI-Powered Parsing</p>
+                    <p className="text-xs text-gray-400">GPT-4o-mini will understand your speech naturally</p>
+                  </div>
+                </div>
+              )}
+
               {/* Voice button */}
               <div className="flex flex-col items-center py-6">
                 <button
@@ -352,19 +434,43 @@ function VoiceExpenseModal({
                 <ul className="text-sm text-gray-400 space-y-1">
                   <li>• "Create expense with Paritosh and Akshay of 500 for Cricket"</li>
                   <li>• "Add 300 rupees for dinner with everyone"</li>
-                  <li>• "Split 1000 between John and Mary for party"</li>
+                  <li>• "Paritosh aur Suman ke saath 1000 ka party expense"</li>
                 </ul>
               </div>
 
               {/* Parse button */}
               <button
                 onClick={handleParseVoice}
-                disabled={!transcript && !interimTranscript}
+                disabled={(!transcript && !interimTranscript) || parsing}
                 className="w-full btn-primary flex items-center justify-center gap-2"
               >
-                Review Expense
-                <ChevronDown className="w-4 h-4" />
+                {aiEnabled ? (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Analyze with AI
+                  </>
+                ) : (
+                  <>
+                    Review Expense
+                    <ChevronDown className="w-4 h-4" />
+                  </>
+                )}
               </button>
+            </div>
+          )}
+
+          {/* Parsing Step */}
+          {step === 'parsing' && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="relative">
+                <Loader2 className="w-16 h-16 text-primary-500 animate-spin" />
+                {aiEnabled && (
+                  <Sparkles className="w-6 h-6 text-purple-400 absolute -top-1 -right-1 animate-pulse" />
+                )}
+              </div>
+              <p className="mt-4 text-gray-400">
+                {aiEnabled ? 'AI is analyzing your speech...' : 'Processing...'}
+              </p>
             </div>
           )}
 
@@ -375,6 +481,23 @@ function VoiceExpenseModal({
               <div className="bg-dark-200 rounded-xl p-3">
                 <p className="text-xs text-gray-500 mb-1">Original voice input:</p>
                 <p className="text-sm text-gray-300 italic">"{parsedExpense.rawTranscript}"</p>
+              </div>
+
+              {/* Parsing mode indicator */}
+              <div className={`flex items-center gap-2 text-sm ${
+                parsingMode === 'ai' ? 'text-purple-400' : 'text-blue-400'
+              }`}>
+                {parsingMode === 'ai' ? (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Parsed with AI (GPT-4o-mini)
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Parsed locally (regex)
+                  </>
+                )}
               </div>
 
               {/* Confidence indicator */}
@@ -567,4 +690,3 @@ function VoiceExpenseModal({
 }
 
 export default VoiceExpenseModal
-
