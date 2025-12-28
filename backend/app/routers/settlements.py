@@ -44,25 +44,43 @@ async def record_settlement(
     after paying via GPay/PhonePe/Cash/etc.
     
     **Request Body:**
-    - to_user_id: Who you're paying
-    - amount: How much you're paying
+    - to_user_id: Who is receiving the payment
+    - from_user_id: (optional) Who paid - defaults to current user
+    - amount: How much was paid
     - group_id: (optional) Settle within a specific group
     - payment_method: upi, cash, bank_transfer, other
     - transaction_ref: (optional) UPI transaction ID
     - notes: (optional) Any notes
     """
+    # Determine the payer (from_user)
+    # If from_user_id is provided and different from current user, 
+    # it means current user is recording that someone paid them
+    from_user_id = settlement_data.from_user_id or current_user.id
+    
+    # Verify the payer exists (if not current user)
+    if from_user_id != current_user.id:
+        from_user = db.query(User).filter(User.id == from_user_id).first()
+        if not from_user:
+            raise HTTPException(status_code=404, detail="Payer user not found")
+    else:
+        from_user = current_user
+    
     # Verify the recipient exists
     to_user = db.query(User).filter(User.id == settlement_data.to_user_id).first()
     if not to_user:
         raise HTTPException(status_code=404, detail="Recipient user not found")
     
     # Can't settle with yourself
-    if settlement_data.to_user_id == current_user.id:
+    if from_user_id == settlement_data.to_user_id:
         raise HTTPException(status_code=400, detail="Cannot settle with yourself")
+    
+    # Verify current user is involved in the settlement
+    if current_user.id != from_user_id and current_user.id != settlement_data.to_user_id:
+        raise HTTPException(status_code=403, detail="You can only record settlements you are involved in")
     
     # Create settlement record
     settlement = Settlement(
-        from_user_id=current_user.id,
+        from_user_id=from_user_id,
         to_user_id=settlement_data.to_user_id,
         amount=settlement_data.amount,
         group_id=settlement_data.group_id,
@@ -75,12 +93,14 @@ async def record_settlement(
     db.commit()
     db.refresh(settlement)
     
-    # Send notification to recipient
+    # Send notification to the other party (not the current user)
     try:
+        # Notify the other person involved in the settlement
+        notify_user_id = to_user.id if current_user.id == from_user_id else from_user_id
         create_settlement_notification(
             db=db,
-            to_user_id=to_user.id,
-            from_user=current_user,
+            to_user_id=notify_user_id,
+            from_user=from_user,
             amount=settlement_data.amount,
             group_id=settlement_data.group_id
         )
@@ -96,8 +116,8 @@ async def record_settlement(
     
     return SettlementResponse(
         id=settlement.id,
-        from_user_id=current_user.id,
-        from_user_name=current_user.name,
+        from_user_id=from_user_id,
+        from_user_name=from_user.name,
         to_user_id=to_user.id,
         to_user_name=to_user.name,
         amount=settlement.amount,

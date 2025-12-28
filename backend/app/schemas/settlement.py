@@ -13,7 +13,8 @@ from datetime import datetime
 
 class SettlementCreate(BaseModel):
     """Schema for recording a new settlement."""
-    to_user_id: int  # Who you're paying
+    to_user_id: int  # Who is receiving the payment
+    from_user_id: Optional[int] = None  # Who paid (defaults to current user if not specified)
     amount: float = Field(..., gt=0, description="Settlement amount")
     group_id: Optional[int] = None  # Optional: settle within a specific group
     payment_method: str = Field(default="upi", description="Payment method: upi, cash, bank_transfer, other")

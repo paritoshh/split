@@ -21,6 +21,7 @@ import {
   Check
 } from 'lucide-react'
 import { settlementsAPI } from '../services/api'
+import { useAuth } from '../App'
 
 // Detect iOS
 const isIOS = () => {
@@ -42,6 +43,7 @@ function SettleUpModal({
   groupId = null,
   onSettled 
 }) {
+  const { user } = useAuth()
   const [step, setStep] = useState('choose')  // choose, upi, confirm
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -130,14 +132,33 @@ function SettleUpModal({
     setError('')
     
     try {
-      await settlementsAPI.record({
-        to_user_id: balance.user_id,
+      // Determine from/to based on who owes whom
+      // youOwe = true means balance.amount < 0, so YOU are paying THEM
+      // youOwe = false means balance.amount > 0, so THEY are paying YOU
+      const youOwe = balance.amount < 0
+      
+      const settlementData = {
         amount: parseFloat(settleAmount),
         group_id: groupId,
         payment_method: paymentMethod,
         transaction_ref: transactionRef || null,
         notes: notes || null
-      })
+      }
+      
+      if (youOwe) {
+        // You are paying them
+        // from_user_id = you (default, don't need to specify)
+        // to_user_id = them
+        settlementData.to_user_id = balance.user_id
+      } else {
+        // They are paying you (recording payment received)
+        // from_user_id = them (the payer)
+        // to_user_id = you (the receiver)
+        settlementData.from_user_id = balance.user_id
+        settlementData.to_user_id = user.id
+      }
+      
+      await settlementsAPI.record(settlementData)
       
       onSettled?.()
       onClose()
