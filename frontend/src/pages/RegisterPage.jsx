@@ -102,7 +102,7 @@ function RegisterPage() {
   const passwordStrength = getPasswordStrength()
   
   return (
-    <div className="min-h-screen bg-dark-300 flex">
+    <div className="min-h-screen bg-dark-300 flex safe-y">
       {/* Left Side - Decorative */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary-500/10 to-secondary-500/10 items-center justify-center p-12">
         <div className="max-w-md">

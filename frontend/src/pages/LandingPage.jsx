@@ -21,7 +21,7 @@ import {
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-dark-300 overflow-hidden">
+    <div className="min-h-screen bg-dark-300 overflow-hidden safe-y">
       {/* Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {/* Gradient orbs */}

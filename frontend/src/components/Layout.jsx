@@ -45,8 +45,8 @@ function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-dark-300">
-      {/* Mobile Header - compact */}
-      <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800">
+      {/* Mobile Header - compact with safe area for notch */}
+      <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top">
         <Link to="/dashboard" className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
             <Split className="w-4 h-4 text-white" />
@@ -72,7 +72,7 @@ function Layout({ children }) {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-dark-200 p-4 animate-slide-right">
+          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-dark-200 p-4 animate-slide-right safe-top">
             <div className="flex items-center justify-between mb-4">
               <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
@@ -194,8 +194,8 @@ function Layout({ children }) {
           </div>
         </aside>
 
-        {/* Main Content - compact padding on mobile */}
-        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8">
+        {/* Main Content - compact padding on mobile with safe area for bottom */}
+        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom">
           {children}
         </main>
       </div>

@@ -42,7 +42,7 @@ function LoginPage() {
   }
   
   return (
-    <div className="min-h-screen bg-dark-300 flex">
+    <div className="min-h-screen bg-dark-300 flex safe-y">
       {/* Left Side - Form */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
