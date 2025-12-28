@@ -32,6 +32,7 @@ import AddExpensePage from './pages/AddExpensePage'
 import ExpenseDetailPage from './pages/ExpenseDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import BiometricSetupPrompt from './components/BiometricSetupPrompt'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // Create Auth Context
 // Context allows sharing state across components without passing props
@@ -260,54 +261,56 @@ function ProtectedRoute({ children }) {
 // Main App Component
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            {/* Protected Routes - Require Authentication */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/groups" element={
+              <ProtectedRoute>
+                <GroupsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/groups/:groupId" element={
+              <ProtectedRoute>
+                <GroupDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-expense" element={
+              <ProtectedRoute>
+                <AddExpensePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/expenses/:expenseId" element={
+              <ProtectedRoute>
+                <ExpenseDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
           
-          {/* Protected Routes - Require Authentication */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/groups" element={
-            <ProtectedRoute>
-              <GroupsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/groups/:groupId" element={
-            <ProtectedRoute>
-              <GroupDetailPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/add-expense" element={
-            <ProtectedRoute>
-              <AddExpensePage />
-            </ProtectedRoute>
-          } />
-          <Route path="/expenses/:expenseId" element={
-            <ProtectedRoute>
-              <ExpenseDetailPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
-          
-          {/* Catch all - redirect to home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        
-        {/* Biometric Setup Prompt - shows after login on native app */}
-        <BiometricSetupPrompt />
-      </AuthProvider>
-    </BrowserRouter>
+          {/* Biometric Setup Prompt - shows after login on native app */}
+          <BiometricSetupPrompt />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

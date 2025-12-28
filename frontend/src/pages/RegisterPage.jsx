@@ -4,7 +4,7 @@
  * ===========================================
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { 
@@ -27,11 +27,12 @@ function RegisterPage() {
   const { register, login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate('/dashboard')
-    return null
-  }
+  // Redirect if already logged in (using useEffect to avoid render issues)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
   
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })

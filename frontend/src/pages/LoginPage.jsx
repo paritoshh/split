@@ -4,7 +4,7 @@
  * ===========================================
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { Split, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
@@ -19,11 +19,12 @@ function LoginPage() {
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate('/dashboard')
-    return null
-  }
+  // Redirect if already logged in (using useEffect to avoid render issues)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
   
   const handleSubmit = async (e) => {
     e.preventDefault()
