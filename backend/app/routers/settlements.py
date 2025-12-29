@@ -121,7 +121,7 @@ async def record_settlement(
 
 @router.get("/", response_model=List[SettlementResponse])
 async def list_settlements(
-    group_id: Optional[int] = None,
+    group_id: Optional[str] = None,
     limit: int = 50,
     current_user: dict = Depends(get_current_user),
     db_service: DBService = Depends(get_db_service)
@@ -178,9 +178,9 @@ async def list_settlements(
 
 @router.get("/upi-link/{user_id}", response_model=UPIPaymentInfo)
 async def generate_upi_link(
-    user_id: int,
+    user_id: str,
     amount: float,
-    group_id: Optional[int] = None,
+    group_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     db_service: DBService = Depends(get_db_service)
 ):
@@ -236,7 +236,7 @@ async def generate_upi_link(
 
 @router.get("/user/{user_id}/upi-id")
 async def get_user_upi_id(
-    user_id: int,
+    user_id: str,
     current_user: dict = Depends(get_current_user),
     db_service: DBService = Depends(get_db_service)
 ):

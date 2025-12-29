@@ -146,7 +146,7 @@ async def create_expense(
 
 @router.get("/", response_model=List[ExpenseResponse])
 async def list_expenses(
-    group_id: Optional[int] = None,
+    group_id: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -203,7 +203,7 @@ async def get_overall_balances(
 
 @router.get("/balances/group/{group_id}", response_model=GroupBalanceResponse)
 async def get_group_balances(
-    group_id: int,
+    group_id: str,
     current_user: dict = Depends(get_current_user),
     db_service: DBService = Depends(get_db_service)
 ):
