@@ -74,6 +74,7 @@ function VoiceExpenseModal({
   
   // Speech recognition ref
   const recognitionRef = useRef(null)
+  const transcriptRef = useRef('')  // Keep track of transcript for auto-parse
 
   // Check if speech recognition is supported
   const isSupported = isSpeechRecognitionSupported()
@@ -94,6 +95,13 @@ function VoiceExpenseModal({
     }
   }, [isOpen])
 
+  // Auto-parse when step changes to 'parsing' (triggered by speech end)
+  useEffect(() => {
+    if (step === 'parsing' && parsing && transcriptRef.current) {
+      handleParseVoice()
+    }
+  }, [step, parsing])
+
   const resetState = () => {
     setTranscript('')
     setInterimTranscript('')
@@ -109,6 +117,7 @@ function VoiceExpenseModal({
     setSuccess(false)
     setIsListening(false)
     setParsing(false)
+    transcriptRef.current = ''
   }
 
   const startListening = () => {
@@ -144,7 +153,11 @@ function VoiceExpenseModal({
       }
 
       if (final) {
-        setTranscript(prev => prev + ' ' + final)
+        setTranscript(prev => {
+          const newTranscript = prev + ' ' + final
+          transcriptRef.current = newTranscript.trim()  // Update ref
+          return newTranscript
+        })
       }
       setInterimTranscript(interim)
     }
@@ -163,6 +176,14 @@ function VoiceExpenseModal({
 
     recognition.onend = () => {
       setIsListening(false)
+      // Auto-analyze after speech ends (with a small delay to ensure state is updated)
+      setTimeout(() => {
+        if (transcriptRef.current) {
+          // Trigger auto-analyze by calling the handler
+          setStep('parsing')
+          setParsing(true)
+        }
+      }, 300)
     }
 
     try {
@@ -182,9 +203,12 @@ function VoiceExpenseModal({
   }
 
   const handleParseVoice = async () => {
-    const fullTranscript = (transcript + ' ' + interimTranscript).trim()
+    // Use ref if available (for auto-parse), otherwise use state
+    const fullTranscript = transcriptRef.current || (transcript + ' ' + interimTranscript).trim()
     if (!fullTranscript) {
       setError('No voice input detected. Please try again.')
+      setStep('record')
+      setParsing(false)
       return
     }
 
@@ -301,17 +325,17 @@ function VoiceExpenseModal({
 
     try {
       // Build expense data
+      // For equal splits, use split_with_user_ids (exclude current user as they're auto-included)
+      const otherMembers = selectedMembers.filter(id => id !== user?.id)
+      
       const expenseData = {
         amount: parseFloat(draftAmount),
         description: draftDescription.trim(),
         group_id: parseInt(groupId),
         category: 'other',
-        expense_date: draftDate,
+        expense_date: new Date(draftDate).toISOString(),  // Convert to ISO datetime
         split_type: 'equal',
-        splits: selectedMembers.map(userId => ({
-          user_id: userId,
-          amount: parseFloat(draftAmount) / selectedMembers.length
-        }))
+        split_with_user_ids: otherMembers  // Backend auto-includes current user
       }
 
       await expensesAPI.create(expenseData)
