@@ -7,20 +7,16 @@ API endpoints for:
 - Get settlement history
 - Generate UPI payment links
 
+Supports both SQLite and DynamoDB backends.
 All endpoints require authentication.
 ===========================================
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
 from typing import List, Optional
 from urllib.parse import quote
 
-from app.database import get_db
-from app.models.user import User
-from app.models.group import Group
-from app.models.settlement import Settlement
+from app.db import get_db_service, DBService
 from app.services.auth import get_current_user
 from app.services.notification import create_settlement_notification
 from app.schemas.settlement import SettlementCreate, SettlementResponse, UPIPaymentInfo
@@ -34,8 +30,8 @@ router = APIRouter(
 @router.post("/", response_model=SettlementResponse, status_code=status.HTTP_201_CREATED)
 async def record_settlement(
     settlement_data: SettlementCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Record a settlement payment.
@@ -53,52 +49,45 @@ async def record_settlement(
     - notes: (optional) Any notes
     """
     # Determine the payer (from_user)
-    # If from_user_id is provided and different from current user, 
-    # it means current user is recording that someone paid them
-    from_user_id = settlement_data.from_user_id or current_user.id
+    from_user_id = str(settlement_data.from_user_id) if settlement_data.from_user_id else current_user["id"]
     
     # Verify the payer exists (if not current user)
-    if from_user_id != current_user.id:
-        from_user = db.query(User).filter(User.id == from_user_id).first()
+    if str(from_user_id) != str(current_user["id"]):
+        from_user = db_service.get_user_by_id(str(from_user_id))
         if not from_user:
             raise HTTPException(status_code=404, detail="Payer user not found")
     else:
         from_user = current_user
     
     # Verify the recipient exists
-    to_user = db.query(User).filter(User.id == settlement_data.to_user_id).first()
+    to_user = db_service.get_user_by_id(str(settlement_data.to_user_id))
     if not to_user:
         raise HTTPException(status_code=404, detail="Recipient user not found")
     
     # Can't settle with yourself
-    if from_user_id == settlement_data.to_user_id:
+    if str(from_user_id) == str(settlement_data.to_user_id):
         raise HTTPException(status_code=400, detail="Cannot settle with yourself")
     
     # Verify current user is involved in the settlement
-    if current_user.id != from_user_id and current_user.id != settlement_data.to_user_id:
+    if str(current_user["id"]) != str(from_user_id) and str(current_user["id"]) != str(settlement_data.to_user_id):
         raise HTTPException(status_code=403, detail="You can only record settlements you are involved in")
     
     # Create settlement record
-    settlement = Settlement(
-        from_user_id=from_user_id,
-        to_user_id=settlement_data.to_user_id,
+    settlement = db_service.create_settlement(
+        from_user_id=str(from_user_id),
+        to_user_id=str(settlement_data.to_user_id),
         amount=settlement_data.amount,
-        group_id=settlement_data.group_id,
+        group_id=str(settlement_data.group_id) if settlement_data.group_id else None,
         payment_method=settlement_data.payment_method,
         transaction_ref=settlement_data.transaction_ref,
         notes=settlement_data.notes
     )
     
-    db.add(settlement)
-    db.commit()
-    db.refresh(settlement)
-    
-    # Send notification to the other party (not the current user)
+    # Send notification to the other party
     try:
-        # Notify the other person involved in the settlement
-        notify_user_id = to_user.id if current_user.id == from_user_id else from_user_id
+        notify_user_id = to_user["id"] if str(current_user["id"]) == str(from_user_id) else from_user_id
         create_settlement_notification(
-            db=db,
+            db_service=db_service,
             to_user_id=notify_user_id,
             from_user=from_user,
             amount=settlement_data.amount,
@@ -107,26 +96,26 @@ async def record_settlement(
     except Exception as e:
         print(f"Failed to send settlement notification: {e}")
     
-    # Build response
+    # Get group name if applicable
     group_name = None
-    if settlement.group_id:
-        group = db.query(Group).filter(Group.id == settlement.group_id).first()
+    if settlement.get("group_id"):
+        group = db_service.get_group_by_id(str(settlement["group_id"]))
         if group:
-            group_name = group.name
+            group_name = group.get("name")
     
     return SettlementResponse(
-        id=settlement.id,
-        from_user_id=from_user_id,
-        from_user_name=from_user.name,
-        to_user_id=to_user.id,
-        to_user_name=to_user.name,
-        amount=settlement.amount,
-        group_id=settlement.group_id,
+        id=int(settlement["id"]) if settlement.get("id") else 0,
+        from_user_id=int(from_user["id"]) if from_user.get("id") else 0,
+        from_user_name=from_user.get("name", "Unknown"),
+        to_user_id=int(to_user["id"]) if to_user.get("id") else 0,
+        to_user_name=to_user.get("name", "Unknown"),
+        amount=settlement.get("amount", 0),
+        group_id=int(settlement["group_id"]) if settlement.get("group_id") else None,
         group_name=group_name,
-        payment_method=settlement.payment_method,
-        transaction_ref=settlement.transaction_ref,
-        notes=settlement.notes,
-        created_at=settlement.created_at
+        payment_method=settlement.get("payment_method", "other"),
+        transaction_ref=settlement.get("transaction_ref"),
+        notes=settlement.get("notes"),
+        created_at=settlement.get("created_at")
     )
 
 
@@ -134,8 +123,8 @@ async def record_settlement(
 async def list_settlements(
     group_id: Optional[int] = None,
     limit: int = 50,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     List all settlements involving the current user.
@@ -144,43 +133,44 @@ async def list_settlements(
     - group_id: Filter by group (optional)
     - limit: Max results (default 50)
     """
-    query = db.query(Settlement).filter(
-        Settlement.is_active == True,
-        or_(
-            Settlement.from_user_id == current_user.id,
-            Settlement.to_user_id == current_user.id
-        )
-    )
-    
     if group_id:
-        query = query.filter(Settlement.group_id == group_id)
+        settlements = db_service.get_group_settlements(str(group_id))
+        # Filter to only include current user's settlements
+        settlements = [
+            s for s in settlements 
+            if str(s.get("from_user_id")) == str(current_user["id"]) or 
+               str(s.get("to_user_id")) == str(current_user["id"])
+        ]
+    else:
+        settlements = db_service.get_user_settlements(current_user["id"])
     
-    settlements = query.order_by(Settlement.created_at.desc()).limit(limit).all()
+    # Limit results
+    settlements = settlements[:limit]
     
     result = []
     for s in settlements:
-        from_user = db.query(User).filter(User.id == s.from_user_id).first()
-        to_user = db.query(User).filter(User.id == s.to_user_id).first()
+        from_user = s.get("from_user") or db_service.get_user_by_id(str(s.get("from_user_id")))
+        to_user = s.get("to_user") or db_service.get_user_by_id(str(s.get("to_user_id")))
         
         group_name = None
-        if s.group_id:
-            group = db.query(Group).filter(Group.id == s.group_id).first()
+        if s.get("group_id"):
+            group = db_service.get_group_by_id(str(s["group_id"]))
             if group:
-                group_name = group.name
+                group_name = group.get("name")
         
         result.append(SettlementResponse(
-            id=s.id,
-            from_user_id=s.from_user_id,
-            from_user_name=from_user.name if from_user else "Unknown",
-            to_user_id=s.to_user_id,
-            to_user_name=to_user.name if to_user else "Unknown",
-            amount=s.amount,
-            group_id=s.group_id,
+            id=int(s["id"]) if s.get("id") else 0,
+            from_user_id=int(s["from_user_id"]) if s.get("from_user_id") else 0,
+            from_user_name=from_user.get("name", "Unknown") if from_user else "Unknown",
+            to_user_id=int(s["to_user_id"]) if s.get("to_user_id") else 0,
+            to_user_name=to_user.get("name", "Unknown") if to_user else "Unknown",
+            amount=s.get("amount", 0),
+            group_id=int(s["group_id"]) if s.get("group_id") else None,
             group_name=group_name,
-            payment_method=s.payment_method,
-            transaction_ref=s.transaction_ref,
-            notes=s.notes,
-            created_at=s.created_at
+            payment_method=s.get("payment_method", "other"),
+            transaction_ref=s.get("transaction_ref"),
+            notes=s.get("notes"),
+            created_at=s.get("created_at")
         ))
     
     return result
@@ -191,8 +181,8 @@ async def generate_upi_link(
     user_id: int,
     amount: float,
     group_id: Optional[int] = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Generate a UPI payment link for settling up.
@@ -207,38 +197,37 @@ async def generate_upi_link(
     **Returns:** UPI link that opens GPay/PhonePe/Paytm
     """
     # Get the payee
-    payee = db.query(User).filter(User.id == user_id).first()
+    payee = db_service.get_user_by_id(str(user_id))
     if not payee:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Check if payee has UPI ID
-    if not payee.upi_id:
+    if not payee.get("upi_id"):
         raise HTTPException(
             status_code=400, 
-            detail=f"{payee.name} hasn't added their UPI ID yet. Ask them to update their profile."
+            detail=f"{payee.get('name', 'User')} hasn't added their UPI ID yet. Ask them to update their profile."
         )
     
     # Build transaction note
-    note = f"Hisab settlement from {current_user.name}"
+    note = f"Hisab settlement from {current_user.get('name', 'User')}"
     if group_id:
-        group = db.query(Group).filter(Group.id == group_id).first()
+        group = db_service.get_group_by_id(str(group_id))
         if group:
-            note = f"Hisab: {group.name} settlement"
+            note = f"Hisab: {group.get('name')} settlement"
     
     # Build UPI deep link
-    # Format: upi://pay?pa=UPI_ID&pn=NAME&am=AMOUNT&cu=INR&tn=NOTE
     upi_link = (
         f"upi://pay?"
-        f"pa={quote(payee.upi_id)}&"
-        f"pn={quote(payee.name)}&"
+        f"pa={quote(payee['upi_id'])}&"
+        f"pn={quote(payee.get('name', 'User'))}&"
         f"am={amount}&"
         f"cu=INR&"
         f"tn={quote(note)}"
     )
     
     return UPIPaymentInfo(
-        payee_upi_id=payee.upi_id,
-        payee_name=payee.name,
+        payee_upi_id=payee["upi_id"],
+        payee_name=payee.get("name", "Unknown"),
         amount=amount,
         transaction_note=note,
         upi_link=upi_link
@@ -248,22 +237,21 @@ async def generate_upi_link(
 @router.get("/user/{user_id}/upi-id")
 async def get_user_upi_id(
     user_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Get a user's UPI ID for payment.
     
     Returns whether they have a UPI ID set up.
     """
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db_service.get_user_by_id(str(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {
-        "user_id": user.id,
-        "name": user.name,
-        "has_upi_id": bool(user.upi_id),
-        "upi_id": user.upi_id  # Will be None if not set
+        "user_id": int(user["id"]) if user.get("id") else 0,
+        "name": user.get("name", "Unknown"),
+        "has_upi_id": bool(user.get("upi_id")),
+        "upi_id": user.get("upi_id")
     }
-

@@ -7,24 +7,18 @@ API endpoints for:
 - List expenses (all, by group)
 - Update/delete expense
 - Get balances
-- Record settlements
 
+Supports both SQLite and DynamoDB backends.
 All endpoints require authentication.
 All endpoints are prefixed with /api/expenses
 ===========================================
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
 from typing import List, Optional
 from datetime import datetime
 
-from app.database import get_db
-from app.models.user import User
-from app.models.group import Group, GroupMember
-from app.models.expense import Expense, ExpenseSplit
-from app.models.settlement import Settlement
+from app.db import get_db_service, DBService
 from app.schemas.expense import (
     ExpenseCreate,
     ExpenseResponse,
@@ -46,172 +40,108 @@ router = APIRouter(
 @router.post("/", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
 async def create_expense(
     expense_data: ExpenseCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Create a new expense.
-    
-    **Request Body:**
-    - amount: Total expense amount (required)
-    - description: What was this for (required)
-    - category: Category like food, transport, sports, etc.
-    - group_id: Group this expense belongs to (optional)
-    - split_type: How to split - equal, exact, percentage, shares
-    - split_with_user_ids: For equal splits, list of user IDs
-    - splits: For other split types, detailed breakdown
-    
-    **Examples:**
-    
-    Equal split with 3 friends:
-    ```json
-    {
-        "amount": 1200,
-        "description": "Badminton court",
-        "category": "sports",
-        "group_id": 1,
-        "split_type": "equal",
-        "split_with_user_ids": [2, 3, 4]
-    }
-    ```
-    
-    Exact split:
-    ```json
-    {
-        "amount": 1000,
-        "description": "Dinner",
-        "split_type": "exact",
-        "splits": [
-            {"user_id": 2, "amount": 400},
-            {"user_id": 3, "amount": 300}
-        ]
-    }
-    ```
     """
     # Validate group membership if group_id provided
     if expense_data.group_id:
-        group = db.query(Group).filter(
-            Group.id == expense_data.group_id,
-            Group.is_active == True
-        ).first()
-        
-        if not group:
+        group = db_service.get_group_by_id(str(expense_data.group_id))
+        if not group or not group.get("is_active", True):
             raise HTTPException(status_code=404, detail="Group not found")
         
-        membership = db.query(GroupMember).filter(
-            GroupMember.group_id == expense_data.group_id,
-            GroupMember.user_id == current_user.id,
-            GroupMember.is_active == True
-        ).first()
-        
-        if not membership:
+        if not db_service.is_group_member(str(expense_data.group_id), current_user["id"]):
             raise HTTPException(status_code=403, detail="You are not a member of this group")
     
-    # Create the expense
-    new_expense = Expense(
-        amount=expense_data.amount,
-        currency=expense_data.currency,
-        description=expense_data.description,
-        notes=expense_data.notes,
-        category=expense_data.category,
-        paid_by_id=current_user.id,
-        group_id=expense_data.group_id,
-        split_type=expense_data.split_type.value,
-        expense_date=expense_data.expense_date or datetime.utcnow(),
-        receipt_url=expense_data.receipt_url
-    )
-    
-    db.add(new_expense)
-    db.commit()
-    db.refresh(new_expense)
-    
-    # Create splits based on split_type
+    # Prepare splits
+    splits = []
     if expense_data.split_type.value == "equal":
         # Equal split among current user and specified users
-        user_ids = [current_user.id] + (expense_data.split_with_user_ids or [])
+        user_ids = [current_user["id"]] + [str(uid) for uid in (expense_data.split_with_user_ids or [])]
         user_ids = list(set(user_ids))  # Remove duplicates
         
         per_person = expense_data.amount / len(user_ids)
         
         for user_id in user_ids:
-            split = ExpenseSplit(
-                expense_id=new_expense.id,
-                user_id=user_id,
-                amount=round(per_person, 2)
-            )
-            db.add(split)
+            splits.append({
+                "user_id": str(user_id),
+                "amount": round(per_person, 2)
+            })
     
     elif expense_data.split_type.value == "exact":
-        # Exact amounts specified
         total_split = 0
         for s in expense_data.splits:
-            split = ExpenseSplit(
-                expense_id=new_expense.id,
-                user_id=s.user_id,
-                amount=s.amount
-            )
+            splits.append({
+                "user_id": str(s.user_id),
+                "amount": s.amount
+            })
             total_split += s.amount
-            db.add(split)
         
         # Add current user's share if not included
-        if current_user.id not in [s.user_id for s in expense_data.splits]:
+        current_user_in_splits = any(str(s.user_id) == str(current_user["id"]) for s in expense_data.splits)
+        if not current_user_in_splits:
             remaining = expense_data.amount - total_split
             if remaining > 0:
-                split = ExpenseSplit(
-                    expense_id=new_expense.id,
-                    user_id=current_user.id,
-                    amount=remaining
-                )
-                db.add(split)
+                splits.append({
+                    "user_id": str(current_user["id"]),
+                    "amount": remaining
+                })
     
     elif expense_data.split_type.value == "percentage":
-        # Percentage-based split
         for s in expense_data.splits:
             amount = (expense_data.amount * s.percentage) / 100
-            split = ExpenseSplit(
-                expense_id=new_expense.id,
-                user_id=s.user_id,
-                amount=round(amount, 2),
-                percentage=s.percentage
-            )
-            db.add(split)
+            splits.append({
+                "user_id": str(s.user_id),
+                "amount": round(amount, 2),
+                "percentage": s.percentage
+            })
     
     elif expense_data.split_type.value == "shares":
-        # Shares-based split
         total_shares = sum(s.shares for s in expense_data.splits)
         for s in expense_data.splits:
             amount = (expense_data.amount * s.shares) / total_shares
-            split = ExpenseSplit(
-                expense_id=new_expense.id,
-                user_id=s.user_id,
-                amount=round(amount, 2),
-                shares=s.shares
-            )
-            db.add(split)
+            splits.append({
+                "user_id": str(s.user_id),
+                "amount": round(amount, 2),
+                "shares": s.shares
+            })
     
-    db.commit()
-    db.refresh(new_expense)
+    # Create the expense
+    expense_date = expense_data.expense_date.isoformat() if expense_data.expense_date else datetime.utcnow().isoformat()
+    
+    new_expense = db_service.create_expense(
+        amount=expense_data.amount,
+        description=expense_data.description,
+        paid_by_id=current_user["id"],
+        group_id=str(expense_data.group_id) if expense_data.group_id else None,
+        split_type=expense_data.split_type.value,
+        category=expense_data.category,
+        currency=expense_data.currency,
+        expense_date=expense_date,
+        notes=expense_data.notes,
+        splits=splits
+    )
     
     # Send notifications to all participants (except the payer)
-    splits = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == new_expense.id).all()
     for split in splits:
-        if split.user_id != current_user.id:
+        if str(split["user_id"]) != str(current_user["id"]):
             try:
                 create_expense_notification(
-                    db=db,
-                    to_user_id=split.user_id,
+                    db_service=db_service,
+                    to_user_id=split["user_id"],
                     from_user=current_user,
-                    expense_id=new_expense.id,
-                    expense_description=new_expense.description,
-                    amount=new_expense.amount,
-                    user_share=split.amount,
-                    group_id=new_expense.group_id
+                    expense_id=new_expense["id"],
+                    expense_description=expense_data.description,
+                    amount=expense_data.amount,
+                    user_share=split["amount"],
+                    group_id=expense_data.group_id
                 )
             except Exception as e:
-                # Don't fail the expense creation if notification fails
                 print(f"Failed to send notification: {e}")
     
-    return _build_expense_response(new_expense, db)
+    return _build_expense_response(db_service, new_expense["id"])
 
 
 @router.get("/", response_model=List[ExpenseResponse])
@@ -220,53 +150,26 @@ async def list_expenses(
     category: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     List expenses.
-    
-    **Query Parameters:**
-    - group_id: Filter by group (optional)
-    - category: Filter by category (optional)
-    - limit: Max results (default 50)
-    - offset: Skip results for pagination
-    
-    **Returns:** List of expenses you're involved in
     """
-    # Build query
-    query = db.query(Expense).filter(Expense.is_active == True)
-    
     if group_id:
         # Verify membership
-        membership = db.query(GroupMember).filter(
-            GroupMember.group_id == group_id,
-            GroupMember.user_id == current_user.id,
-            GroupMember.is_active == True
-        ).first()
-        
-        if not membership:
+        if not db_service.is_group_member(str(group_id), current_user["id"]):
             raise HTTPException(status_code=403, detail="You are not a member of this group")
         
-        query = query.filter(Expense.group_id == group_id)
+        expenses = db_service.get_group_expenses(str(group_id), skip=offset, limit=limit)
     else:
-        # Get all expenses where user is involved (paid or split)
-        user_expense_ids = db.query(ExpenseSplit.expense_id).filter(
-            ExpenseSplit.user_id == current_user.id
-        ).subquery()
-        
-        query = query.filter(
-            (Expense.paid_by_id == current_user.id) |
-            (Expense.id.in_(user_expense_ids))
-        )
+        expenses = db_service.get_user_expenses(current_user["id"], skip=offset, limit=limit)
     
+    # Filter by category if specified
     if category:
-        query = query.filter(Expense.category == category)
+        expenses = [e for e in expenses if e.get("category") == category]
     
-    # Order by most recent first
-    expenses = query.order_by(Expense.expense_date.desc()).offset(offset).limit(limit).all()
-    
-    return [_build_expense_response(e, db) for e in expenses]
+    return [_build_expense_response_from_dict(db_service, e) for e in expenses]
 
 
 # ===========================================
@@ -275,90 +178,23 @@ async def list_expenses(
 
 @router.get("/balances/overall", response_model=List[BalanceResponse])
 async def get_overall_balances(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Get your overall balance with everyone.
-    
-    **Returns:** List of balances with each person you've shared expenses with
-    
-    - Positive amount = they owe you
-    - Negative amount = you owe them
-    
-    Note: Settlements are factored into the balance calculation.
     """
-    balances = {}  # user_id -> balance
+    balances = db_service.calculate_user_balances(current_user["id"])
     
-    # Get all expenses where current user paid
-    expenses_paid = db.query(Expense).filter(
-        Expense.paid_by_id == current_user.id,
-        Expense.is_active == True
-    ).all()
-    
-    for expense in expenses_paid:
-        splits = db.query(ExpenseSplit).filter(
-            ExpenseSplit.expense_id == expense.id,
-            ExpenseSplit.user_id != current_user.id
-        ).all()
-        
-        for split in splits:
-            if split.user_id not in balances:
-                balances[split.user_id] = 0
-            balances[split.user_id] += split.amount  # They owe this much
-    
-    # Get all expenses where current user owes
-    user_splits = db.query(ExpenseSplit).filter(
-        ExpenseSplit.user_id == current_user.id
-    ).all()
-    
-    for split in user_splits:
-        expense = db.query(Expense).filter(
-            Expense.id == split.expense_id,
-            Expense.is_active == True
-        ).first()
-        
-        if expense and expense.paid_by_id != current_user.id:
-            payer_id = expense.paid_by_id
-            if payer_id not in balances:
-                balances[payer_id] = 0
-            balances[payer_id] -= split.amount  # You owe this much
-    
-    # Factor in settlements
-    # Settlements where current user PAID someone (reduces what they owe)
-    settlements_paid = db.query(Settlement).filter(
-        Settlement.from_user_id == current_user.id,
-        Settlement.is_active == True
-    ).all()
-    
-    for settlement in settlements_paid:
-        if settlement.to_user_id not in balances:
-            balances[settlement.to_user_id] = 0
-        # I paid them, so they owe me more (or I owe them less)
-        balances[settlement.to_user_id] += settlement.amount
-    
-    # Settlements where current user RECEIVED payment (reduces what others owe)
-    settlements_received = db.query(Settlement).filter(
-        Settlement.to_user_id == current_user.id,
-        Settlement.is_active == True
-    ).all()
-    
-    for settlement in settlements_received:
-        if settlement.from_user_id not in balances:
-            balances[settlement.from_user_id] = 0
-        # They paid me, so they owe me less
-        balances[settlement.from_user_id] -= settlement.amount
-    
-    # Build response
     result = []
     for user_id, amount in balances.items():
-        if abs(amount) > 0.01:  # Ignore tiny amounts due to rounding
-            user = db.query(User).filter(User.id == user_id).first()
+        if abs(amount) > 0.01:
+            user = db_service.get_user_by_id(str(user_id))
             if user:
                 result.append(BalanceResponse(
-                    user_id=user.id,
-                    user_name=user.name,
-                    user_email=user.email,
+                    user_id=int(user["id"]) if user.get("id") else 0,
+                    user_name=user.get("name", "Unknown"),
+                    user_email=user.get("email", ""),
                     amount=round(amount, 2)
                 ))
     
@@ -368,30 +204,22 @@ async def get_overall_balances(
 @router.get("/balances/group/{group_id}", response_model=GroupBalanceResponse)
 async def get_group_balances(
     group_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Get your balance in a specific group.
-    
-    **Returns:** 
-    - Total expenses in group
-    - How much you've paid
-    - Your total share
-    - Your balance (owed or owing)
-    - Balance with each member
     """
     # Verify membership
-    membership = db.query(GroupMember).filter(
-        GroupMember.group_id == group_id,
-        GroupMember.user_id == current_user.id,
-        GroupMember.is_active == True
-    ).first()
-    
-    if not membership:
+    if not db_service.is_group_member(str(group_id), current_user["id"]):
         raise HTTPException(status_code=403, detail="You are not a member of this group")
     
-    group = db.query(Group).filter(Group.id == group_id).first()
+    group = db_service.get_group_by_id(str(group_id))
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Get group expenses
+    expenses = db_service.get_group_expenses(str(group_id), limit=1000)
     
     # Calculate balances
     balances = {}
@@ -399,60 +227,63 @@ async def get_group_balances(
     your_paid = 0
     your_share = 0
     
-    expenses = db.query(Expense).filter(
-        Expense.group_id == group_id,
-        Expense.is_active == True
-    ).all()
-    
     for expense in expenses:
-        total_expenses += expense.amount
+        total_expenses += expense.get("amount", 0)
         
-        if expense.paid_by_id == current_user.id:
-            your_paid += expense.amount
+        if str(expense.get("paid_by_id")) == str(current_user["id"]):
+            your_paid += expense.get("amount", 0)
             
             # Others owe you
-            splits = db.query(ExpenseSplit).filter(
-                ExpenseSplit.expense_id == expense.id,
-                ExpenseSplit.user_id != current_user.id
-            ).all()
-            
-            for split in splits:
-                if split.user_id not in balances:
-                    balances[split.user_id] = 0
-                balances[split.user_id] += split.amount
+            for split in expense.get("splits", []):
+                if str(split.get("user_id")) != str(current_user["id"]):
+                    split_user_id = str(split.get("user_id"))
+                    if split_user_id not in balances:
+                        balances[split_user_id] = 0
+                    balances[split_user_id] += split.get("amount", 0)
         
         # Your share
-        your_split = db.query(ExpenseSplit).filter(
-            ExpenseSplit.expense_id == expense.id,
-            ExpenseSplit.user_id == current_user.id
-        ).first()
+        for split in expense.get("splits", []):
+            if str(split.get("user_id")) == str(current_user["id"]):
+                your_share += split.get("amount", 0)
+                
+                if str(expense.get("paid_by_id")) != str(current_user["id"]):
+                    payer_id = str(expense.get("paid_by_id"))
+                    if payer_id not in balances:
+                        balances[payer_id] = 0
+                    balances[payer_id] -= split.get("amount", 0)
+    
+    # Factor in settlements
+    settlements = db_service.get_group_settlements(str(group_id))
+    for settlement in settlements:
+        from_user_id = str(settlement.get("from_user_id"))
+        to_user_id = str(settlement.get("to_user_id"))
+        amount = settlement.get("amount", 0)
         
-        if your_split:
-            your_share += your_split.amount
-            
-            if expense.paid_by_id != current_user.id:
-                # You owe the payer
-                payer_id = expense.paid_by_id
-                if payer_id not in balances:
-                    balances[payer_id] = 0
-                balances[payer_id] -= your_split.amount
+        if from_user_id == str(current_user["id"]):
+            if to_user_id not in balances:
+                balances[to_user_id] = 0
+            balances[to_user_id] += amount
+        elif to_user_id == str(current_user["id"]):
+            if from_user_id not in balances:
+                balances[from_user_id] = 0
+            balances[from_user_id] -= amount
     
     # Build balance responses
     balance_list = []
     for user_id, amount in balances.items():
         if abs(amount) > 0.01:
-            user = db.query(User).filter(User.id == user_id).first()
+            user = db_service.get_user_by_id(str(user_id))
             if user:
                 balance_list.append(BalanceResponse(
-                    user_id=user.id,
-                    user_name=user.name,
-                    user_email=user.email,
+                    user_id=int(user["id"]) if user.get("id") else 0,
+                    user_name=user.get("name", "Unknown"),
+                    user_email=user.get("email", ""),
                     amount=round(amount, 2)
                 ))
     
     return GroupBalanceResponse(
-        group_id=group_id,
-        group_name=group.name,
+        group_id=int(group["id"]) if group.get("id") else 0,
+        group_name=group.get("name", "Unknown"),
         total_expenses=round(total_expenses, 2),
         your_total_paid=round(your_paid, 2),
         your_total_share=round(your_share, 2),
@@ -464,31 +295,21 @@ async def get_group_balances(
 @router.post("/settle", status_code=status.HTTP_200_OK)
 async def record_settlement(
     settlement: SettlementCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
-    Record a settlement payment.
-    
-    This doesn't actually transfer money - it records that you've settled up.
-    Use this after paying someone via GPay/PhonePay/etc.
-    
-    **Request Body:**
-    - to_user_id: Who you're paying
-    - amount: How much you're paying
-    - group_id: (optional) Settle within a specific group
-    - notes: (optional) Payment reference or notes
+    Record a settlement payment (legacy endpoint - use /api/settlements instead).
     """
-    # Verify the user exists
-    to_user = db.query(User).filter(User.id == settlement.to_user_id).first()
+    to_user = db_service.get_user_by_id(str(settlement.to_user_id))
     if not to_user:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {
-        "message": f"Settlement of ₹{settlement.amount} to {to_user.name} recorded",
+        "message": f"Settlement of ₹{settlement.amount} to {to_user.get('name', 'Unknown')} recorded",
         "settlement": {
-            "from": current_user.name,
-            "to": to_user.name,
+            "from": current_user.get("name", "Unknown"),
+            "to": to_user.get("name", "Unknown"),
             "amount": settlement.amount,
             "notes": settlement.notes
         }
@@ -501,204 +322,190 @@ async def record_settlement(
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 async def get_expense(
-    expense_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    expense_id: str,
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Get details of a specific expense.
     """
-    expense = db.query(Expense).filter(
-        Expense.id == expense_id,
-        Expense.is_active == True
-    ).first()
+    expense = db_service.get_expense_by_id(str(expense_id))
     
-    if not expense:
+    if not expense or not expense.get("is_active", True):
         raise HTTPException(status_code=404, detail="Expense not found")
     
     # Check if user is involved
-    is_payer = expense.paid_by_id == current_user.id
-    is_in_split = db.query(ExpenseSplit).filter(
-        ExpenseSplit.expense_id == expense_id,
-        ExpenseSplit.user_id == current_user.id
-    ).first() is not None
+    is_payer = str(expense.get("paid_by_id")) == str(current_user["id"])
+    is_in_split = any(
+        str(s.get("user_id")) == str(current_user["id"]) 
+        for s in expense.get("splits", [])
+    )
     
     if not is_payer and not is_in_split:
         raise HTTPException(status_code=403, detail="You are not involved in this expense")
     
-    return _build_expense_response(expense, db)
+    return _build_expense_response_from_dict(db_service, expense)
 
 
 @router.put("/{expense_id}", response_model=ExpenseResponse)
 async def update_expense(
-    expense_id: int,
+    expense_id: str,
     expense_data: ExpenseUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Update an expense.
-    
-    Only the person who paid can update the expense.
-    Supports updating amount, description, notes, category, date, and splits.
     """
-    expense = db.query(Expense).filter(
-        Expense.id == expense_id,
-        Expense.is_active == True
-    ).first()
+    expense = db_service.get_expense_by_id(str(expense_id))
     
-    if not expense:
+    if not expense or not expense.get("is_active", True):
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    if expense.paid_by_id != current_user.id:
+    if str(expense.get("paid_by_id")) != str(current_user["id"]):
         raise HTTPException(status_code=403, detail="Only the payer can update this expense")
     
     # Update basic fields
+    update_fields = {}
     if expense_data.description is not None:
-        expense.description = expense_data.description
+        update_fields["description"] = expense_data.description
     if expense_data.notes is not None:
-        expense.notes = expense_data.notes
+        update_fields["notes"] = expense_data.notes
     if expense_data.category is not None:
-        expense.category = expense_data.category
+        update_fields["category"] = expense_data.category
     if expense_data.expense_date is not None:
-        expense.expense_date = expense_data.expense_date
-    
-    # Handle amount and split updates together
-    splits_changed = False
-    new_amount = expense_data.amount if expense_data.amount is not None else expense.amount
-    
+        update_fields["expense_date"] = expense_data.expense_date.isoformat()
     if expense_data.amount is not None:
-        expense.amount = expense_data.amount
+        update_fields["amount"] = expense_data.amount
     
-    # Update splits if provided
+    if update_fields:
+        db_service.update_expense(str(expense_id), **update_fields)
+    
+    # Handle splits update
+    splits_changed = False
+    new_amount = expense_data.amount if expense_data.amount is not None else expense.get("amount", 0)
+    
     if expense_data.split_type is not None or expense_data.split_with_user_ids is not None or expense_data.splits is not None:
         splits_changed = True
         
         # Delete existing splits
-        db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense.id).delete()
+        db_service.delete_expense_splits(str(expense_id))
         
-        split_type = expense_data.split_type.value if expense_data.split_type else expense.split_type
-        expense.split_type = split_type
+        split_type = expense_data.split_type.value if expense_data.split_type else expense.get("split_type", "equal")
+        db_service.update_expense(str(expense_id), split_type=split_type)
         
         if split_type == "equal" and expense_data.split_with_user_ids is not None:
-            # Equal split among specified users (current user NOT auto-included)
-            user_ids = list(set(expense_data.split_with_user_ids))
+            user_ids = list(set(str(uid) for uid in expense_data.split_with_user_ids))
             if len(user_ids) == 0:
                 raise HTTPException(status_code=400, detail="At least one user must be selected for split")
             
             per_person = new_amount / len(user_ids)
             
             for user_id in user_ids:
-                split = ExpenseSplit(
-                    expense_id=expense.id,
-                    user_id=user_id,
+                db_service.create_expense_split(
+                    expense_id=str(expense_id),
+                    user_id=str(user_id),
                     amount=round(per_person, 2)
                 )
-                db.add(split)
         
         elif split_type == "exact" and expense_data.splits is not None:
-            # Exact amounts specified
             for s in expense_data.splits:
-                split = ExpenseSplit(
-                    expense_id=expense.id,
-                    user_id=s.user_id,
+                db_service.create_expense_split(
+                    expense_id=str(expense_id),
+                    user_id=str(s.user_id),
                     amount=s.amount
                 )
-                db.add(split)
     
-    db.commit()
-    db.refresh(expense)
-    
-    # Send notifications to all participants (except the payer)
+    # Send notifications
     if splits_changed or expense_data.amount is not None:
-        splits = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense.id).all()
-        for split in splits:
-            if split.user_id != current_user.id:
+        updated_expense = db_service.get_expense_by_id(str(expense_id))
+        for split in updated_expense.get("splits", []):
+            if str(split.get("user_id")) != str(current_user["id"]):
                 try:
                     create_expense_update_notification(
-                        db=db,
-                        to_user_id=split.user_id,
+                        db_service=db_service,
+                        to_user_id=split.get("user_id"),
                         from_user=current_user,
-                        expense_id=expense.id,
-                        expense_description=expense.description,
-                        new_amount=expense.amount,
-                        user_share=split.amount,
-                        group_id=expense.group_id
+                        expense_id=expense_id,
+                        expense_description=updated_expense.get("description", ""),
+                        new_amount=updated_expense.get("amount", 0),
+                        user_share=split.get("amount", 0),
+                        group_id=updated_expense.get("group_id")
                     )
                 except Exception as e:
                     print(f"Failed to send notification: {e}")
     
-    return _build_expense_response(expense, db)
+    return _build_expense_response(db_service, str(expense_id))
 
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_expense(
-    expense_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    expense_id: str,
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
 ):
     """
     Delete (deactivate) an expense.
-    
-    Only the person who paid can delete the expense.
     """
-    expense = db.query(Expense).filter(
-        Expense.id == expense_id,
-        Expense.is_active == True
-    ).first()
+    expense = db_service.get_expense_by_id(str(expense_id))
     
-    if not expense:
+    if not expense or not expense.get("is_active", True):
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    if expense.paid_by_id != current_user.id:
+    if str(expense.get("paid_by_id")) != str(current_user["id"]):
         raise HTTPException(status_code=403, detail="Only the payer can delete this expense")
     
-    expense.is_active = False
-    db.commit()
+    db_service.delete_expense(str(expense_id))
 
 
-def _build_expense_response(expense: Expense, db: Session) -> ExpenseResponse:
-    """Helper to build ExpenseResponse with split info."""
-    payer = db.query(User).filter(User.id == expense.paid_by_id).first()
+def _build_expense_response(db_service: DBService, expense_id: str) -> ExpenseResponse:
+    """Helper to build ExpenseResponse by fetching expense."""
+    expense = db_service.get_expense_by_id(str(expense_id))
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return _build_expense_response_from_dict(db_service, expense)
+
+
+def _build_expense_response_from_dict(db_service: DBService, expense: dict) -> ExpenseResponse:
+    """Helper to build ExpenseResponse from expense dict."""
+    paid_by_user = expense.get("paid_by_user") or db_service.get_user_by_id(str(expense.get("paid_by_id")))
+    paid_by_name = paid_by_user.get("name", "Unknown") if paid_by_user else "Unknown"
     
     group_name = None
-    if expense.group_id:
-        group = db.query(Group).filter(Group.id == expense.group_id).first()
+    if expense.get("group_id"):
+        group = db_service.get_group_by_id(str(expense["group_id"]))
         if group:
-            group_name = group.name
-    
-    splits = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense.id).all()
+            group_name = group.get("name")
     
     split_responses = []
-    for s in splits:
-        user = db.query(User).filter(User.id == s.user_id).first()
+    for s in expense.get("splits", []):
+        user = s.get("user") or db_service.get_user_by_id(str(s.get("user_id")))
         if user:
             split_responses.append(ExpenseSplitResponse(
-                id=s.id,
-                user_id=user.id,
-                user_name=user.name,
-                user_email=user.email,
-                amount=s.amount,
-                percentage=s.percentage,
-                shares=s.shares,
-                is_paid=s.is_paid
+                id=int(s.get("id", 0)) if s.get("id") else 0,
+                user_id=int(user["id"]) if user.get("id") else 0,
+                user_name=user.get("name", "Unknown"),
+                user_email=user.get("email", ""),
+                amount=s.get("amount", 0),
+                percentage=s.get("percentage"),
+                shares=s.get("shares"),
+                is_paid=s.get("is_paid", False)
             ))
     
     return ExpenseResponse(
-        id=expense.id,
-        amount=expense.amount,
-        currency=expense.currency,
-        description=expense.description,
-        notes=expense.notes,
-        category=expense.category,
-        paid_by_id=expense.paid_by_id,
-        paid_by_name=payer.name if payer else "Unknown",
-        group_id=expense.group_id,
+        id=int(expense["id"]) if expense.get("id") else 0,
+        amount=expense.get("amount", 0),
+        currency=expense.get("currency", "INR"),
+        description=expense.get("description", ""),
+        notes=expense.get("notes"),
+        category=expense.get("category", "other"),
+        paid_by_id=int(expense["paid_by_id"]) if expense.get("paid_by_id") else 0,
+        paid_by_name=paid_by_name,
+        group_id=int(expense["group_id"]) if expense.get("group_id") else None,
         group_name=group_name,
-        split_type=expense.split_type,
-        expense_date=expense.expense_date,
-        is_settled=expense.is_settled,
-        created_at=expense.created_at,
+        split_type=expense.get("split_type", "equal"),
+        expense_date=expense.get("expense_date"),
+        is_settled=expense.get("is_settled", False),
+        created_at=expense.get("created_at"),
         splits=split_responses
     )
-
