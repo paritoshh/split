@@ -9,7 +9,7 @@ AI-powered features using OpenAI GPT.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from openai import OpenAI
 import json
@@ -27,8 +27,8 @@ class GroupMember(BaseModel):
 
 
 class VoiceParseRequest(BaseModel):
-    transcript: str
-    group_members: List[GroupMember]
+    transcript: str = Field(..., max_length=500, description="Voice transcript (max 500 chars)")
+    group_members: List[GroupMember] = Field(..., max_length=50, description="Group members (max 50)")
 
 
 class ParsedMember(BaseModel):
@@ -74,6 +74,22 @@ async def parse_voice_expense(
         raise HTTPException(
             status_code=503,
             detail="AI features not configured. Please set OPENAI_API_KEY in environment."
+        )
+    
+    # Limit transcript length to prevent abuse (max 500 characters)
+    MAX_TRANSCRIPT_LENGTH = 500
+    if len(request.transcript) > MAX_TRANSCRIPT_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Voice transcript too long. Maximum {MAX_TRANSCRIPT_LENGTH} characters allowed."
+        )
+    
+    # Limit number of group members to prevent abuse (max 50)
+    MAX_MEMBERS = 50
+    if len(request.group_members) > MAX_MEMBERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many group members. Maximum {MAX_MEMBERS} allowed."
         )
     
     try:

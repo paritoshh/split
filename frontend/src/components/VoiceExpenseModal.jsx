@@ -104,7 +104,7 @@ function VoiceExpenseModal({
         if (transcript.trim()) {
           handleParseVoice()
         }
-      }, 2500)  // 2.5 second delay to allow natural pauses
+      }, 4000)  // 4 second delay to allow natural pauses in speech
       return () => clearTimeout(timer)
     }
     prevIsListeningRef.current = isListening
@@ -314,17 +314,15 @@ function VoiceExpenseModal({
 
     try {
       // Build expense data
+      // For equal splits, use split_with_user_ids (backend auto-includes payer)
       const expenseData = {
         amount: parseFloat(draftAmount),
         description: draftDescription.trim(),
         group_id: parseInt(groupId),
         category: 'other',
-        expense_date: draftDate,
+        expense_date: new Date(draftDate).toISOString(),
         split_type: 'equal',
-        splits: selectedMembers.map(userId => ({
-          user_id: userId,
-          amount: parseFloat(draftAmount) / selectedMembers.length
-        }))
+        split_with_user_ids: selectedMembers
       }
 
       await expensesAPI.create(expenseData)
