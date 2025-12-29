@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     # Local DynamoDB endpoint (for testing with Docker)
     dynamodb_endpoint_url: Optional[str] = None  # e.g., "http://localhost:8000" for local
     
+    # --- AWS Credentials (for local DynamoDB testing) ---
+    # These are optional - for local testing, any value works
+    # For AWS deployment, use IAM roles instead of hardcoded keys
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    
     # --- Security ---
     # Secret key for creating JWT tokens
     # IMPORTANT: Change this in production!

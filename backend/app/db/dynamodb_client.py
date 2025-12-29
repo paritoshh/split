@@ -37,6 +37,10 @@ def get_dynamodb_client():
         }
         if settings.dynamodb_endpoint_url:
             config["endpoint_url"] = settings.dynamodb_endpoint_url
+        # Add credentials if provided (for local testing)
+        if settings.aws_access_key_id and settings.aws_secret_access_key:
+            config["aws_access_key_id"] = settings.aws_access_key_id
+            config["aws_secret_access_key"] = settings.aws_secret_access_key
         _dynamodb_client = boto3.client("dynamodb", **config)
     return _dynamodb_client
 
@@ -50,6 +54,10 @@ def get_dynamodb_resource():
         }
         if settings.dynamodb_endpoint_url:
             config["endpoint_url"] = settings.dynamodb_endpoint_url
+        # Add credentials if provided (for local testing)
+        if settings.aws_access_key_id and settings.aws_secret_access_key:
+            config["aws_access_key_id"] = settings.aws_access_key_id
+            config["aws_secret_access_key"] = settings.aws_secret_access_key
         _dynamodb_resource = boto3.resource("dynamodb", **config)
     return _dynamodb_resource
 
