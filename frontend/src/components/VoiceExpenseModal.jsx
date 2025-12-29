@@ -256,19 +256,22 @@ function VoiceExpenseModal({
     setDraftAmount(parsed.amount?.toString() || '')
     setDraftDescription(parsed.description || 'General Expense')
     
-    // Set selected members (matched ones only - don't auto-include current user)
-    // The payer (current user) may or may not be part of the split
+    // Set selected members - include matched members AND all ambiguous matches by default
+    // User can remove the ones they don't want during review
     const memberIds = parsed.matchedMembers.map(m => m.user_id)
+    
+    // Also add all ambiguous matches by default (user will remove unwanted ones)
+    parsed.ambiguousNames.forEach(amb => {
+      amb.possibleMatches.forEach(match => {
+        if (!memberIds.includes(match.user_id)) {
+          memberIds.push(match.user_id)
+        }
+      })
+    })
     setSelectedMembers(memberIds)
 
-    // Initialize ambiguous selections (first option selected by default)
-    const ambiguous = {}
-    parsed.ambiguousNames.forEach((amb, idx) => {
-      if (amb.possibleMatches.length > 0) {
-        ambiguous[idx] = amb.possibleMatches[0].user_id
-      }
-    })
-    setAmbiguousSelections(ambiguous)
+    // No longer need ambiguousSelections - we add all and user removes unwanted
+    setAmbiguousSelections({})
 
     setParsing(false)
     setStep('review')
@@ -577,31 +580,57 @@ function VoiceExpenseModal({
                 />
               </div>
 
-              {/* Ambiguous names - need selection */}
+              {/* Ambiguous names - Keep/Remove selection */}
               {parsedExpense.ambiguousNames.length > 0 && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                  <p className="text-sm font-medium text-yellow-400 mb-3">
-                    ⚠️ Multiple people found with similar names:
+                  <p className="text-sm font-medium text-yellow-400 mb-1">
+                    ⚠️ Multiple people found with similar names
+                  </p>
+                  <p className="text-xs text-gray-400 mb-3">
+                    All matches are included by default. Remove the ones you don't want.
                   </p>
                   {parsedExpense.ambiguousNames.map((amb, idx) => (
-                    <div key={idx} className="mb-3">
+                    <div key={idx} className="mb-4 last:mb-0">
                       <p className="text-sm text-gray-300 mb-2">
-                        You said "<span className="text-white font-medium">{amb.searchedName}</span>" - which one?
+                        You said "<span className="text-white font-medium">{amb.searchedName}</span>":
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {amb.possibleMatches.map(match => (
-                          <button
-                            key={match.user_id}
-                            onClick={() => handleAmbiguousSelect(idx, match.user_id)}
-                            className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                              ambiguousSelections[idx] === match.user_id
-                                ? 'bg-primary-500 text-white'
-                                : 'bg-dark-200 text-gray-300 hover:bg-dark-300'
-                            }`}
-                          >
-                            {match.user_name}
-                          </button>
-                        ))}
+                      <div className="space-y-2">
+                        {amb.possibleMatches.map(match => {
+                          const isKept = selectedMembers.includes(match.user_id)
+                          return (
+                            <div
+                              key={match.user_id}
+                              className={`flex items-center justify-between p-2 rounded-lg transition-all ${
+                                isKept 
+                                  ? 'bg-green-500/20 border border-green-500/30' 
+                                  : 'bg-dark-200 border border-gray-700 opacity-50'
+                              }`}
+                            >
+                              <span className={`text-sm ${isKept ? 'text-white' : 'text-gray-500 line-through'}`}>
+                                {match.user_name}
+                              </span>
+                              <div className="flex gap-1">
+                                {isKept ? (
+                                  <button
+                                    onClick={() => toggleMember(match.user_id)}
+                                    className="p-1.5 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+                                    title="Remove"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => toggleMember(match.user_id)}
+                                    className="p-1.5 rounded-md bg-green-500/20 hover:bg-green-500/30 text-green-400 transition-colors"
+                                    title="Keep"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
