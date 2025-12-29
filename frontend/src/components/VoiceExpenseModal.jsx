@@ -74,22 +74,16 @@ function VoiceExpenseModal({
   
   // Speech recognition ref
   const recognitionRef = useRef(null)
-  const transcriptRef = useRef('')  // Keep track of transcript for auto-parse
 
   // Check if speech recognition is supported
   const isSupported = isSpeechRecognitionSupported()
 
-  // Check AI status on mount (gracefully handle if backend unavailable)
+  // Check AI status on mount
   useEffect(() => {
-    if (isOpen) {
-      aiAPI.getStatus()
-        .then(res => setAiEnabled(res.data?.ai_enabled || false))
-        .catch((err) => {
-          console.log('AI status check failed (this is OK if OpenAI not configured):', err.message)
-          setAiEnabled(false)
-        })
-    }
-  }, [isOpen])
+    aiAPI.getStatus()
+      .then(res => setAiEnabled(res.data.ai_enabled))
+      .catch(() => setAiEnabled(false))
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -99,21 +93,6 @@ function VoiceExpenseModal({
       stopListening()
     }
   }, [isOpen])
-
-  // Auto-parse when step changes to 'parsing' (triggered by speech end)
-  // Using a flag to prevent double execution
-  const autoParseTriggeredRef = useRef(false)
-  
-  useEffect(() => {
-    if (step === 'parsing' && parsing && transcriptRef.current && !autoParseTriggeredRef.current) {
-      autoParseTriggeredRef.current = true
-      handleParseVoice()
-    }
-    // Reset flag when going back to record
-    if (step === 'record') {
-      autoParseTriggeredRef.current = false
-    }
-  }, [step, parsing])
 
   const resetState = () => {
     setTranscript('')
@@ -130,7 +109,6 @@ function VoiceExpenseModal({
     setSuccess(false)
     setIsListening(false)
     setParsing(false)
-    transcriptRef.current = ''
   }
 
   const startListening = () => {
@@ -166,11 +144,7 @@ function VoiceExpenseModal({
       }
 
       if (final) {
-        setTranscript(prev => {
-          const newTranscript = prev + ' ' + final
-          transcriptRef.current = newTranscript.trim()  // Update ref
-          return newTranscript
-        })
+        setTranscript(prev => prev + ' ' + final)
       }
       setInterimTranscript(interim)
     }
@@ -189,14 +163,6 @@ function VoiceExpenseModal({
 
     recognition.onend = () => {
       setIsListening(false)
-      // Auto-analyze after speech ends (with a small delay to ensure state is updated)
-      setTimeout(() => {
-        if (transcriptRef.current) {
-          // Trigger auto-analyze by calling the handler
-          setStep('parsing')
-          setParsing(true)
-        }
-      }, 300)
     }
 
     try {
@@ -216,12 +182,9 @@ function VoiceExpenseModal({
   }
 
   const handleParseVoice = async () => {
-    // Use ref if available (for auto-parse), otherwise use state
-    const fullTranscript = transcriptRef.current || (transcript + ' ' + interimTranscript).trim()
+    const fullTranscript = (transcript + ' ' + interimTranscript).trim()
     if (!fullTranscript) {
       setError('No voice input detected. Please try again.')
-      setStep('record')
-      setParsing(false)
       return
     }
 
@@ -338,17 +301,17 @@ function VoiceExpenseModal({
 
     try {
       // Build expense data
-      // For equal splits, use split_with_user_ids (exclude current user as they're auto-included)
-      const otherMembers = selectedMembers.filter(id => id !== user?.id)
-      
       const expenseData = {
         amount: parseFloat(draftAmount),
         description: draftDescription.trim(),
         group_id: parseInt(groupId),
         category: 'other',
-        expense_date: new Date(draftDate).toISOString(),  // Convert to ISO datetime
+        expense_date: draftDate,
         split_type: 'equal',
-        split_with_user_ids: otherMembers  // Backend auto-includes current user
+        splits: selectedMembers.map(userId => ({
+          user_id: userId,
+          amount: parseFloat(draftAmount) / selectedMembers.length
+        }))
       }
 
       await expensesAPI.create(expenseData)
