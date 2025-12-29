@@ -71,8 +71,8 @@ class Settings(BaseSettings):
     # --- CORS ---
     # Which frontend URLs can access our API
     # This is a security feature to prevent unauthorized websites from using our API
-    # Includes: localhost for dev, capacitor for mobile app, local network IP
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000,capacitor://localhost,http://localhost,http://192.168.1.254:5173,*"
+    # Includes: localhost for dev, capacitor for mobile app, local network IP, production CloudFront
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,capacitor://localhost,http://localhost,http://192.168.1.254:5173,https://hisab.paritoshagarwal.com,http://hisab-paritosh-frontend.s3-website.ap-south-1.amazonaws.com"
     
     class Config:
         # Tell Pydantic to read from .env file
