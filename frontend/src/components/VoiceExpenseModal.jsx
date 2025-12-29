@@ -79,12 +79,17 @@ function VoiceExpenseModal({
   // Check if speech recognition is supported
   const isSupported = isSpeechRecognitionSupported()
 
-  // Check AI status on mount
+  // Check AI status on mount (gracefully handle if backend unavailable)
   useEffect(() => {
-    aiAPI.getStatus()
-      .then(res => setAiEnabled(res.data.ai_enabled))
-      .catch(() => setAiEnabled(false))
-  }, [])
+    if (isOpen) {
+      aiAPI.getStatus()
+        .then(res => setAiEnabled(res.data?.ai_enabled || false))
+        .catch((err) => {
+          console.log('AI status check failed (this is OK if OpenAI not configured):', err.message)
+          setAiEnabled(false)
+        })
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen) {
@@ -96,9 +101,17 @@ function VoiceExpenseModal({
   }, [isOpen])
 
   // Auto-parse when step changes to 'parsing' (triggered by speech end)
+  // Using a flag to prevent double execution
+  const autoParseTriggeredRef = useRef(false)
+  
   useEffect(() => {
-    if (step === 'parsing' && parsing && transcriptRef.current) {
+    if (step === 'parsing' && parsing && transcriptRef.current && !autoParseTriggeredRef.current) {
+      autoParseTriggeredRef.current = true
       handleParseVoice()
+    }
+    // Reset flag when going back to record
+    if (step === 'record') {
+      autoParseTriggeredRef.current = false
     }
   }, [step, parsing])
 
