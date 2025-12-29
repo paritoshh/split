@@ -11,6 +11,10 @@ What this file does:
 4. Creates database tables on startup
 5. Provides a health check endpoint
 
+Database Support:
+- SQLite (default): For local development
+- DynamoDB: For AWS Lambda deployment
+
 To run the server:
     cd backend
     uvicorn app.main:app --reload
@@ -29,7 +33,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.database import engine, Base
 from app.routers import auth, groups, expenses, notifications, settlements, ai
 
 
@@ -43,25 +46,36 @@ async def lifespan(app: FastAPI):
     On startup:
     - Create all database tables if they don't exist
     
-    This uses SQLAlchemy's create_all() which:
-    - Looks at all models (User, Group, Expense, etc.)
-    - Creates tables in database if they don't exist
-    - Does nothing if tables already exist
+    Supports both SQLite and DynamoDB based on DATABASE_TYPE setting.
     """
-    print("🚀 Starting up Split App...")
-    print("📦 Creating database tables...")
+    print("🚀 Starting up Hisab App...")
+    print(f"📦 Database type: {settings.database_type}")
     
-    # Import all models so SQLAlchemy knows about them
-    from app.models import User, Group, GroupMember, Expense, ExpenseSplit, Notification, Settlement
-    
-    # Create tables
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables ready!")
+    if settings.database_type == "dynamodb":
+        # DynamoDB setup
+        print("🔄 Checking DynamoDB tables...")
+        try:
+            from app.db.dynamodb_client import create_tables
+            create_tables()
+            print("✅ DynamoDB tables ready!")
+        except Exception as e:
+            print(f"⚠️ DynamoDB setup warning: {e}")
+            print("   Tables may need to be created manually")
+    else:
+        # SQLite/SQLAlchemy setup
+        from app.database import engine, Base
+        
+        # Import all models so SQLAlchemy knows about them
+        from app.models import User, Group, GroupMember, Expense, ExpenseSplit, Notification, Settlement
+        
+        # Create tables
+        Base.metadata.create_all(bind=engine)
+        print("✅ SQLite database tables ready!")
     
     yield  # App runs here
     
     # Shutdown
-    print("👋 Shutting down Split App...")
+    print("👋 Shutting down Hisab App...")
 
 
 # --- Create FastAPI Application ---

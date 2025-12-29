@@ -33,6 +33,10 @@ openai==1.10.0            # OpenAI API for AI features
 # --- Utilities ---
 python-dotenv==1.0.0      # Load environment variables from .env file
 
+# --- AWS / Serverless ---
+mangum==0.17.0            # Lambda adapter for FastAPI (ASGI to AWS Lambda)
+boto3==1.34.25            # AWS SDK for Python (DynamoDB, S3, etc.)
+
 # --- Development ---
 pytest==7.4.4             # Testing framework
 pytest-asyncio==0.23.3    # Async testing support

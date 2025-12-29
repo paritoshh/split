@@ -13,7 +13,7 @@ Why use a config file?
 """
 
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Literal
 
 
 class Settings(BaseSettings):
@@ -30,10 +30,22 @@ class Settings(BaseSettings):
     app_name: str = "Hisab"
     debug: bool = True
     
-    # --- Database ---
+    # --- Database Type ---
+    # "sqlite" for local SQLite (development)
+    # "dynamodb" for AWS DynamoDB (production)
+    database_type: Literal["sqlite", "dynamodb"] = "sqlite"
+    
+    # --- SQLite Database ---
     # SQLite URL format: sqlite:///./filename.db
-    # PostgreSQL URL format: postgresql://user:pass@host:port/dbname
     database_url: str = "sqlite:///./split.db"
+    
+    # --- DynamoDB Settings ---
+    # AWS region for DynamoDB
+    aws_region: str = "ap-south-1"  # Mumbai region
+    # DynamoDB table name prefix (e.g., "hisab_" -> "hisab_users", "hisab_groups")
+    dynamodb_table_prefix: str = "hisab_"
+    # Local DynamoDB endpoint (for testing with Docker)
+    dynamodb_endpoint_url: Optional[str] = None  # e.g., "http://localhost:8000" for local
     
     # --- Security ---
     # Secret key for creating JWT tokens
