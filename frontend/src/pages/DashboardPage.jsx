@@ -13,6 +13,7 @@ import { useAuth } from '../App'
 import { expensesAPI, groupsAPI } from '../services/api'
 import Layout from '../components/Layout'
 import SettleUpModal from '../components/SettleUpModal'
+import VoiceExpenseModal from '../components/VoiceExpenseModal'
 import {
   Plus,
   TrendingUp,
@@ -21,7 +22,8 @@ import {
   Receipt,
   ArrowRight,
   RefreshCw,
-  Banknote
+  Banknote,
+  Mic
 } from 'lucide-react'
 
 function DashboardPage() {
@@ -35,6 +37,10 @@ function DashboardPage() {
   // Settle up modal state
   const [showSettleModal, setShowSettleModal] = useState(false)
   const [selectedBalance, setSelectedBalance] = useState(null)
+  
+  // Voice expense modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState(null)
 
   // Fetch data on component mount
   useEffect(() => {
@@ -60,6 +66,17 @@ function DashboardPage() {
       setError('Failed to load data. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Handle opening voice modal - fetch group details first
+  const handleOpenVoiceModal = async (group) => {
+    try {
+      const response = await groupsAPI.getOne(group.id)
+      setSelectedGroup(response.data)
+      setShowVoiceModal(true)
+    } catch (err) {
+      console.error('Failed to fetch group:', err)
     }
   }
 
@@ -170,25 +187,30 @@ function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {groups.slice(0, 3).map(group => (
-                <Link
-                  key={group.id}
-                  to={`/groups/${group.id}`}
-                  className="card block hover:border-primary-500/50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
+                <div key={group.id} className="card hover:border-primary-500/50">
+                  <div className="flex items-center justify-between gap-2">
+                    <Link to={`/groups/${group.id}`} className="min-w-0 flex-1">
                       <h3 className="font-medium text-white text-sm truncate">{group.name}</h3>
                       <p className="text-[10px] sm:text-xs text-gray-500">
                         {group.member_count} members
                       </p>
-                    </div>
-                    <div className={`text-right flex-shrink-0 ml-2 ${group.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      <p className="font-semibold text-sm">
-                        ₹{Math.abs(group.your_balance || 0).toFixed(0)}
-                      </p>
+                    </Link>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleOpenVoiceModal(group)}
+                        className="p-1.5 rounded-lg bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 transition-colors"
+                        title="Voice Expense"
+                      >
+                        <Mic className="w-3.5 h-3.5" />
+                      </button>
+                      <Link to={`/groups/${group.id}`} className={`text-right ${group.your_balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        <p className="font-semibold text-sm">
+                          ₹{Math.abs(group.your_balance || 0).toFixed(0)}
+                        </p>
+                      </Link>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -318,6 +340,20 @@ function DashboardPage() {
         balance={selectedBalance}
         onSettled={fetchData}
       />
+
+      {/* Voice Expense Modal */}
+      {selectedGroup && (
+        <VoiceExpenseModal
+          isOpen={showVoiceModal}
+          onClose={() => {
+            setShowVoiceModal(false)
+            setSelectedGroup(null)
+          }}
+          groupId={selectedGroup.id}
+          groupMembers={selectedGroup.members || []}
+          onExpenseCreated={fetchData}
+        />
+      )}
     </Layout>
   )
 }
