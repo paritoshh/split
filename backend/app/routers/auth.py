@@ -61,7 +61,7 @@ async def register(
     )
     
     return UserResponse(
-        id=int(new_user["id"]) if new_user["id"] else 0,
+        id=new_user["id"],
         email=new_user["email"],
         name=new_user["name"],
         phone=new_user.get("phone"),
@@ -104,7 +104,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     Get current logged-in user's profile.
     """
     return UserResponse(
-        id=int(current_user["id"]) if current_user["id"] else 0,
+        id=current_user["id"],
         email=current_user["email"],
         name=current_user["name"],
         phone=current_user.get("phone"),
@@ -137,7 +137,7 @@ async def update_me(
         updated_user = current_user
     
     return UserResponse(
-        id=int(updated_user["id"]) if updated_user["id"] else 0,
+        id=updated_user["id"],
         email=updated_user["email"],
         name=updated_user["name"],
         phone=updated_user.get("phone"),
@@ -160,7 +160,7 @@ async def search_users(
     
     return [
         UserResponse(
-            id=int(u["id"]) if u["id"] else 0,
+            id=u["id"],
             email=u["email"],
             name=u["name"],
             phone=u.get("phone"),

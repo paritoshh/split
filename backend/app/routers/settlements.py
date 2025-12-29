@@ -104,13 +104,13 @@ async def record_settlement(
             group_name = group.get("name")
     
     return SettlementResponse(
-        id=int(settlement["id"]) if settlement.get("id") else 0,
-        from_user_id=int(from_user["id"]) if from_user.get("id") else 0,
+        id=settlement["id"],
+        from_user_id=from_user["id"],
         from_user_name=from_user.get("name", "Unknown"),
-        to_user_id=int(to_user["id"]) if to_user.get("id") else 0,
+        to_user_id=to_user["id"],
         to_user_name=to_user.get("name", "Unknown"),
         amount=settlement.get("amount", 0),
-        group_id=int(settlement["group_id"]) if settlement.get("group_id") else None,
+        group_id=settlement.get("group_id"),
         group_name=group_name,
         payment_method=settlement.get("payment_method", "other"),
         transaction_ref=settlement.get("transaction_ref"),
@@ -159,13 +159,13 @@ async def list_settlements(
                 group_name = group.get("name")
         
         result.append(SettlementResponse(
-            id=int(s["id"]) if s.get("id") else 0,
-            from_user_id=int(s["from_user_id"]) if s.get("from_user_id") else 0,
+            id=s["id"],
+            from_user_id=s["from_user_id"],
             from_user_name=from_user.get("name", "Unknown") if from_user else "Unknown",
-            to_user_id=int(s["to_user_id"]) if s.get("to_user_id") else 0,
+            to_user_id=s["to_user_id"],
             to_user_name=to_user.get("name", "Unknown") if to_user else "Unknown",
             amount=s.get("amount", 0),
-            group_id=int(s["group_id"]) if s.get("group_id") else None,
+            group_id=s.get("group_id"),
             group_name=group_name,
             payment_method=s.get("payment_method", "other"),
             transaction_ref=s.get("transaction_ref"),
@@ -250,7 +250,7 @@ async def get_user_upi_id(
         raise HTTPException(status_code=404, detail="User not found")
     
     return {
-        "user_id": int(user["id"]) if user.get("id") else 0,
+        "user_id": user["id"],
         "name": user.get("name", "Unknown"),
         "has_upi_id": bool(user.get("upi_id")),
         "upi_id": user.get("upi_id")

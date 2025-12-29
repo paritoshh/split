@@ -54,13 +54,13 @@ async def get_notifications(
         from_user_name = from_user.get("name") if from_user else None
         
         result.append(NotificationResponse(
-            id=int(notif["id"]) if notif.get("id") else 0,
+            id=notif["id"],
             notification_type=notif.get("notification_type", ""),
             title=notif.get("title", ""),
             message=notif.get("message", ""),
-            expense_id=int(notif["expense_id"]) if notif.get("expense_id") else None,
-            group_id=int(notif["group_id"]) if notif.get("group_id") else None,
-            from_user_id=int(notif["from_user_id"]) if notif.get("from_user_id") else None,
+            expense_id=notif.get("expense_id"),
+            group_id=notif.get("group_id"),
+            from_user_id=notif.get("from_user_id"),
             from_user_name=from_user_name,
             is_read=notif.get("is_read", False),
             created_at=notif.get("created_at")

@@ -100,7 +100,7 @@ async def list_groups(
         your_balance = sum(balances.values())
         
         result.append(GroupListResponse(
-            id=int(group["id"]) if group["id"] else 0,
+            id=group["id"],
             name=group["name"],
             description=group.get("description"),
             category=group.get("category", "other"),
@@ -339,8 +339,8 @@ def _build_group_response(db_service: DBService, group_id: str) -> GroupResponse
         user = m.get("user", {})
         if user:
             member_infos.append(GroupMemberInfo(
-                id=0,  # Not used in DynamoDB
-                user_id=int(user.get("id", 0)) if user.get("id") else 0,
+                id=user.get("id", 0),
+                user_id=user.get("id", 0),
                 user_name=user.get("name", "Unknown"),
                 user_email=user.get("email", ""),
                 role=m.get("role", "member"),
@@ -348,11 +348,11 @@ def _build_group_response(db_service: DBService, group_id: str) -> GroupResponse
             ))
     
     return GroupResponse(
-        id=int(group["id"]) if group["id"] else 0,
+        id=group["id"],
         name=group["name"],
         description=group.get("description"),
         category=group.get("category", "other"),
-        created_by_id=int(group.get("created_by_id", 0)) if group.get("created_by_id") else 0,
+        created_by_id=group.get("created_by_id", 0),
         is_active=group.get("is_active", True),
         created_at=group.get("created_at"),
         member_count=len(member_infos),

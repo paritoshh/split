@@ -192,7 +192,7 @@ async def get_overall_balances(
             user = db_service.get_user_by_id(str(user_id))
             if user:
                 result.append(BalanceResponse(
-                    user_id=int(user["id"]) if user.get("id") else 0,
+                    user_id=user["id"],
                     user_name=user.get("name", "Unknown"),
                     user_email=user.get("email", ""),
                     amount=round(amount, 2)
@@ -275,14 +275,14 @@ async def get_group_balances(
             user = db_service.get_user_by_id(str(user_id))
             if user:
                 balance_list.append(BalanceResponse(
-                    user_id=int(user["id"]) if user.get("id") else 0,
+                    user_id=user["id"],
                     user_name=user.get("name", "Unknown"),
                     user_email=user.get("email", ""),
                     amount=round(amount, 2)
                 ))
     
     return GroupBalanceResponse(
-        group_id=int(group["id"]) if group.get("id") else 0,
+        group_id=group["id"],
         group_name=group.get("name", "Unknown"),
         total_expenses=round(total_expenses, 2),
         your_total_paid=round(your_paid, 2),
@@ -482,8 +482,8 @@ def _build_expense_response_from_dict(db_service: DBService, expense: dict) -> E
         user = s.get("user") or db_service.get_user_by_id(str(s.get("user_id")))
         if user:
             split_responses.append(ExpenseSplitResponse(
-                id=int(s.get("id", 0)) if s.get("id") else 0,
-                user_id=int(user["id"]) if user.get("id") else 0,
+                id=s.get("id", 0) or s.get("expense_id", 0),
+                user_id=user["id"],
                 user_name=user.get("name", "Unknown"),
                 user_email=user.get("email", ""),
                 amount=s.get("amount", 0),
@@ -493,15 +493,15 @@ def _build_expense_response_from_dict(db_service: DBService, expense: dict) -> E
             ))
     
     return ExpenseResponse(
-        id=int(expense["id"]) if expense.get("id") else 0,
+        id=expense["id"],
         amount=expense.get("amount", 0),
         currency=expense.get("currency", "INR"),
         description=expense.get("description", ""),
         notes=expense.get("notes"),
         category=expense.get("category", "other"),
-        paid_by_id=int(expense["paid_by_id"]) if expense.get("paid_by_id") else 0,
+        paid_by_id=expense["paid_by_id"],
         paid_by_name=paid_by_name,
-        group_id=int(expense["group_id"]) if expense.get("group_id") else None,
+        group_id=expense.get("group_id"),
         group_name=group_name,
         split_type=expense.get("split_type", "equal"),
         expense_date=expense.get("expense_date"),

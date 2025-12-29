@@ -20,7 +20,7 @@ Common patterns:
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, Union
 from datetime import datetime
 
 
@@ -68,9 +68,9 @@ class UserResponse(UserBase):
     Notice: NO password field here!
     We never send passwords back to the client.
     """
-    id: int
+    id: Union[int, str]  # int for SQLite, str (UUID) for DynamoDB
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         # This allows Pydantic to read data from SQLAlchemy models
@@ -110,5 +110,5 @@ class TokenData(BaseModel):
     When we verify a token, we extract this data.
     """
     email: Optional[str] = None
-    user_id: Optional[int] = None
+    user_id: Optional[Union[int, str]] = None  # int for SQLite, str (UUID) for DynamoDB
 

@@ -3,11 +3,12 @@
 GROUP SCHEMAS
 ===========================================
 Schemas for group-related API operations.
+Supports both SQLite (int IDs) and DynamoDB (string UUIDs).
 ===========================================
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 
 
@@ -31,7 +32,7 @@ class GroupCreate(GroupBase):
     }
     """
     # Optional: Add members while creating the group (by user IDs)
-    member_user_ids: Optional[List[int]] = Field(
+    member_user_ids: Optional[List[Union[int, str]]] = Field(
         default=[], 
         description="User IDs of members to add"
     )
@@ -46,12 +47,12 @@ class GroupUpdate(BaseModel):
 
 class GroupMemberInfo(BaseModel):
     """Info about a group member."""
-    id: int
-    user_id: int
+    id: Union[int, str]
+    user_id: Union[int, str]
     user_name: str
     user_email: str
     role: str  # 'admin' or 'member'
-    joined_at: datetime
+    joined_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -62,10 +63,10 @@ class GroupResponse(GroupBase):
     Schema for returning group data in API responses.
     Includes list of members.
     """
-    id: int
-    created_by_id: int
+    id: Union[int, str]
+    created_by_id: Union[int, str]
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
     member_count: Optional[int] = 0
     members: Optional[List[GroupMemberInfo]] = []
     
@@ -79,26 +80,25 @@ class GroupMemberAdd(BaseModel):
     Can add by email or user_id.
     """
     email: Optional[str] = None
-    user_id: Optional[int] = None
+    user_id: Optional[Union[int, str]] = None
 
 
 class GroupMembersAdd(BaseModel):
     """
     Schema for adding multiple members to a group.
     """
-    user_ids: List[int] = Field(..., description="List of user IDs to add")
+    user_ids: List[Union[int, str]] = Field(..., description="List of user IDs to add")
 
 
 class GroupListResponse(BaseModel):
     """Schema for listing groups with basic info."""
-    id: int
+    id: Union[int, str]
     name: str
     description: Optional[str]
     category: str
     member_count: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     your_balance: float = 0.0  # How much you owe or are owed
     
     class Config:
         from_attributes = True
-

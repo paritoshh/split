@@ -3,11 +3,12 @@
 EXPENSE SCHEMAS
 ===========================================
 Schemas for expense-related API operations.
+Supports both SQLite (int IDs) and DynamoDB (string UUIDs).
 ===========================================
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 from enum import Enum
 
@@ -29,7 +30,7 @@ class ExpenseSplitCreate(BaseModel):
     For PERCENTAGE: provide user_id and percentage
     For SHARES: provide user_id and number of shares
     """
-    user_id: int
+    user_id: Union[int, str]
     amount: Optional[float] = None  # For EXACT splits
     percentage: Optional[float] = None  # For PERCENTAGE splits
     shares: Optional[float] = None  # For SHARES splits
@@ -70,13 +71,13 @@ class ExpenseCreate(BaseModel):
     currency: str = Field(default="INR")
     
     # Which group (optional for personal/1-on-1 expenses)
-    group_id: Optional[int] = None
+    group_id: Optional[Union[int, str]] = None
     
     # How to split
     split_type: SplitType = SplitType.EQUAL
     
     # For EQUAL splits - just list user IDs (current user auto-included)
-    split_with_user_ids: Optional[List[int]] = []
+    split_with_user_ids: Optional[List[Union[int, str]]] = []
     
     # For EXACT/PERCENTAGE/SHARES splits - detailed breakdown
     splits: Optional[List[ExpenseSplitCreate]] = []
@@ -90,14 +91,14 @@ class ExpenseCreate(BaseModel):
 
 class ExpenseSplitResponse(BaseModel):
     """Schema for split details in response."""
-    id: int
-    user_id: int
+    id: Union[int, str]
+    user_id: Union[int, str]
     user_name: str
     user_email: str
     amount: float
-    percentage: Optional[float]
-    shares: Optional[float]
-    is_paid: bool
+    percentage: Optional[float] = None
+    shares: Optional[float] = None
+    is_paid: bool = False
     
     class Config:
         from_attributes = True
@@ -105,23 +106,23 @@ class ExpenseSplitResponse(BaseModel):
 
 class ExpenseResponse(BaseModel):
     """Schema for returning expense data."""
-    id: int
+    id: Union[int, str]
     amount: float
     currency: str
     description: str
-    notes: Optional[str]
+    notes: Optional[str] = None
     category: str
     
-    paid_by_id: int
+    paid_by_id: Union[int, str]
     paid_by_name: str
     
-    group_id: Optional[int]
-    group_name: Optional[str]
+    group_id: Optional[Union[int, str]] = None
+    group_name: Optional[str] = None
     
     split_type: str
-    expense_date: datetime
-    is_settled: bool
-    created_at: datetime
+    expense_date: Optional[datetime] = None
+    is_settled: bool = False
+    created_at: Optional[datetime] = None
     
     splits: List[ExpenseSplitResponse] = []
     
@@ -139,7 +140,7 @@ class ExpenseUpdate(BaseModel):
     
     # For updating splits
     split_type: Optional[SplitType] = None
-    split_with_user_ids: Optional[List[int]] = None  # For equal splits
+    split_with_user_ids: Optional[List[Union[int, str]]] = None  # For equal splits
     splits: Optional[List[ExpenseSplitCreate]] = None  # For exact splits
 
 
@@ -150,7 +151,7 @@ class BalanceResponse(BaseModel):
     Positive amount = they owe you
     Negative amount = you owe them
     """
-    user_id: int
+    user_id: Union[int, str]
     user_name: str
     user_email: str
     amount: float  # Positive = they owe you, Negative = you owe them
@@ -161,7 +162,7 @@ class BalanceResponse(BaseModel):
 
 class GroupBalanceResponse(BaseModel):
     """Overall balance in a group."""
-    group_id: int
+    group_id: Union[int, str]
     group_name: str
     total_expenses: float
     your_total_paid: float
@@ -172,8 +173,7 @@ class GroupBalanceResponse(BaseModel):
 
 class SettlementCreate(BaseModel):
     """Schema for recording a settlement/payment."""
-    to_user_id: int  # Who you're paying
+    to_user_id: Union[int, str]  # Who you're paying
     amount: float = Field(..., gt=0)
-    group_id: Optional[int] = None
+    group_id: Optional[Union[int, str]] = None
     notes: Optional[str] = None
-
