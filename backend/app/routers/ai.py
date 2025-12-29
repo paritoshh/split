@@ -93,11 +93,15 @@ RULES:
 2. Extract description/purpose - what the expense is for (default: "General Expense")
 3. Handle Hindi names and mixed Hindi-English input
 4. IMPORTANT NAME MATCHING RULES:
-   - If user says a first name like "Pankaj" and there are multiple members with that first name 
-     (e.g., "Pankaj", "Pankaj Sharma", "Pankaj Mishra"), put ALL of them in ambiguous_names
-   - Only put in matched_members if there's EXACTLY ONE person matching that name
-   - Use confidence: "exact" only for full name exact match
-   - Use confidence: "partial" for first name or partial matches
+   - FULL NAME MATCH: If user says "Pankaj Mishra" and there's a member "Pankaj Mishra" 
+     → Put in matched_members with confidence: "exact" (HIGH confidence)
+   - PARTIAL NAME, SINGLE MATCH: If user says "Pankaj" and there's ONLY ONE person with "Pankaj" in their name
+     → Put in matched_members with confidence: "partial"
+   - PARTIAL NAME, MULTIPLE MATCHES: If user says "Pankaj" and there are multiple people 
+     (e.g., "Pankaj", "Pankaj Sharma", "Pankaj Mishra")
+     → Put ALL of them in ambiguous_names (LOW confidence, needs review)
+   - Use confidence: "exact" ONLY for full name exact match
+   - Use confidence: "partial" for first name matches (single match)
    - Use confidence: "fuzzy" for similar sounding names
 5. Do NOT auto-include the expense creator - only include names explicitly mentioned
 
@@ -115,12 +119,20 @@ OUTPUT FORMAT (JSON only, no explanation):
   "include_all": <true if user said "everyone" or "all">
 }
 
-EXAMPLE:
-If members are: Pankaj, Pankaj Sharma, Pankaj Mishra, Aman
-And user says "expense with Pankaj and Aman"
+EXAMPLES:
+Example 1 - Partial name with multiple matches (LOW confidence):
+Members: Pankaj, Pankaj Sharma, Pankaj Mishra, Aman
+User says: "expense with Pankaj and Aman"
 Result:
-- matched_members: [Aman] (only one Aman)
-- ambiguous_names: [{searched_name: "Pankaj", possible_matches: [Pankaj, Pankaj Sharma, Pankaj Mishra]}]"""
+- matched_members: [{Aman, confidence: "exact"}] (only one Aman)
+- ambiguous_names: [{searched_name: "Pankaj", possible_matches: [Pankaj, Pankaj Sharma, Pankaj Mishra]}]
+
+Example 2 - Full name exact match (HIGH confidence):
+Members: Pankaj, Pankaj Sharma, Pankaj Mishra, Aman
+User says: "expense with Pankaj Mishra and Aman"
+Result:
+- matched_members: [{Pankaj Mishra, confidence: "exact"}, {Aman, confidence: "exact"}]
+- ambiguous_names: [] (empty - no ambiguity)"""
 
         user_prompt = f"""Parse this expense:
 "{request.transcript}"
