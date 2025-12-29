@@ -104,7 +104,7 @@ function VoiceExpenseModal({
         if (transcript.trim()) {
           handleParseVoice()
         }
-      }, 300)
+      }, 2500)  // 2.5 second delay to allow natural pauses
       return () => clearTimeout(timer)
     }
     prevIsListeningRef.current = isListening
@@ -256,12 +256,9 @@ function VoiceExpenseModal({
     setDraftAmount(parsed.amount?.toString() || '')
     setDraftDescription(parsed.description || 'General Expense')
     
-    // Set selected members (matched ones)
+    // Set selected members (matched ones only - don't auto-include current user)
+    // The payer (current user) may or may not be part of the split
     const memberIds = parsed.matchedMembers.map(m => m.user_id)
-    // Always include current user if not already included
-    if (user && !memberIds.includes(user.id)) {
-      memberIds.push(user.id)
-    }
     setSelectedMembers(memberIds)
 
     // Initialize ambiguous selections (first option selected by default)
@@ -493,10 +490,13 @@ function VoiceExpenseModal({
           {/* Review Step */}
           {step === 'review' && parsedExpense && (
             <div className="space-y-4">
-              {/* Original transcript */}
-              <div className="bg-dark-200 rounded-xl p-3">
-                <p className="text-xs text-gray-500 mb-1">Original voice input:</p>
-                <p className="text-sm text-gray-300 italic">"{parsedExpense.rawTranscript}"</p>
+              {/* Original voice command - shown prominently for review */}
+              <div className="bg-primary-500/10 border border-primary-500/30 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Mic className="w-4 h-4 text-primary-400" />
+                  <p className="text-xs text-primary-400 font-medium">What you said:</p>
+                </div>
+                <p className="text-white italic">"{parsedExpense.rawTranscript}"</p>
               </div>
 
               {/* Parsing mode indicator */}

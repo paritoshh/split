@@ -91,9 +91,15 @@ async def parse_voice_expense(
 RULES:
 1. Extract the amount (number) - could be in formats like "500", "₹500", "500 rupees", "five hundred"
 2. Extract description/purpose - what the expense is for (default: "General Expense")
-3. Match names to group members - be flexible with spelling, nicknames, partial names
-4. Handle Hindi names and mixed Hindi-English input
-5. If a name could match multiple members, list all possibilities
+3. Handle Hindi names and mixed Hindi-English input
+4. IMPORTANT NAME MATCHING RULES:
+   - If user says a first name like "Pankaj" and there are multiple members with that first name 
+     (e.g., "Pankaj", "Pankaj Sharma", "Pankaj Mishra"), put ALL of them in ambiguous_names
+   - Only put in matched_members if there's EXACTLY ONE person matching that name
+   - Use confidence: "exact" only for full name exact match
+   - Use confidence: "partial" for first name or partial matches
+   - Use confidence: "fuzzy" for similar sounding names
+5. Do NOT auto-include the expense creator - only include names explicitly mentioned
 
 OUTPUT FORMAT (JSON only, no explanation):
 {
@@ -107,7 +113,14 @@ OUTPUT FORMAT (JSON only, no explanation):
   ],
   "unmatched_names": ["<names not found in group>"],
   "include_all": <true if user said "everyone" or "all">
-}"""
+}
+
+EXAMPLE:
+If members are: Pankaj, Pankaj Sharma, Pankaj Mishra, Aman
+And user says "expense with Pankaj and Aman"
+Result:
+- matched_members: [Aman] (only one Aman)
+- ambiguous_names: [{searched_name: "Pankaj", possible_matches: [Pankaj, Pankaj Sharma, Pankaj Mishra]}]"""
 
         user_prompt = f"""Parse this expense:
 "{request.transcript}"
