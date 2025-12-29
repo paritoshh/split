@@ -221,6 +221,7 @@ function VoiceExpenseModal({
           parsed = {
             amount: aiResult.amount,
             description: aiResult.description,
+            expenseDate: aiResult.expense_date,  // YYYY-MM-DD or null
             matchedMembers: aiResult.matched_members.map(m => ({
               user_id: m.user_id,
               user_name: m.user_name,
@@ -255,6 +256,10 @@ function VoiceExpenseModal({
     // Set draft values
     setDraftAmount(parsed.amount?.toString() || '')
     setDraftDescription(parsed.description || 'General Expense')
+    // Use parsed date if available, otherwise use today
+    if (parsed.expenseDate) {
+      setDraftDate(parsed.expenseDate)
+    }
     
     // Set selected members - include matched members AND all ambiguous matches by default
     // User can remove the ones they don't want during review

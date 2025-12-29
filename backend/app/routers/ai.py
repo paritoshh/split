@@ -46,6 +46,7 @@ class VoiceParseResponse(BaseModel):
     success: bool
     amount: Optional[float] = None
     description: str = "General Expense"
+    expense_date: Optional[str] = None  # YYYY-MM-DD format or null
     matched_members: List[ParsedMember] = []
     ambiguous_names: List[AmbiguousName] = []
     unmatched_names: List[str] = []
@@ -107,7 +108,12 @@ async def parse_voice_expense(
 RULES:
 1. Extract the amount (number) - could be in formats like "500", "₹500", "500 rupees", "five hundred"
 2. Extract description/purpose - what the expense is for (default: "General Expense")
-3. Handle Hindi names and mixed Hindi-English input
+3. Extract date if mentioned - formats like "yesterday", "last Monday", "25th December", "kal", "parso"
+   - Return as ISO format (YYYY-MM-DD) or null if not mentioned
+   - "yesterday" = subtract 1 day from today
+   - "day before yesterday" / "parso" = subtract 2 days
+   - If no date mentioned, return null (frontend will use today)
+4. Handle Hindi names and mixed Hindi-English input
 4. IMPORTANT NAME MATCHING RULES:
    - FULL NAME MATCH: If user says "Pankaj Mishra" and there's a member "Pankaj Mishra" 
      → Put in matched_members with confidence: "exact" (HIGH confidence)
@@ -125,6 +131,7 @@ OUTPUT FORMAT (JSON only, no explanation):
 {
   "amount": <number or null>,
   "description": "<string>",
+  "expense_date": "<YYYY-MM-DD or null if not mentioned>",
   "matched_members": [
     {"user_id": <id>, "user_name": "<name>", "confidence": "exact|partial|fuzzy"}
   ],
@@ -198,6 +205,7 @@ Extract amount, description, and match names to group members. Return JSON only.
             success=True,
             amount=parsed.get("amount"),
             description=parsed.get("description", "General Expense"),
+            expense_date=parsed.get("expense_date"),  # YYYY-MM-DD or null
             matched_members=[
                 ParsedMember(**m) for m in parsed.get("matched_members", [])
             ],
