@@ -94,6 +94,22 @@ function VoiceExpenseModal({
     }
   }, [isOpen])
 
+  // Auto-analyze when user stops speaking
+  const prevIsListeningRef = useRef(false)
+  useEffect(() => {
+    // Detect transition from listening (true) to not listening (false)
+    if (prevIsListeningRef.current && !isListening && step === 'record') {
+      // Small delay to ensure transcript state is updated
+      const timer = setTimeout(() => {
+        if (transcript.trim()) {
+          handleParseVoice()
+        }
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+    prevIsListeningRef.current = isListening
+  }, [isListening, step, transcript])
+
   const resetState = () => {
     setTranscript('')
     setInterimTranscript('')
