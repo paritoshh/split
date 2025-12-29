@@ -20,20 +20,22 @@
 import axios from 'axios'
 
 // Determine the API base URL
-// For mobile app: use your Mac's local IP (must be on same WiFi)
-// For web: use empty string (proxy handles it) or deployed URL
+// For mobile app: use AWS API Gateway URL
+// For web: use environment variable, AWS URL, or empty for local proxy
 const getBaseUrl = () => {
   // Check if running in Capacitor (mobile app)
   const isCapacitor = window.Capacitor !== undefined;
   
+  // AWS API Gateway URL (production)
+  const AWS_API_URL = 'https://2cjvid84h1.execute-api.ap-south-1.amazonaws.com';
+  
   if (isCapacitor) {
-    // Mobile app - use your Windows machine IP address
-    // TODO: Change this to your deployed server URL when you deploy
-    return 'http://192.168.1.4:8000';
+    // Mobile app - use AWS API Gateway
+    return AWS_API_URL;
   }
   
-  // Web app - use environment variable or empty for proxy
-  return import.meta.env.VITE_API_URL || '';
+  // Web app - use environment variable, or AWS URL for production, or empty for local proxy
+  return import.meta.env.VITE_API_URL || (import.meta.env.PROD ? AWS_API_URL : '');
 };
 
 // Create axios instance with base configuration
