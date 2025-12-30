@@ -1,0 +1,9 @@
+{
+  "Variables": {
+    "DATABASE_TYPE": "dynamodb",
+    "DYNAMODB_TABLE_PREFIX": "hisab_",
+    "SECRET_KEY": "REPLACE_WITH_YOUR_SECRET_KEY",
+    "ALLOWED_ORIGINS": "https://hisab.paritoshagarwal.com,http://localhost:5173,capacitor://localhost,http://127.0.0.1:5173",
+    "DEBUG": "false"
+  }
+}

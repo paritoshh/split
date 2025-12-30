@@ -39,30 +39,51 @@ if (Test-Path "lambda_deployment.zip") {
 # Build Docker image and create package
 Write-Host ""
 Write-Host "Building Lambda package in Docker (this may take 2-5 minutes)..." -ForegroundColor Yellow
+Write-Host "This will install all Python dependencies compiled for Linux..." -ForegroundColor Gray
 Write-Host ""
 
-docker build -f deployment/Dockerfile.lambda -t hisab-lambda-builder .
+$buildOutput = docker build -f deployment/Dockerfile.lambda -t hisab-lambda-builder . 2>&1
+$buildExitCode = $LASTEXITCODE
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Docker build failed" -ForegroundColor Red
+if ($buildExitCode -ne 0) {
+    Write-Host "❌ Docker build failed!" -ForegroundColor Red
+    Write-Host "Build output:" -ForegroundColor Yellow
+    Write-Host $buildOutput -ForegroundColor Gray
     exit 1
 }
+
+Write-Host "✅ Docker build completed successfully" -ForegroundColor Green
 
 # Extract zip file from container
 Write-Host ""
 Write-Host "Extracting deployment package..." -ForegroundColor Yellow
-docker create --name lambda-builder-temp hisab-lambda-builder
-docker cp lambda-builder-temp:/build/lambda_deployment.zip ./lambda_deployment.zip
-docker rm lambda-builder-temp
+docker create --name lambda-builder-temp hisab-lambda-builder 2>&1 | Out-Null
 
-if (-not (Test-Path "lambda_deployment.zip")) {
-    Write-Host "❌ Failed to extract zip file" -ForegroundColor Red
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Failed to create container" -ForegroundColor Red
     exit 1
 }
 
-# Get zip size
+docker cp lambda-builder-temp:/build/lambda_deployment.zip ./lambda_deployment.zip
+docker rm lambda-builder-temp 2>&1 | Out-Null
+
+if (-not (Test-Path "lambda_deployment.zip")) {
+    Write-Host "❌ Failed to extract zip file from container" -ForegroundColor Red
+    Write-Host "Checking container contents..." -ForegroundColor Yellow
+    docker run --rm hisab-lambda-builder ls -la /build/ 2>&1
+    exit 1
+}
+
+# Get zip size and verify it's reasonable
 $zipSize = (Get-Item lambda_deployment.zip).Length / 1MB
 Write-Host "✅ Package created: $([math]::Round($zipSize, 2)) MB" -ForegroundColor Green
+
+if ($zipSize -lt 10) {
+    Write-Host "⚠️  Warning: Package seems too small. It should be 20-40 MB." -ForegroundColor Yellow
+}
+if ($zipSize -gt 50) {
+    Write-Host "⚠️  Warning: Package is larger than 50MB. Lambda direct upload limit is 50MB." -ForegroundColor Yellow
+}
 
 # Upload to Lambda
 Write-Host ""
