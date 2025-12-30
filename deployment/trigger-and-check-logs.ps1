@@ -26,7 +26,7 @@ $testPayload = @{
     isBase64Encoded = $false
 } | ConvertTo-Json -Depth 10
 
-$testPayload | Out-File -FilePath "lambda-trigger.json" -Encoding UTF8
+$testPayload | Out-File -FilePath "lambda-trigger.json" -Encoding utf8 -NoNewline
 
 Write-Host "Invoking Lambda..." -ForegroundColor Yellow
 Write-Host ""
