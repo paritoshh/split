@@ -1,15 +1,14 @@
 # Test if Lambda can access DynamoDB
 # This script invokes a test Lambda function to check DynamoDB access
 
-$FUNCTION_NAME = "hisab-api"
-$AWS_REGION = "ap-south-1"
+$API_BASE_URL = "https://2cjvid84h1.execute-api.ap-south-1.amazonaws.com"
 
 Write-Host "=== Testing Lambda DynamoDB Access ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Test the /health endpoint first
 Write-Host "1. Testing /health endpoint..." -ForegroundColor Yellow
-$healthResponse = Invoke-WebRequest -Uri "https://hisab-api-294618942342.ap-south-1.amazonaws.com/health" -Method GET -UseBasicParsing -ErrorAction SilentlyContinue
+$healthResponse = Invoke-WebRequest -Uri "$API_BASE_URL/health" -Method GET -UseBasicParsing -ErrorAction SilentlyContinue
 
 if ($healthResponse.StatusCode -eq 200) {
     Write-Host "✅ Health endpoint working" -ForegroundColor Green
@@ -29,7 +28,7 @@ $registerBody = @{
 
 try {
     $registerResponse = Invoke-WebRequest `
-        -Uri "https://hisab-api-294618942342.ap-south-1.amazonaws.com/api/auth/register" `
+        -Uri "$API_BASE_URL/api/auth/register" `
         -Method POST `
         -Body $registerBody `
         -ContentType "application/json" `
