@@ -37,10 +37,17 @@ def get_dynamodb_client():
         }
         if settings.dynamodb_endpoint_url:
             config["endpoint_url"] = settings.dynamodb_endpoint_url
-        # Add credentials if provided (for local testing)
-        if settings.aws_access_key_id and settings.aws_secret_access_key:
+        # Add credentials ONLY if explicitly provided (for local testing)
+        # In Lambda, we should NOT provide credentials - use IAM role instead
+        if (settings.aws_access_key_id and 
+            settings.aws_secret_access_key and
+            settings.aws_access_key_id.strip() and 
+            settings.aws_secret_access_key.strip()):
+            logger.info("Using explicit AWS credentials (local testing mode)")
             config["aws_access_key_id"] = settings.aws_access_key_id
             config["aws_secret_access_key"] = settings.aws_secret_access_key
+        else:
+            logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
         _dynamodb_client = boto3.client("dynamodb", **config)
     return _dynamodb_client
 
@@ -54,10 +61,17 @@ def get_dynamodb_resource():
         }
         if settings.dynamodb_endpoint_url:
             config["endpoint_url"] = settings.dynamodb_endpoint_url
-        # Add credentials if provided (for local testing)
-        if settings.aws_access_key_id and settings.aws_secret_access_key:
+        # Add credentials ONLY if explicitly provided (for local testing)
+        # In Lambda, we should NOT provide credentials - use IAM role instead
+        if (settings.aws_access_key_id and 
+            settings.aws_secret_access_key and
+            settings.aws_access_key_id.strip() and 
+            settings.aws_secret_access_key.strip()):
+            logger.info("Using explicit AWS credentials (local testing mode)")
             config["aws_access_key_id"] = settings.aws_access_key_id
             config["aws_secret_access_key"] = settings.aws_secret_access_key
+        else:
+            logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
         _dynamodb_resource = boto3.resource("dynamodb", **config)
     return _dynamodb_resource
 
