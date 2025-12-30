@@ -1,0 +1,30 @@
+# Dockerfile for building Lambda deployment package
+# This ensures dependencies are compiled for Linux (Lambda's runtime)
+# Lambda uses Amazon Linux 2, so we use a similar base
+
+FROM python:3.11-slim
+
+# Install zip utility
+RUN apt-get update && apt-get install -y zip && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /build
+
+# Copy requirements first (for better caching)
+COPY backend/requirements.txt .
+
+# Install dependencies to /build/package (Lambda-compatible location)
+# This will compile pydantic-core and other C extensions for Linux
+RUN pip install -r requirements.txt -t /build/package --no-cache-dir
+
+# Copy application code
+COPY backend/app /build/package/app/
+COPY backend/lambda_handler.py /build/package/
+
+# Create zip file
+WORKDIR /build/package
+RUN zip -r /build/lambda_deployment.zip . -q
+
+# The zip file will be in /build/lambda_deployment.zip
+# We'll copy it out in the build script
+
