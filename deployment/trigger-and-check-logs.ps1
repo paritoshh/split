@@ -6,27 +6,10 @@ $AWS_REGION = "ap-south-1"
 Write-Host "=== Triggering Lambda and Checking Logs ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Create test payload
-$testPayload = @{
-    version = "2.0"
-    routeKey = "POST /api/auth/register"
-    rawPath = "/api/auth/register"
-    headers = @{
-        "content-type" = "application/json"
-    }
-    requestContext = @{
-        accountId = "294618942342"
-        apiId = "e65w7up0h8"
-        http = @{
-            method = "POST"
-            path = "/api/auth/register"
-        }
-    }
-    body = '{"name":"Test User","email":"test@test.com","password":"test123"}'
-    isBase64Encoded = $false
-} | ConvertTo-Json -Depth 10
+# Create test payload as JSON string directly
+$testPayloadJson = '{"version":"2.0","routeKey":"POST /api/auth/register","rawPath":"/api/auth/register","headers":{"content-type":"application/json"},"requestContext":{"accountId":"294618942342","apiId":"e65w7up0h8","http":{"method":"POST","path":"/api/auth/register"}},"body":"{\"name\":\"Test User\",\"email\":\"test@test.com\",\"password\":\"test123\"}","isBase64Encoded":false}'
 
-$testPayload | Out-File -FilePath "lambda-trigger.json" -Encoding utf8 -NoNewline
+$testPayloadJson | Out-File -FilePath "lambda-trigger.json" -Encoding ASCII -NoNewline
 
 Write-Host "Invoking Lambda..." -ForegroundColor Yellow
 Write-Host ""
