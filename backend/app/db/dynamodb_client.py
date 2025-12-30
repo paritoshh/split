@@ -72,7 +72,13 @@ def get_dynamodb_resource():
             config["aws_secret_access_key"] = settings.aws_secret_access_key
         else:
             logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
-        _dynamodb_resource = boto3.resource("dynamodb", **config)
+            logger.info(f"Region: {settings.aws_region}, Endpoint: {settings.dynamodb_endpoint_url or 'AWS'}")
+        # Explicitly don't pass credentials to force use of IAM role
+        _dynamodb_resource = boto3.resource("dynamodb", region_name=settings.aws_region)
+        if settings.dynamodb_endpoint_url:
+            # Only set endpoint_url if explicitly provided (for local testing)
+            _dynamodb_resource = boto3.resource("dynamodb", region_name=settings.aws_region, endpoint_url=settings.dynamodb_endpoint_url)
+        logger.info("DynamoDB resource created successfully")
     return _dynamodb_resource
 
 
