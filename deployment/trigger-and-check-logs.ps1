@@ -14,11 +14,12 @@ $testPayloadJson | Out-File -FilePath "lambda-trigger.json" -Encoding ASCII -NoN
 Write-Host "Invoking Lambda..." -ForegroundColor Yellow
 Write-Host ""
 
-# Invoke Lambda
+# Invoke Lambda (use --cli-binary-format to handle JSON properly)
 $result = aws lambda invoke `
     --function-name $LAMBDA_FUNCTION `
     --region $AWS_REGION `
-    --payload "file://lambda-trigger.json" `
+    --cli-binary-format raw-in-base64-out `
+    --payload file://lambda-trigger.json `
     --log-type Tail `
     lambda-response.json 2>&1
 
