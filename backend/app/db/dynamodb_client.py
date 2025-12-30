@@ -32,23 +32,31 @@ def get_dynamodb_client():
     """Get or create DynamoDB client."""
     global _dynamodb_client
     if _dynamodb_client is None:
-        config = {
-            "region_name": settings.aws_region
-        }
-        if settings.dynamodb_endpoint_url:
-            config["endpoint_url"] = settings.dynamodb_endpoint_url
-        # Add credentials ONLY if explicitly provided (for local testing)
-        # In Lambda, we should NOT provide credentials - use IAM role instead
+        # In Lambda, boto3 automatically uses the IAM role - DO NOT pass credentials
+        # Only pass credentials if explicitly provided for local testing
         if (settings.aws_access_key_id and 
             settings.aws_secret_access_key and
             settings.aws_access_key_id.strip() and 
             settings.aws_secret_access_key.strip()):
             logger.info("Using explicit AWS credentials (local testing mode)")
-            config["aws_access_key_id"] = settings.aws_access_key_id
-            config["aws_secret_access_key"] = settings.aws_secret_access_key
+            config = {
+                "region_name": settings.aws_region,
+                "aws_access_key_id": settings.aws_access_key_id,
+                "aws_secret_access_key": settings.aws_secret_access_key
+            }
+            if settings.dynamodb_endpoint_url:
+                config["endpoint_url"] = settings.dynamodb_endpoint_url
+            _dynamodb_client = boto3.client("dynamodb", **config)
         else:
+            # Lambda mode: Use IAM role - explicitly don't pass any credentials
             logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
-        _dynamodb_client = boto3.client("dynamodb", **config)
+            if settings.dynamodb_endpoint_url:
+                # Local DynamoDB testing
+                _dynamodb_client = boto3.client("dynamodb", region_name=settings.aws_region, endpoint_url=settings.dynamodb_endpoint_url)
+            else:
+                # AWS DynamoDB - use IAM role (default credential chain)
+                _dynamodb_client = boto3.client("dynamodb", region_name=settings.aws_region)
+            logger.info("DynamoDB client created successfully (using IAM role)")
     return _dynamodb_client
 
 
@@ -56,25 +64,32 @@ def get_dynamodb_resource():
     """Get or create DynamoDB resource (higher-level API)."""
     global _dynamodb_resource
     if _dynamodb_resource is None:
-        config = {
-            "region_name": settings.aws_region
-        }
-        if settings.dynamodb_endpoint_url:
-            config["endpoint_url"] = settings.dynamodb_endpoint_url
-        # Add credentials ONLY if explicitly provided (for local testing)
-        # In Lambda, we should NOT provide credentials - use IAM role instead
+        # In Lambda, boto3 automatically uses the IAM role - DO NOT pass credentials
+        # Only pass credentials if explicitly provided for local testing
         if (settings.aws_access_key_id and 
             settings.aws_secret_access_key and
             settings.aws_access_key_id.strip() and 
             settings.aws_secret_access_key.strip()):
             logger.info("Using explicit AWS credentials (local testing mode)")
-            config["aws_access_key_id"] = settings.aws_access_key_id
-            config["aws_secret_access_key"] = settings.aws_secret_access_key
+            config = {
+                "region_name": settings.aws_region,
+                "aws_access_key_id": settings.aws_access_key_id,
+                "aws_secret_access_key": settings.aws_secret_access_key
+            }
+            if settings.dynamodb_endpoint_url:
+                config["endpoint_url"] = settings.dynamodb_endpoint_url
+            _dynamodb_resource = boto3.resource("dynamodb", **config)
         else:
+            # Lambda mode: Use IAM role - explicitly don't pass any credentials
             logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
             logger.info(f"Region: {settings.aws_region}, Endpoint: {settings.dynamodb_endpoint_url or 'AWS'}")
-        _dynamodb_resource = boto3.resource("dynamodb", **config)
-        logger.info("DynamoDB resource created successfully")
+            if settings.dynamodb_endpoint_url:
+                # Local DynamoDB testing
+                _dynamodb_resource = boto3.resource("dynamodb", region_name=settings.aws_region, endpoint_url=settings.dynamodb_endpoint_url)
+            else:
+                # AWS DynamoDB - use IAM role (default credential chain)
+                _dynamodb_resource = boto3.resource("dynamodb", region_name=settings.aws_region)
+            logger.info("DynamoDB resource created successfully (using IAM role)")
     return _dynamodb_resource
 
 
