@@ -92,10 +92,18 @@ class DynamoDBService:
     
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """Get user by email."""
-        table = get_table("users")
-        response = table.query(
+        # Use client directly instead of resource (workaround for IAM role issue with resource)
+        from app.db.dynamodb_client import get_dynamodb_client, get_table_name
+        client = get_dynamodb_client()
+        table_name = get_table_name("users")
+        
+        response = client.query(
+            TableName=table_name,
             IndexName="email-index",
-            KeyConditionExpression=Key("email").eq(email.lower())
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={
+                ":email": {"S": email.lower()}
+            }
         )
         items = response.get("Items", [])
         return self._user_to_response(items[0]) if items else None
