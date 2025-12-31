@@ -278,27 +278,49 @@ class DynamoDBService:
     
     def get_user_groups(self, user_id: str) -> List[dict]:
         """Get all groups a user is member of."""
-        members_table = get_table("group_members")
-        groups_table = get_table("groups")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        # Get user's memberships
-        response = members_table.query(
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_groups")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        members_table_name = get_table_name("group_members")
+        groups_table_name = get_table_name("groups")
+        
+        logger.info(f"Querying {members_table_name} for user {user_id}")
+        
+        # Get user's memberships using client
+        response = client.query(
+            TableName=members_table_name,
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(str(user_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="user_id = :user_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":user_id": {"S": str(user_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         groups = []
-        for membership in response.get("Items", []):
-            # Deserialize membership item if needed
-            membership = deserialize_dynamodb_item(membership)
-            group_response = groups_table.get_item(
-                Key={"group_id": membership["group_id"]}
+        for membership_item in response.get("Items", []):
+            # Deserialize membership item
+            membership = deserialize_dynamodb_item(membership_item)
+            group_id = membership["group_id"]
+            
+            # Get group using client
+            group_response = client.get_item(
+                TableName=groups_table_name,
+                Key={"group_id": {"S": group_id}}
             )
-            group = group_response.get("Item")
-            if group:
-                # Deserialize group item if needed
-                group = deserialize_dynamodb_item(group)
+            group_item = group_response.get("Item")
+            if group_item:
+                # Deserialize group item
+                group = deserialize_dynamodb_item(group_item)
                 if group.get("is_active", True):
                     group_data = self._group_to_response(group)
                     group_data["members"] = self.get_group_members(group["group_id"])
