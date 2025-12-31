@@ -1,11 +1,13 @@
 # Dockerfile for building Lambda deployment package
 # This ensures dependencies are compiled for Linux (Lambda's runtime)
-# Lambda uses Amazon Linux 2, so we use a similar base
+# Lambda uses Amazon Linux 2 with GLIBC 2.26, so we need to match that
 
-FROM python:3.11-slim
+# Use Amazon Linux 2 as base to match Lambda runtime exactly
+FROM public.ecr.aws/lambda/python:3.11
 
-# Install zip utility
-RUN apt-get update && apt-get install -y zip && rm -rf /var/lib/apt/lists/*
+# Install zip utility and build dependencies
+RUN yum install -y zip gcc python3-devel libffi-devel openssl-devel && \
+    yum clean all
 
 # Set working directory
 WORKDIR /build
@@ -13,20 +15,11 @@ WORKDIR /build
 # Copy requirements first (for better caching)
 COPY backend/requirements.txt .
 
-# Install build dependencies for bcrypt and other C extensions
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    python3-dev \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install bcrypt FIRST (before passlib) to ensure it's available
-# This ensures bcrypt is compiled and available when passlib tries to use it
-RUN pip install bcrypt==4.1.2 -t /build/package --no-cache-dir && \
-    echo "✅ bcrypt installed" && \
-    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt import verified')"
+# Compile from source to match Lambda's GLIBC version (2.26)
+RUN pip install bcrypt==4.1.2 -t /build/package --no-cache-dir --no-binary bcrypt && \
+    echo "bcrypt installed from source" && \
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('bcrypt import verified')"
 
 # Install all other dependencies
 RUN pip install -r requirements.txt -t /build/package --no-cache-dir
