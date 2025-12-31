@@ -1,17 +1,36 @@
 # Dockerfile for building Lambda deployment package
-# Uses Python 3.11 with bcrypt 3.2.2 (compatible with Lambda GLIBC 2.26)
-# bcrypt 3.2.2 has manylinux wheels compatible with older GLIBC versions
+# Uses Amazon Linux 2 to match Lambda runtime GLIBC 2.26 exactly
+# Installs Python 3.11 from source to ensure compatibility
 
-FROM python:3.11-slim
+FROM amazonlinux:2
 
-# Install zip utility and build dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies and Python 3.11 from source
+RUN yum groupinstall -y "Development Tools" && \
+    yum install -y \
     zip \
+    wget \
     gcc \
-    python3-dev \
-    libffi-dev \
-    openssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+    make \
+    openssl-devel \
+    libffi-devel \
+    bzip2-devel \
+    readline-devel \
+    sqlite-devel \
+    xz-devel \
+    zlib-devel \
+    && yum clean all
+
+# Download and install Python 3.11 from source
+RUN cd /tmp && \
+    wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz && \
+    tar xzf Python-3.11.9.tgz && \
+    cd Python-3.11.9 && \
+    ./configure --prefix=/usr/local --enable-optimizations && \
+    make altinstall && \
+    cd / && \
+    rm -rf /tmp/Python-3.11.9* && \
+    ln -sf /usr/local/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3
 
 # Set working directory
 WORKDIR /build
