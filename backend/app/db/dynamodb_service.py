@@ -92,10 +92,21 @@ class DynamoDBService:
     
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """Get user by email."""
-        # Use client directly instead of resource (workaround for IAM role issue with resource)
-        from app.db.dynamodb_client import get_dynamodb_client, get_table_name
-        client = get_dynamodb_client()
+        # Create client directly (like simple test Lambda that works)
+        # This ensures we use IAM role credentials, not cached/stale credentials
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_by_email")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
         table_name = get_table_name("users")
+        
+        logger.info(f"Querying table {table_name} with email {email}")
         
         response = client.query(
             TableName=table_name,
