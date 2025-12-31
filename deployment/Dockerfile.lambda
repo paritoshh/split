@@ -1,11 +1,18 @@
 # Dockerfile for building Lambda deployment package
-# Uses official Lambda Python 3.11 base image which matches Lambda runtime exactly
-# This ensures all dependencies (especially bcrypt) are compatible with Lambda's GLIBC 2.26
+# Uses Amazon Linux 2 to match Lambda runtime GLIBC 2.26
+# bcrypt 3.2.2 is compatible with GLIBC 2.26
 
-FROM public.ecr.aws/lambda/python:3.11
+FROM amazonlinux:2
 
-# Install zip utility for packaging
-RUN yum install -y zip && yum clean all
+# Install Python 3.11 and build tools
+RUN amazon-linux-extras install python3.11 -y && \
+    yum install -y zip gcc python3.11-devel libffi-devel openssl-devel && \
+    python3.11 -m ensurepip --upgrade && \
+    yum clean all
+
+# Create symlinks
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/pip3.11 /usr/bin/pip3
 
 # Set working directory
 WORKDIR /build
@@ -15,7 +22,7 @@ COPY backend/requirements.txt .
 
 # Install all dependencies to /build/package
 # bcrypt 3.2.2 is compatible with Lambda's GLIBC 2.26
-RUN pip install -r requirements.txt -t /build/package --no-cache-dir
+RUN pip3 install -r requirements.txt -t /build/package --no-cache-dir
 
 # Verify bcrypt is installed and working
 RUN python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('bcrypt import verified')" && \
