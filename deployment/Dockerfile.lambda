@@ -1,36 +1,17 @@
 # Dockerfile for building Lambda deployment package
-# Uses Amazon Linux 2 to match Lambda runtime GLIBC 2.26 exactly
-# Installs Python 3.11 from source to ensure compatibility
+# Uses Python 3.11 with bcrypt 3.2.2
+# bcrypt 3.2.2 has manylinux2014 wheels compatible with GLIBC 2.17+ (Lambda has 2.26)
 
-FROM amazonlinux:2
+FROM python:3.11-slim
 
-# Install build dependencies and Python 3.11 from source
-RUN yum groupinstall -y "Development Tools" && \
-    yum install -y \
+# Install zip utility and build dependencies
+RUN apt-get update && apt-get install -y \
     zip \
-    wget \
     gcc \
-    make \
-    openssl-devel \
-    libffi-devel \
-    bzip2-devel \
-    readline-devel \
-    sqlite-devel \
-    xz-devel \
-    zlib-devel \
-    && yum clean all
-
-# Download and install Python 3.11 from source
-RUN cd /tmp && \
-    wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz && \
-    tar xzf Python-3.11.9.tgz && \
-    cd Python-3.11.9 && \
-    ./configure --prefix=/usr/local --enable-optimizations && \
-    make altinstall && \
-    cd / && \
-    rm -rf /tmp/Python-3.11.9* && \
-    ln -sf /usr/local/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3
+    python3-dev \
+    libffi-dev \
+    openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /build
@@ -39,8 +20,10 @@ WORKDIR /build
 COPY backend/requirements.txt .
 
 # Install all dependencies to /build/package
-# bcrypt 3.2.2 is compatible with Lambda's GLIBC 2.26
-RUN pip3 install -r requirements.txt -t /build/package --no-cache-dir
+# bcrypt 3.2.2 is compatible with Lambda's GLIBC 2.26 (has manylinux2014 wheels)
+# Force pip to prefer manylinux wheels for maximum compatibility
+RUN pip3 install --only-binary=:all: -r requirements.txt -t /build/package --no-cache-dir || \
+    pip3 install -r requirements.txt -t /build/package --no-cache-dir
 
 # Verify bcrypt is installed and working
 RUN python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('bcrypt import verified')" && \
