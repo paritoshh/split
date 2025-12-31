@@ -13,8 +13,11 @@ WORKDIR /build
 # Copy requirements first (for better caching)
 COPY backend/requirements.txt .
 
+# Install build dependencies for bcrypt and other C extensions
+RUN apt-get update && apt-get install -y gcc python3-dev libffi-dev && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies to /build/package (Lambda-compatible location)
-# This will compile pydantic-core and other C extensions for Linux
+# This will compile pydantic-core, bcrypt, and other C extensions for Linux
 RUN pip install -r requirements.txt -t /build/package --no-cache-dir
 
 # Copy application code
