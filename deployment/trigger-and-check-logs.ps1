@@ -1,76 +1,83 @@
-# Trigger Lambda and check logs immediately
+# Trigger Lambda and immediately check logs
 
 $LAMBDA_FUNCTION = "hisab-api-v2"
 $AWS_REGION = "ap-south-1"
+$API_URL = "https://e65w7up0h8.execute-api.ap-south-1.amazonaws.com"
 
-Write-Host "=== Triggering Lambda and Checking Logs ===" -ForegroundColor Cyan
+Write-Host "=== Triggering Register Endpoint ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Create test payload as JSON string directly
-$testPayloadJson = '{"version":"2.0","routeKey":"POST /api/auth/register","rawPath":"/api/auth/register","headers":{"content-type":"application/json"},"requestContext":{"accountId":"294618942342","apiId":"e65w7up0h8","http":{"method":"POST","path":"/api/auth/register"}},"body":"{\"name\":\"Test User\",\"email\":\"test@test.com\",\"password\":\"test123\"}","isBase64Encoded":false}'
+$testEmail = "test$(Get-Random)@test.com"
+$registerBody = @{
+    name = "Test User"
+    email = $testEmail
+    password = "test123456"
+} | ConvertTo-Json
 
-$testPayloadJson | Out-File -FilePath "lambda-trigger.json" -Encoding ASCII -NoNewline
-
-Write-Host "Invoking Lambda..." -ForegroundColor Yellow
+Write-Host "Email: $testEmail" -ForegroundColor Gray
 Write-Host ""
 
-# Invoke Lambda (use --cli-binary-format to handle JSON properly)
-$result = aws lambda invoke `
-    --function-name $LAMBDA_FUNCTION `
-    --region $AWS_REGION `
-    --cli-binary-format raw-in-base64-out `
-    --payload file://lambda-trigger.json `
-    --log-type Tail `
-    lambda-response.json 2>&1
-
-Remove-Item -Force "lambda-trigger.json" -ErrorAction SilentlyContinue
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Lambda invoked" -ForegroundColor Green
-    Write-Host ""
+# Trigger the request
+try {
+    $response = Invoke-WebRequest `
+        -Uri "$API_URL/api/auth/register" `
+        -Method POST `
+        -Body $registerBody `
+        -ContentType "application/json" `
+        -UseBasicParsing `
+        -ErrorAction Stop
     
-    # Decode logs
-    $resultJson = $result | ConvertFrom-Json -ErrorAction SilentlyContinue
-    if ($resultJson.LogResult) {
-        Write-Host "=== Lambda Logs ===" -ForegroundColor Cyan
-        $logBytes = [System.Convert]::FromBase64String($resultJson.LogResult)
-        $logs = [System.Text.Encoding]::UTF8.GetString($logBytes)
-        Write-Host $logs -ForegroundColor Gray
-        Write-Host ""
-        
-        # Check for credential logging
-        if ($logs -match "Using explicit AWS credentials") {
-            Write-Host "❌ Lambda is using explicit credentials!" -ForegroundColor Red
-            Write-Host "Check Lambda environment variables for AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY" -ForegroundColor Yellow
-        } elseif ($logs -match "Using IAM role") {
-            Write-Host "✅ Lambda is using IAM role (correct)" -ForegroundColor Green
-            Write-Host ""
-            if ($logs -match "UnrecognizedClientException") {
-                Write-Host "❌ Still getting UnrecognizedClientException with IAM role" -ForegroundColor Red
-                Write-Host "This suggests the IAM role permissions aren't working." -ForegroundColor Yellow
-            }
-        } else {
-            Write-Host "⚠️  No credential logging found in logs" -ForegroundColor Yellow
-            Write-Host "The DynamoDB client might not be initializing, or logging isn't working." -ForegroundColor Gray
-        }
-        
-        # Check for errors
-        if ($logs -match "ERROR|Exception") {
-            Write-Host ""
-            Write-Host "=== Errors Found ===" -ForegroundColor Red
-            $errorLines = $logs | Select-String -Pattern "ERROR|Exception" -Context 2,5
-            Write-Host $errorLines -ForegroundColor Red
-        }
+    Write-Host "✅ Success! Status: $($response.StatusCode)" -ForegroundColor Green
+    Write-Host "Response: $($response.Content)" -ForegroundColor Gray
+} catch {
+    $statusCode = $null
+    if ($_.Exception.Response) {
+        $statusCode = $_.Exception.Response.StatusCode.value__
     }
-    
-    Remove-Item -Force "lambda-response.json" -ErrorAction SilentlyContinue
-} else {
-    Write-Host "❌ Failed to invoke Lambda" -ForegroundColor Red
-    Write-Host $result -ForegroundColor Gray
+    Write-Host "❌ Error! Status: $statusCode" -ForegroundColor Red
 }
 
 Write-Host ""
-Write-Host "=== Also Check CloudWatch Logs ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Run: aws logs tail /aws/lambda/$LAMBDA_FUNCTION --since 1m --region $AWS_REGION" -ForegroundColor White
+Write-Host "=== Waiting 2 seconds for logs to propagate ===" -ForegroundColor Yellow
+Start-Sleep -Seconds 2
 
+Write-Host ""
+Write-Host "=== Checking ALL Recent Logs ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Get ALL recent logs (not just errors)
+$logs = aws logs tail "/aws/lambda/$LAMBDA_FUNCTION" --since 1m --region $AWS_REGION 2>&1
+
+if ($LASTEXITCODE -eq 0) {
+    if ($logs) {
+        Write-Host $logs -ForegroundColor Gray
+    } else {
+        Write-Host "No logs found" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Failed to get logs: $logs" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "=== Checking for specific errors ===" -ForegroundColor Cyan
+
+# Check for specific error patterns
+$errorPatterns = @(
+    "bcrypt",
+    "MissingBackendError",
+    "UnrecognizedClientException",
+    "ERROR",
+    "Exception",
+    "Traceback"
+)
+
+foreach ($pattern in $errorPatterns) {
+    $matches = $logs | Select-String -Pattern $pattern -CaseSensitive:$false
+    if ($matches) {
+        Write-Host ""
+        Write-Host "Found '$pattern':" -ForegroundColor Yellow
+        foreach ($match in $matches) {
+            Write-Host "  $match" -ForegroundColor $(if ($pattern -match "bcrypt|MissingBackendError") { "Red" } else { "Yellow" })
+        }
+    }
+}
