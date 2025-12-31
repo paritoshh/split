@@ -23,12 +23,14 @@ $latestStream = $logStreams.logStreams[0].logStreamName
 Write-Host "Latest log stream: $latestStream" -ForegroundColor Yellow
 Write-Host ""
 
-# Get recent log events
-$logs = aws logs get-log-events `
+# Get recent log events (use UTF-8 encoding to handle special characters)
+$logsJson = aws logs get-log-events `
     --log-group-name "/aws/lambda/$LAMBDA_FUNCTION" `
     --log-stream-name $latestStream `
     --limit 50 `
-    --region $AWS_REGION | ConvertFrom-Json
+    --region $AWS_REGION 2>&1 | Out-String
+
+$logs = $logsJson | ConvertFrom-Json
 
 Write-Host "=== Recent Logs (last 50 events) ===" -ForegroundColor Cyan
 Write-Host ""
