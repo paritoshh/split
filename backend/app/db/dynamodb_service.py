@@ -175,15 +175,44 @@ class DynamoDBService:
     
     def search_users(self, query: str, exclude_ids: List[str] = None) -> List[dict]:
         """Search users by name or email."""
-        table = get_table("users")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for search_users")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("users")
+        
+        logger.info(f"Scanning table {table_name} for query: {query}")
+        
         # DynamoDB doesn't support LIKE queries, so we scan with filter
         # For production, consider using OpenSearch for better search
-        response = table.scan(
-            FilterExpression=Attr("is_active").eq(True) & 
-                           (Attr("name").contains(query) | Attr("email").contains(query.lower()))
+        # Note: Scan operations can be expensive, but for small datasets it's fine
+        response = client.scan(
+            TableName=table_name,
+            FilterExpression="is_active = :is_active AND (contains(#name, :query) OR contains(email, :query_lower))",
+            ExpressionAttributeNames={
+                "#name": "name"
+            },
+            ExpressionAttributeValues={
+                ":is_active": {"BOOL": True},
+                ":query": {"S": query},
+                ":query_lower": {"S": query.lower()}
+            }
         )
         
-        users = [self._user_to_response(item) for item in response.get("Items", [])]
+        users = []
+        for item in response.get("Items", []):
+            # Deserialize item
+            item = deserialize_dynamodb_item(item)
+            user = self._user_to_response(item)
+            if user:
+                users.append(user)
         
         if exclude_ids:
             exclude_set = set(str(i) for i in exclude_ids)
@@ -241,7 +270,19 @@ class DynamoDBService:
                     description: Optional[str] = None,
                     category: str = "other") -> dict:
         """Create a new group and add creator as admin."""
-        table = get_table("groups")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for create_group")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("groups")
+        
         group_id = generate_id()
         
         item = {
@@ -255,7 +296,21 @@ class DynamoDBService:
             "updated_at": now_iso()
         }
         item = {k: v for k, v in item.items() if v is not None}
-        table.put_item(Item=item)
+        
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value)}
+        
+        logger.info(f"Creating group {group_id} in table {table_name}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         
         # Add creator as admin member
         self.add_group_member(group_id, created_by_id, role="admin")
