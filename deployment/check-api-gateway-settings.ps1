@@ -2,7 +2,7 @@
 
 $API_ID = "e65w7up0h8"
 $AWS_REGION = "ap-south-1"
-$STAGE_NAME = "$default"
+$STAGE_NAME = '`$default'
 
 Write-Host "=== Checking API Gateway Settings ===" -ForegroundColor Cyan
 Write-Host ""
