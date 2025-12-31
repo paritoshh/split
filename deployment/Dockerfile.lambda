@@ -24,8 +24,9 @@ RUN apt-get update && apt-get install -y \
 
 # Install dependencies to /build/package (Lambda-compatible location)
 # This will compile pydantic-core, bcrypt, and other C extensions for Linux
-# Use --platform manylinux to ensure compatibility
-RUN pip install -r requirements.txt -t /build/package --no-cache-dir --platform manylinux2014_x86_64 --only-binary=:none: --upgrade
+# Force compilation from source (no pre-built wheels) to ensure Linux compatibility
+RUN pip install -r requirements.txt -t /build/package --no-cache-dir --no-binary :all: bcrypt --upgrade
+RUN pip install -r requirements.txt -t /build/package --no-cache-dir --upgrade
 
 # Verify bcrypt is installed
 RUN ls -la /build/package/ | grep -i bcrypt || echo "WARNING: bcrypt not found in package"
