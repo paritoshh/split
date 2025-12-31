@@ -54,7 +54,8 @@ if ($LASTEXITCODE -eq 0) {
         $response = Get-Content "lambda-response.json" | ConvertFrom-Json
         
         Write-Host "=== Lambda Response ===" -ForegroundColor Cyan
-        Write-Host $response | ConvertTo-Json -Depth 10 -ForegroundColor Gray
+        $responseJson = $response | ConvertTo-Json -Depth 10
+        Write-Host $responseJson -ForegroundColor Gray
         Write-Host ""
         
         # Check status code
