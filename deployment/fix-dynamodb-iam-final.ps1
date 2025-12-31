@@ -45,8 +45,8 @@ $policyJson = @{
                 "dynamodb:BatchWriteItem"
             )
             Resource = @(
-                "arn:aws:dynamodb:$AWS_REGION:$accountId:table/hisab_*",
-                "arn:aws:dynamodb:$AWS_REGION:$accountId:table/hisab_*/index/*"
+                "arn:aws:dynamodb:${AWS_REGION}:${accountId}:table/hisab_*",
+                "arn:aws:dynamodb:${AWS_REGION}:${accountId}:table/hisab_*/index/*"
             )
         },
         @{
@@ -56,7 +56,7 @@ $policyJson = @{
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
             )
-            Resource = "arn:aws:logs:$AWS_REGION:$accountId:*"
+            Resource = "arn:aws:logs:${AWS_REGION}:${accountId}:*"
         }
     )
 } | ConvertTo-Json -Depth 10
@@ -81,7 +81,7 @@ if ($policyExists) {
 
 # Create or update the policy
 Write-Host "   Creating/updating policy..." -ForegroundColor Yellow
-$policyArn = "arn:aws:iam::$accountId`:policy/$policyName"
+$policyArn = "arn:aws:iam::${accountId}:policy/$policyName"
 
 try {
     # Try to create the policy
