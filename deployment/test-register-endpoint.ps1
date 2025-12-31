@@ -50,18 +50,28 @@ try {
         $statusCode = $_.Exception.Response.StatusCode.value__
         
         # Get response headers
-        $_.Exception.Response.Headers.GetEnumerator() | ForEach-Object {
-            $responseHeaders[$_.Key] = $_.Value
+        try {
+            $headerKeys = $_.Exception.Response.Headers.Keys
+            foreach ($key in $headerKeys) {
+                $responseHeaders[$key] = $_.Exception.Response.Headers[$key]
+            }
+        } catch {
+            # Headers might not be accessible
         }
         
         # Get response body
         try {
-            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $stream = $_.Exception.Response.GetResponseStream()
+            $reader = New-Object System.IO.StreamReader($stream)
             $responseBody = $reader.ReadToEnd()
             $reader.Close()
+            $stream.Close()
         } catch {
-            $responseBody = "Could not read response body"
+            $responseBody = "Could not read response body: $($_.Exception.Message)"
         }
+    } else {
+        $statusCode = "N/A"
+        $responseBody = "No response received: $($_.Exception.Message)"
     }
     
     Write-Host "   ❌ Register failed!" -ForegroundColor Red
