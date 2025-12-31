@@ -9,16 +9,12 @@ FROM amazonlinux:2
 # Install Python 3.11 from Amazon Linux Extras and build tools
 RUN amazon-linux-extras install python3.11 -y && \
     yum install -y zip gcc python3.11-devel libffi-devel openssl-devel && \
+    python3.11 -m ensurepip --upgrade && \
     yum clean all
 
 # Create symlinks for python3 and pip3
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3.11 /usr/bin/pip3 || \
-    (python3.11 -m ensurepip --upgrade && \
-     ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3 || \
-     curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-     python3.11 get-pip.py && \
-     ln -sf /usr/local/bin/pip /usr/bin/pip3)
+    ln -sf /usr/bin/pip3.11 /usr/bin/pip3
 
 # Set working directory
 WORKDIR /build
