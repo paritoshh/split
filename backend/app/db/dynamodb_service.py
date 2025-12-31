@@ -446,7 +446,18 @@ class DynamoDBService:
     
     def add_group_member(self, group_id: str, user_id: str, role: str = "member") -> dict:
         """Add a member to a group."""
-        table = get_table("group_members")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for add_group_member")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("group_members")
         
         item = {
             "group_id": str(group_id),
@@ -456,7 +467,20 @@ class DynamoDBService:
             "joined_at": now_iso()
         }
         
-        table.put_item(Item=item)
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value)}
+        
+        logger.info(f"Adding member {user_id} to group {group_id}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         return item
     
     def get_group_members(self, group_id: str) -> List[dict]:
