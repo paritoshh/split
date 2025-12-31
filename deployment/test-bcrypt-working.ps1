@@ -64,16 +64,30 @@ try {
     
     if ($responseBody) {
         Write-Host "   Response: $responseBody" -ForegroundColor Gray
+        Write-Host ""
         
         if ($responseBody -match "bcrypt|MissingBackendError") {
             Write-Host "   ❌ bcrypt error detected!" -ForegroundColor Red
         } elseif ($statusCode -eq 400 -and $responseBody -match "already exists|email|Email") {
             Write-Host "   ✅ bcrypt is working! (User already exists error is expected)" -ForegroundColor Green
         } elseif ($statusCode -eq 500) {
-            Write-Host "   ⚠️  Server error - check Lambda logs for details" -ForegroundColor Yellow
+            Write-Host "   ⚠️  Server error (500) - checking Lambda logs..." -ForegroundColor Yellow
+            Write-Host ""
+            
+            # Get latest Lambda logs
+            $logs = aws logs tail "/aws/lambda/$LAMBDA_FUNCTION" --since 2m --region $AWS_REGION 2>&1 | Out-String
+            if ($logs) {
+                Write-Host "   === Recent Lambda Logs ===" -ForegroundColor Cyan
+                $logs | Select-String -Pattern "ERROR|Exception|Traceback|bcrypt|UnrecognizedClientException" -Context 0,3 | ForEach-Object {
+                    Write-Host "   $_" -ForegroundColor $(if ($_ -match "bcrypt|MissingBackendError") { "Red" } else { "Yellow" })
+                }
+            }
         } elseif ($statusCode -eq 201 -or $statusCode -eq 200) {
             Write-Host "   ✅ SUCCESS! bcrypt is working!" -ForegroundColor Green
         }
+    } elseif ($statusCode -eq 500) {
+        Write-Host "   ⚠️  Server error (500) - no response body" -ForegroundColor Yellow
+        Write-Host "   Check Lambda logs: aws logs tail /aws/lambda/$LAMBDA_FUNCTION --since 2m" -ForegroundColor Gray
     }
 }
 
