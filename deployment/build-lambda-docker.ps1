@@ -6,7 +6,7 @@
 # are compiled for Linux (Lambda's runtime)
 # ===========================================
 
-$LAMBDA_FUNCTION_NAME = "hisab-api"
+$LAMBDA_FUNCTION_NAME = "hisab-api-v2"
 $AWS_REGION = "ap-south-1"
 
 Write-Host "========================================" -ForegroundColor Green
