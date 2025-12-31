@@ -70,5 +70,5 @@ Write-Host "2. Check logs in CloudWatch:" -ForegroundColor Yellow
 Write-Host "   aws logs tail $LOG_GROUP_NAME --since 5m --region $AWS_REGION" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Or check in AWS Console:" -ForegroundColor Yellow
-Write-Host "   CloudWatch → Log groups → $LOG_GROUP_NAME" -ForegroundColor Gray
+Write-Host "   CloudWatch -> Log groups -> $LOG_GROUP_NAME" -ForegroundColor Gray
 
