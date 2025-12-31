@@ -29,6 +29,12 @@ from mangum import Mangum
 # If this fails, we'll catch it and return a helpful error
 try:
     from app.main import app
+    # Clear DynamoDB cache at Lambda cold start to ensure fresh IAM role credentials
+    # This is important because cached clients might have stale credentials
+    from app.db.dynamodb_client import clear_dynamodb_cache
+    clear_dynamodb_cache()
+    print("✅ Lambda handler initialized - DynamoDB cache cleared")
+    
     # Create Lambda handler
     # This is the entry point AWS Lambda calls
     handler = Mangum(app, lifespan="off")
