@@ -22,20 +22,21 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies to /build/package (Lambda-compatible location)
-# This will compile pydantic-core, bcrypt, and other C extensions for Linux
-# Build tools are installed above, so bcrypt will compile from source
+# Install bcrypt FIRST (before passlib) to ensure it's available
+# This ensures bcrypt is compiled and available when passlib tries to use it
+RUN pip install bcrypt==4.1.2 -t /build/package --no-cache-dir && \
+    echo "✅ bcrypt installed" && \
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt import verified')"
+
+# Install all other dependencies
 RUN pip install -r requirements.txt -t /build/package --no-cache-dir
 
-# Explicitly verify and ensure bcrypt is installed
-RUN echo "=== Checking for bcrypt ===" && \
+# Final verification - check bcrypt is still there and working
+RUN echo "=== Final bcrypt verification ===" && \
     ls -la /build/package/ | grep -i bcrypt && \
-    echo "=== Testing bcrypt import ===" && \
-    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt imported successfully')" && \
-    echo "=== bcrypt verification complete ===" || \
-    (echo "❌ bcrypt verification failed - installing explicitly" && \
-     pip install bcrypt==4.1.2 -t /build/package --no-cache-dir && \
-     python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt installed and verified')")
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt final check passed')" && \
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); from passlib.context import CryptContext; ctx = CryptContext(schemes=['bcrypt']); print('✅ passlib can use bcrypt')" || \
+    (echo "❌ CRITICAL: bcrypt verification failed!" && exit 1)
 
 # Copy application code
 COPY backend/app /build/package/app/
