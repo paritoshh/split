@@ -27,9 +27,15 @@ RUN apt-get update && apt-get install -y \
 # Build tools are installed above, so bcrypt will compile from source
 RUN pip install -r requirements.txt -t /build/package --no-cache-dir
 
-# Verify bcrypt is installed
-RUN ls -la /build/package/ | grep -i bcrypt || echo "WARNING: bcrypt not found in package"
-RUN python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt imported successfully')" || echo "❌ bcrypt import failed"
+# Explicitly verify and ensure bcrypt is installed
+RUN echo "=== Checking for bcrypt ===" && \
+    ls -la /build/package/ | grep -i bcrypt && \
+    echo "=== Testing bcrypt import ===" && \
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt imported successfully')" && \
+    echo "=== bcrypt verification complete ===" || \
+    (echo "❌ bcrypt verification failed - installing explicitly" && \
+     pip install bcrypt==4.1.2 -t /build/package --no-cache-dir && \
+     python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt installed and verified')")
 
 # Copy application code
 COPY backend/app /build/package/app/
