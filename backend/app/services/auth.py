@@ -14,15 +14,28 @@ Supports both SQLite and DynamoDB backends.
 from datetime import datetime, timedelta
 from typing import Optional, Union
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+
+# IMPORTANT: Import bcrypt BEFORE passlib to ensure it's available
+# This is critical for Lambda where module loading order matters
+try:
+    import bcrypt
+    # Verify bcrypt is actually working
+    bcrypt.gensalt()  # This will fail if bcrypt isn't properly installed
+except ImportError as e:
+    raise ImportError(f"bcrypt module not found. This is required for password hashing. Error: {e}")
+except Exception as e:
+    raise RuntimeError(f"bcrypt module found but not working properly. Error: {e}")
+
+from passlib.context import CryptContext
 
 from app.config import settings
 from app.db import get_db_service, DBService
 from app.schemas.user import TokenData
 
 # --- Password Hashing Setup ---
+# Explicitly ensure bcrypt backend is available before creating context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- OAuth2 Setup ---
