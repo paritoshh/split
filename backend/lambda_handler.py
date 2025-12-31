@@ -99,10 +99,12 @@ def wrapped_handler(event, context):
         }
 
 # Export the wrapped handler (use original handler if wrapped fails to initialize)
+# Lambda will call this as "lambda_handler.handler"
 try:
-    _handler = wrapped_handler
+    handler = wrapped_handler
 except:
-    _handler = handler
+    # If wrapping fails, use the original handler
+    pass
 
 # Note: lifespan="off" because Lambda doesn't support
 # the ASGI lifespan protocol well. We handle initialization
