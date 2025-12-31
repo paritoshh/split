@@ -62,7 +62,13 @@ class DynamoDBService:
     def create_user(self, email: str, name: str, hashed_password: str, 
                    phone: Optional[str] = None, upi_id: Optional[str] = None) -> dict:
         """Create a new user."""
-        table = get_table("users")
+        # Use boto3 client directly (like get_user_by_email) to avoid credential issues
+        import boto3
+        from app.config import settings
+        
+        client = boto3.client('dynamodb', region_name=settings.aws_region)
+        table_name = get_table_name("users")
+        
         user_id = generate_id()
         
         item = {
@@ -80,7 +86,19 @@ class DynamoDBService:
         # Remove None values
         item = {k: v for k, v in item.items() if v is not None}
         
-        table.put_item(Item=item)
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value)}
+        
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         return self._user_to_response(item)
     
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
