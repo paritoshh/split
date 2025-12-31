@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import and create the app
 # If this fails, we'll catch it and return a helpful error
+_init_error = None
 try:
     logger.info("Starting Lambda handler initialization...")
     from app.main import app
@@ -44,20 +45,21 @@ try:
     # This is important because cached clients might have stale credentials
     from app.db.dynamodb_client import clear_dynamodb_cache
     clear_dynamodb_cache()
-    logger.info("✅ Lambda handler initialized - DynamoDB cache cleared")
+    logger.info("Lambda handler initialized - DynamoDB cache cleared")
     
     # Create Lambda handler
     # This is the entry point AWS Lambda calls
     handler = Mangum(app, lifespan="off")
-    logger.info("✅ Mangum handler created successfully")
-except Exception as e:
-    # If app initialization fails, create a minimal error handler
-    logger.error(f"❌ Failed to initialize FastAPI app: {e}")
+    logger.info("Mangum handler created successfully")
+except Exception as exc:
+    # Store error for use in error handler
+    _init_error = str(exc)
+    logger.error(f"Failed to initialize FastAPI app: {_init_error}")
     logger.error(traceback.format_exc())
     
     def error_handler(event, context):
         """Fallback handler that returns error if app failed to initialize"""
-        error_msg = f"Server initialization error: {str(e)}. Check CloudWatch logs for details."
+        error_msg = f"Server initialization error: {_init_error}. Check CloudWatch logs for details."
         logger.error(f"Error handler called: {error_msg}")
         return {
             "statusCode": 500,
