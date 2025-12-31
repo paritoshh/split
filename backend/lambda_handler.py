@@ -84,13 +84,26 @@ _original_handler = handler
 def wrapped_handler(event, context):
     """Wrapper to catch and log any runtime errors"""
     try:
-        logger.info(f"Lambda invoked - Path: {event.get('rawPath', 'unknown')}, Method: {event.get('requestContext', {}).get('http', {}).get('method', 'unknown')}")
-        logger.info(f"Event keys: {list(event.keys())}")
+        # Log incoming request details
+        raw_path = event.get('rawPath', 'unknown')
+        method = event.get('requestContext', {}).get('http', {}).get('method', 'unknown')
+        route_key = event.get('routeKey', 'unknown')
+        body = event.get('body', '')
+        
+        logger.info(f"=== Lambda Invoked ===")
+        logger.info(f"Path: {raw_path}")
+        logger.info(f"Method: {method}")
+        logger.info(f"Route Key: {route_key}")
+        logger.info(f"Body length: {len(body) if body else 0}")
+        logger.info(f"Event version: {event.get('version', 'unknown')}")
+        
         # Call the ORIGINAL handler, not the wrapped one (to avoid recursion)
         result = _original_handler(event, context)
-        logger.info(f"Lambda completed - Status: {result.get('statusCode', 'unknown')}")
-        logger.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+        
+        logger.info(f"=== Lambda Response ===")
+        logger.info(f"Status: {result.get('statusCode', 'unknown') if isinstance(result, dict) else 'not a dict'}")
         logger.info(f"Result type: {type(result)}")
+        
         # Ensure result is in correct format for API Gateway HTTP API v2.0
         if isinstance(result, dict):
             # Mangum should return the correct format, but let's verify
@@ -100,6 +113,11 @@ def wrapped_handler(event, context):
                 logger.error("Result missing headers!")
             if 'body' not in result:
                 logger.error("Result missing body!")
+            else:
+                logger.info(f"Body length: {len(str(result.get('body', '')))}")
+        else:
+            logger.error(f"Result is not a dict! Type: {type(result)}, Value: {result}")
+        
         return result
     except Exception as exc:
         error_msg = str(exc)
