@@ -42,6 +42,7 @@ Write-Host "Building Lambda package in Docker (this may take 2-5 minutes)..." -F
 Write-Host "This will install all Python dependencies compiled for Linux..." -ForegroundColor Gray
 Write-Host ""
 
+Write-Host "Building Docker image (this may take a few minutes)..." -ForegroundColor Gray
 $buildOutput = docker build -f deployment/Dockerfile.lambda -t hisab-lambda-builder . 2>&1
 $buildExitCode = $LASTEXITCODE
 
@@ -53,6 +54,14 @@ if ($buildExitCode -ne 0) {
 }
 
 Write-Host "✅ Docker build completed successfully" -ForegroundColor Green
+
+# Check for bcrypt in build output
+if ($buildOutput -match "bcrypt") {
+    Write-Host ""
+    Write-Host "=== Bcrypt Status ===" -ForegroundColor Cyan
+    $bcryptLines = $buildOutput | Select-String -Pattern "bcrypt" -Context 0,2
+    Write-Host $bcryptLines -ForegroundColor Gray
+}
 
 # Extract zip file from container
 Write-Host ""
