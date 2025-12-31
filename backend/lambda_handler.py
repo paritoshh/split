@@ -86,8 +86,9 @@ def wrapped_handler(event, context):
         result = _original_handler(event, context)
         logger.info(f"Lambda completed - Status: {result.get('statusCode', 'unknown')}")
         return result
-    except Exception as e:
-        logger.error(f"❌ Unhandled exception in Lambda handler: {e}")
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error(f"❌ Unhandled exception in Lambda handler: {error_msg}")
         logger.error(traceback.format_exc())
         return {
             "statusCode": 500,
@@ -98,7 +99,7 @@ def wrapped_handler(event, context):
                 "Access-Control-Allow-Headers": "*",
             },
             "body": json.dumps({
-                "detail": f"Internal server error: {str(e)}. Check CloudWatch logs for details."
+                "detail": f"Internal server error: {error_msg}. Check CloudWatch logs for details."
             })
         }
 
