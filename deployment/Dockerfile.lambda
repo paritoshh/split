@@ -14,11 +14,22 @@ WORKDIR /build
 COPY backend/requirements.txt .
 
 # Install build dependencies for bcrypt and other C extensions
-RUN apt-get update && apt-get install -y gcc python3-dev libffi-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    python3-dev \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies to /build/package (Lambda-compatible location)
 # This will compile pydantic-core, bcrypt, and other C extensions for Linux
-RUN pip install -r requirements.txt -t /build/package --no-cache-dir
+# Use --platform manylinux to ensure compatibility
+RUN pip install -r requirements.txt -t /build/package --no-cache-dir --platform manylinux2014_x86_64 --only-binary=:none: --upgrade
+
+# Verify bcrypt is installed
+RUN ls -la /build/package/ | grep -i bcrypt || echo "WARNING: bcrypt not found in package"
+RUN python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt imported successfully')" || echo "❌ bcrypt import failed"
 
 # Copy application code
 COPY backend/app /build/package/app/
