@@ -861,6 +861,8 @@ class DynamoDBService:
         
         count = 0
         for item in response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             table.update_item(
                 Key={
                     "user_id": item["user_id"],
