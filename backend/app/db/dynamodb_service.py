@@ -877,11 +877,29 @@ class DynamoDBService:
     
     def get_unread_notification_count(self, user_id: str) -> int:
         """Get count of unread notifications."""
-        table = get_table("notifications")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = table.query(
-            KeyConditionExpression=Key("user_id").eq(str(user_id)),
-            FilterExpression=Attr("is_read").eq(False),
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_unread_notification_count")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("notifications")
+        
+        logger.info(f"Querying table {table_name} for user {user_id}")
+        
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="user_id = :user_id",
+            FilterExpression="is_read = :is_read",
+            ExpressionAttributeValues={
+                ":user_id": {"S": str(user_id)},
+                ":is_read": {"BOOL": False}
+            },
             Select="COUNT"
         )
         
