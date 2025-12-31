@@ -52,6 +52,35 @@ def clean_item(item: dict) -> dict:
     return {k: from_decimal(v) if isinstance(v, Decimal) else v for k, v in item.items()}
 
 
+def deserialize_dynamodb_item(item: dict) -> dict:
+    """Convert DynamoDB low-level format to regular Python dict.
+    
+    When using boto3.client() directly, DynamoDB returns items in low-level format:
+    {"field": {"S": "value"}} instead of {"field": "value"}
+    
+    This function converts the low-level format to regular dict.
+    """
+    if not item:
+        return item
+    
+    # Check if item is already in regular format (from boto3.resource)
+    # If any value is a dict with DynamoDB type markers, it's low-level format
+    is_low_level = False
+    for value in item.values():
+        if isinstance(value, dict) and len(value) == 1 and list(value.keys())[0] in ["S", "N", "BOOL", "SS", "NS", "BS", "M", "L"]:
+            is_low_level = True
+            break
+    
+    if not is_low_level:
+        # Already in regular format, just return it
+        return item
+    
+    # Convert from low-level format
+    from boto3.dynamodb.types import TypeDeserializer
+    deserializer = TypeDeserializer()
+    return {k: deserializer.deserialize(v) for k, v in item.items()}
+
+
 class DynamoDBService:
     """DynamoDB implementation of database operations."""
     
@@ -113,7 +142,6 @@ class DynamoDBService:
         # Create client directly (like simple test Lambda that works)
         # This ensures we use IAM role credentials, not cached/stale credentials
         import boto3
-        from boto3.dynamodb.types import TypeDeserializer
         import logging
         from app.config import settings
         from app.db.dynamodb_client import get_table_name
@@ -141,8 +169,7 @@ class DynamoDBService:
             return None
         
         # Convert DynamoDB format to regular dict
-        deserializer = TypeDeserializer()
-        item = {k: deserializer.deserialize(v) for k, v in items[0].items()}
+        item = deserialize_dynamodb_item(items[0])
         
         return self._user_to_response(item)
     
@@ -188,6 +215,8 @@ class DynamoDBService:
         """Convert DynamoDB item to user response format."""
         if not item:
             return None
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        item = deserialize_dynamodb_item(item)
         return {
             "id": item.get("user_id"),
             "email": item.get("email"),
@@ -312,6 +341,8 @@ class DynamoDBService:
         """Convert DynamoDB item to group response format."""
         if not item:
             return None
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        item = deserialize_dynamodb_item(item)
         return {
             "id": item.get("group_id"),
             "name": item.get("name"),
@@ -556,6 +587,8 @@ class DynamoDBService:
         """Convert DynamoDB item to expense response format."""
         if not item:
             return None
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        item = deserialize_dynamodb_item(item)
         return clean_item({
             "id": item.get("expense_id"),
             "amount": item.get("amount"),
@@ -714,6 +747,8 @@ class DynamoDBService:
         """Convert DynamoDB item to settlement response format."""
         if not item:
             return None
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        item = deserialize_dynamodb_item(item)
         group_id = item.get("group_id")
         return clean_item({
             "id": item.get("settlement_id"),
@@ -829,6 +864,8 @@ class DynamoDBService:
         """Convert DynamoDB item to notification response format."""
         if not item:
             return None
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        item = deserialize_dynamodb_item(item)
         return {
             "id": item.get("notification_id"),
             "user_id": item.get("user_id"),
