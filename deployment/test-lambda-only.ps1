@@ -18,16 +18,28 @@ $testPayload = @{
     version = "2.0"
     routeKey = "POST /api/auth/register"
     rawPath = "/api/auth/register"
+    rawQueryString = ""
     headers = @{
         "content-type" = "application/json"
+        "host" = "e65w7up0h8.execute-api.ap-south-1.amazonaws.com"
     }
     requestContext = @{
         accountId = "294618942342"
         apiId = "e65w7up0h8"
+        domainName = "e65w7up0h8.execute-api.ap-south-1.amazonaws.com"
+        domainPrefix = "e65w7up0h8"
         http = @{
             method = "POST"
             path = "/api/auth/register"
+            protocol = "HTTP/1.1"
+            sourceIp = "127.0.0.1"
+            userAgent = "test"
         }
+        requestId = "test-request-id"
+        routeKey = "POST /api/auth/register"
+        stage = "`$default"
+        time = "30/Dec/2025:19:00:00 +0000"
+        timeEpoch = 1735574400000
     }
     body = $bodyJson
     isBase64Encoded = $false

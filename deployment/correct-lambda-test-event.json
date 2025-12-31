@@ -22,10 +22,9 @@
     "requestId": "test-request-id",
     "routeKey": "POST /api/auth/register",
     "stage": "$default",
-    "time": "30/Dec/2025:18:00:00 +0000",
+    "time": "30/Dec/2025:19:00:00 +0000",
     "timeEpoch": 1735574400000
   },
   "body": "{\"name\":\"Test User\",\"email\":\"test@test.com\",\"password\":\"test123\"}",
   "isBase64Encoded": false
 }
-
