@@ -1,20 +1,11 @@
 # Dockerfile for building Lambda deployment package
-# This ensures dependencies are compiled for Linux (Lambda's runtime)
-# Lambda uses Amazon Linux 2 with GLIBC 2.26, so we need to match that
+# Uses official Lambda Python 3.11 base image which matches Lambda runtime exactly
+# This ensures all dependencies (especially bcrypt) are compatible with Lambda's GLIBC 2.26
 
-# Use Python 3.11 on Amazon Linux 2
-# Install Amazon Linux 2, then add Python 3.11 from Amazon Linux Extras
-FROM amazonlinux:2
+FROM public.ecr.aws/lambda/python:3.11
 
-# Install Python 3.11 from Amazon Linux Extras and build tools
-RUN amazon-linux-extras install python3.11 -y && \
-    yum install -y zip gcc python3.11-devel libffi-devel openssl-devel && \
-    python3.11 -m ensurepip --upgrade && \
-    yum clean all
-
-# Create symlinks for python3 and pip3
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3.11 /usr/bin/pip3
+# Install zip utility for packaging
+RUN yum install -y zip && yum clean all
 
 # Set working directory
 WORKDIR /build
@@ -22,22 +13,13 @@ WORKDIR /build
 # Copy requirements first (for better caching)
 COPY backend/requirements.txt .
 
-# Install bcrypt FIRST (before passlib) to ensure it's available
-# Try to use a manylinux wheel compatible with older GLIBC, otherwise compile from source
-RUN pip install bcrypt==4.1.2 -t /build/package --no-cache-dir || \
-    (pip install bcrypt==4.1.2 -t /build/package --no-cache-dir --no-binary bcrypt && \
-     echo "bcrypt compiled from source") && \
-    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('bcrypt import verified')"
-
-# Install all other dependencies
+# Install all dependencies to /build/package
+# bcrypt 3.2.2 is compatible with Lambda's GLIBC 2.26
 RUN pip install -r requirements.txt -t /build/package --no-cache-dir
 
-# Final verification - check bcrypt is still there and working
-RUN echo "=== Final bcrypt verification ===" && \
-    ls -la /build/package/ | grep -i bcrypt && \
-    python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('✅ bcrypt final check passed')" && \
-    python3 -c "import sys; sys.path.insert(0, '/build/package'); from passlib.context import CryptContext; ctx = CryptContext(schemes=['bcrypt']); print('✅ passlib can use bcrypt')" || \
-    (echo "❌ CRITICAL: bcrypt verification failed!" && exit 1)
+# Verify bcrypt is installed and working
+RUN python3 -c "import sys; sys.path.insert(0, '/build/package'); import bcrypt; print('bcrypt import verified')" && \
+    python3 -c "import sys; sys.path.insert(0, '/build/package'); from passlib.context import CryptContext; ctx = CryptContext(schemes=['bcrypt']); result = ctx.hash('test'); print('passlib can use bcrypt')"
 
 # Copy application code
 COPY backend/app /build/package/app/
