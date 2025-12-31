@@ -42,25 +42,38 @@ try {
     Write-Host "   ✅ bcrypt is working! Registration succeeded." -ForegroundColor Green
     Write-Host "   Response: $($registerResponse.Content)" -ForegroundColor Gray
 } catch {
-    $statusCode = $_.Exception.Response.StatusCode.value__
-    $errorBody = $_.Exception.Response | ConvertFrom-Json -ErrorAction SilentlyContinue
-    
-    Write-Host "   Status: $statusCode" -ForegroundColor $(if ($statusCode -eq 400) { "Yellow" } else { "Red" })
+    $statusCode = $null
+    $responseBody = ""
     
     if ($_.Exception.Response) {
-        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-        $responseBody = $reader.ReadToEnd()
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        try {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $responseBody = $reader.ReadToEnd()
+            $reader.Close()
+        } catch {
+            $responseBody = "Could not read response body"
+        }
+    }
+    
+    if ($statusCode) {
+        Write-Host "   Status: $statusCode" -ForegroundColor $(if ($statusCode -eq 400) { "Yellow" } else { "Red" })
+    } else {
+        Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    
+    if ($responseBody) {
         Write-Host "   Response: $responseBody" -ForegroundColor Gray
         
         if ($responseBody -match "bcrypt|MissingBackendError") {
             Write-Host "   ❌ bcrypt error detected!" -ForegroundColor Red
-        } elseif ($statusCode -eq 400 -and $responseBody -match "already exists|email") {
+        } elseif ($statusCode -eq 400 -and $responseBody -match "already exists|email|Email") {
             Write-Host "   ✅ bcrypt is working! (User already exists error is expected)" -ForegroundColor Green
         } elseif ($statusCode -eq 500) {
             Write-Host "   ⚠️  Server error - check Lambda logs for details" -ForegroundColor Yellow
+        } elseif ($statusCode -eq 201 -or $statusCode -eq 200) {
+            Write-Host "   ✅ SUCCESS! bcrypt is working!" -ForegroundColor Green
         }
-    } else {
-        Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
