@@ -19,30 +19,19 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "   ℹ️  Log group might already exist (that's okay)" -ForegroundColor Gray
 }
 
-# Set log format
-$LOG_FORMAT = @{
-    requestId = '$context.requestId'
-    ip = '$context.identity.sourceIp'
-    requestTime = '$context.requestTime'
-    httpMethod = '$context.httpMethod'
-    routeKey = '$context.routeKey'
-    status = '$context.status'
-    protocol = '$context.protocol'
-    responseLength = '$context.responseLength'
-    integrationErrorMessage = '$context.integrationErrorMessage'
-    integrationStatus = '$context.integrationStatus'
-    integrationLatency = '$context.integrationLatency'
-    responseLatency = '$context.responseLatency'
-} | ConvertTo-Json -Compress
+# Set log format (escape single quotes for PowerShell)
+$LOG_FORMAT = '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","integrationErrorMessage":"$context.integrationErrorMessage","integrationStatus":"$context.integrationStatus","integrationLatency":"$context.integrationLatency","responseLatency":"$context.responseLatency"}'
 
 Write-Host ""
 Write-Host "2. Enabling access logging for API Gateway stage..." -ForegroundColor Yellow
 
 # Enable access logging
+$accessLogSettings = "Format=`"$LOG_FORMAT`",DestinationArn=`"arn:aws:logs:${AWS_REGION}:294618942342:log-group:${LOG_GROUP_NAME}`""
+
 aws apigatewayv2 update-stage `
     --api-id $API_ID `
     --stage-name $STAGE_NAME `
-    --access-log-settings "Format=`"$LOG_FORMAT`",DestinationArn=`"arn:aws:logs:${AWS_REGION}:294618942342:log-group:${LOG_GROUP_NAME}`"" `
+    --access-log-settings $accessLogSettings `
     --region $AWS_REGION 2>&1 | Out-Null
 
 if ($LASTEXITCODE -eq 0) {
