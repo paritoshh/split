@@ -110,10 +110,11 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# Clean up
+# Clean up (keep zip for inspection if needed)
 Write-Host ""
 Write-Host "Cleaning up..." -ForegroundColor Gray
-Remove-Item -Force lambda_deployment.zip
+Write-Host "Note: lambda_deployment.zip is kept for inspection. Delete manually if needed." -ForegroundColor Gray
+# Remove-Item -Force lambda_deployment.zip  # Commented out to allow package inspection
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
