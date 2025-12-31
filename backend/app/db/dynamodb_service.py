@@ -113,6 +113,7 @@ class DynamoDBService:
         # Create client directly (like simple test Lambda that works)
         # This ensures we use IAM role credentials, not cached/stale credentials
         import boto3
+        from boto3.dynamodb.types import TypeDeserializer
         import logging
         from app.config import settings
         from app.db.dynamodb_client import get_table_name
@@ -135,7 +136,15 @@ class DynamoDBService:
             }
         )
         items = response.get("Items", [])
-        return self._user_to_response(items[0]) if items else None
+        
+        if not items:
+            return None
+        
+        # Convert DynamoDB format to regular dict
+        deserializer = TypeDeserializer()
+        item = {k: deserializer.deserialize(v) for k, v in items[0].items()}
+        
+        return self._user_to_response(item)
     
     def search_users(self, query: str, exclude_ids: List[str] = None) -> List[dict]:
         """Search users by name or email."""
