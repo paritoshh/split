@@ -35,7 +35,13 @@ const getBaseUrl = () => {
   }
   
   // Web app - use environment variable, or AWS URL for production, or empty for local proxy
-  return import.meta.env.VITE_API_URL || (import.meta.env.PROD ? AWS_API_URL : '');
+  // In production builds, always use AWS API URL if VITE_API_URL is not set
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Check if we're in production (either via env or by checking if we're not in dev server)
+  const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1'));
+  return isProduction ? AWS_API_URL : '';
 };
 
 // Create axios instance with base configuration

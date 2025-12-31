@@ -40,7 +40,12 @@ export default defineConfig({
   // Build settings for production
   build: {
     outDir: 'dist',  // Output folder
-    sourcemap: true  // Generate source maps for debugging
+    sourcemap: false,  // Disable source maps in production to avoid CSP eval errors
+    minify: 'esbuild',  // Use esbuild for faster minification
+    // Ensure production mode
+    define: {
+      'import.meta.env.PROD': JSON.stringify(true)
+    }
   }
 })
 
