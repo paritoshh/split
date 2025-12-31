@@ -24,8 +24,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 # DynamoDB client singleton
+# NOTE: These are module-level globals. In Lambda, they persist across invocations.
+# If credentials change, we need to clear these to force re-initialization.
 _dynamodb_client = None
 _dynamodb_resource = None
+
+
+def clear_dynamodb_cache():
+    """Clear cached DynamoDB client and resource. Forces fresh initialization."""
+    global _dynamodb_client, _dynamodb_resource
+    _dynamodb_client = None
+    _dynamodb_resource = None
+    logger.info("Cleared DynamoDB client/resource cache")
 
 
 def get_dynamodb_client():
@@ -49,14 +59,30 @@ def get_dynamodb_client():
             _dynamodb_client = boto3.client("dynamodb", **config)
         else:
             # Lambda mode: Use IAM role - explicitly don't pass any credentials
+            # Create client with ONLY region_name - boto3 will use IAM role automatically
             logger.info("Using IAM role for AWS credentials (Lambda/production mode)")
+            logger.info(f"Creating DynamoDB client for region: {settings.aws_region}")
+            
             if settings.dynamodb_endpoint_url:
                 # Local DynamoDB testing
+                logger.info(f"Using local DynamoDB endpoint: {settings.dynamodb_endpoint_url}")
                 _dynamodb_client = boto3.client("dynamodb", region_name=settings.aws_region, endpoint_url=settings.dynamodb_endpoint_url)
             else:
                 # AWS DynamoDB - use IAM role (default credential chain)
+                # IMPORTANT: Only pass region_name - let boto3 use default credential provider chain
+                logger.info("Creating DynamoDB client for AWS (using IAM role from Lambda execution role)")
                 _dynamodb_client = boto3.client("dynamodb", region_name=settings.aws_region)
-            logger.info("DynamoDB client created successfully (using IAM role)")
+            
+            # Verify client was created
+            logger.info(f"DynamoDB client created: {type(_dynamodb_client)}")
+            
+            # Test the client by getting region (this will fail if credentials are wrong)
+            try:
+                client_region = _dynamodb_client.meta.region_name
+                logger.info(f"Client region verified: {client_region}")
+            except Exception as e:
+                logger.error(f"Error verifying client: {e}")
+                raise
     return _dynamodb_client
 
 
