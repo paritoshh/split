@@ -1,18 +1,19 @@
 # Dockerfile for building Lambda deployment package
 # Uses Amazon Linux 2 to match Lambda runtime GLIBC 2.26
 # bcrypt 3.2.2 is compatible with GLIBC 2.26
+# Note: Using Python 3.9 (available in AL2) - Lambda supports Python 3.9-3.11
 
 FROM amazonlinux:2
 
-# Install Python 3.11 and build tools
-RUN amazon-linux-extras install python3.11 -y && \
-    yum install -y zip gcc python3.11-devel libffi-devel openssl-devel && \
-    python3.11 -m ensurepip --upgrade && \
+# Install Python 3.9 (available in Amazon Linux 2) and build tools
+RUN amazon-linux-extras install python3.9 -y && \
+    yum install -y zip gcc python3.9-devel libffi-devel openssl-devel && \
+    python3.9 -m ensurepip --upgrade && \
     yum clean all
 
 # Create symlinks
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3.11 /usr/bin/pip3
+RUN ln -sf /usr/bin/python3.9 /usr/bin/python3 && \
+    ln -sf /usr/bin/pip3.9 /usr/bin/pip3
 
 # Set working directory
 WORKDIR /build
