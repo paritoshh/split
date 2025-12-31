@@ -209,7 +209,11 @@ class DynamoDBService:
             ExpressionAttributeValues=expr_values,
             ReturnValues="ALL_NEW"
         )
-        return self._user_to_response(response.get("Attributes"))
+        attributes = response.get("Attributes")
+        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        if attributes:
+            attributes = deserialize_dynamodb_item(attributes)
+        return self._user_to_response(attributes)
     
     def _user_to_response(self, item: dict) -> Optional[dict]:
         """Convert DynamoDB item to user response format."""
@@ -286,14 +290,19 @@ class DynamoDBService:
         
         groups = []
         for membership in response.get("Items", []):
+            # Deserialize membership item if needed
+            membership = deserialize_dynamodb_item(membership)
             group_response = groups_table.get_item(
                 Key={"group_id": membership["group_id"]}
             )
             group = group_response.get("Item")
-            if group and group.get("is_active", True):
-                group_data = self._group_to_response(group)
-                group_data["members"] = self.get_group_members(group["group_id"])
-                groups.append(group_data)
+            if group:
+                # Deserialize group item if needed
+                group = deserialize_dynamodb_item(group)
+                if group.get("is_active", True):
+                    group_data = self._group_to_response(group)
+                    group_data["members"] = self.get_group_members(group["group_id"])
+                    groups.append(group_data)
         
         return groups
     
@@ -384,6 +393,8 @@ class DynamoDBService:
         
         members = []
         for membership in response.get("Items", []):
+            # Deserialize membership item if needed
+            membership = deserialize_dynamodb_item(membership)
             user = self.get_user_by_id(membership["user_id"])
             if user:
                 members.append({
@@ -494,6 +505,8 @@ class DynamoDBService:
         
         expenses = []
         for item in response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             expense = self._expense_to_response(item)
             expense["splits"] = self.get_expense_splits(item["expense_id"])
             expense["paid_by_user"] = self.get_user_by_id(item["paid_by_id"])
@@ -523,8 +536,12 @@ class DynamoDBService:
         
         expense_ids = set()
         for item in paid_response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             expense_ids.add(item["expense_id"])
         for item in splits_response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             expense_ids.add(item["expense_id"])
         
         expenses = []
@@ -640,6 +657,8 @@ class DynamoDBService:
         
         splits = []
         for item in response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             split = clean_item(item)
             split["user"] = self.get_user_by_id(item["user_id"])
             splits.append(split)
@@ -705,6 +724,8 @@ class DynamoDBService:
         
         settlements = []
         for item in response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             settlement = self._settlement_to_response(item)
             settlement["from_user"] = self.get_user_by_id(item["from_user_id"])
             settlement["to_user"] = self.get_user_by_id(item["to_user_id"])
@@ -734,6 +755,8 @@ class DynamoDBService:
         seen_ids = set()
         
         for item in from_response.get("Items", []) + to_response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             if item["settlement_id"] not in seen_ids:
                 seen_ids.add(item["settlement_id"])
                 settlement = self._settlement_to_response(item)
@@ -804,6 +827,8 @@ class DynamoDBService:
         
         notifications = []
         for item in response.get("Items", []):
+            # Deserialize item if needed before accessing fields
+            item = deserialize_dynamodb_item(item)
             notification = self._notification_to_response(item)
             if item.get("from_user_id"):
                 notification["from_user"] = self.get_user_by_id(item["from_user_id"])
