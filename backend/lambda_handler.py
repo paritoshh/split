@@ -83,14 +83,26 @@ _original_handler = handler
 def wrapped_handler(event, context):
     """Wrapper to catch and log any runtime errors"""
     try:
-        logger.info(f"Lambda invoked - Path: {event.get('rawPath', 'unknown')}")
+        logger.info(f"Lambda invoked - Path: {event.get('rawPath', 'unknown')}, Method: {event.get('requestContext', {}).get('http', {}).get('method', 'unknown')}")
+        logger.info(f"Event keys: {list(event.keys())}")
         # Call the ORIGINAL handler, not the wrapped one (to avoid recursion)
         result = _original_handler(event, context)
         logger.info(f"Lambda completed - Status: {result.get('statusCode', 'unknown')}")
+        logger.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+        logger.info(f"Result type: {type(result)}")
+        # Ensure result is in correct format for API Gateway HTTP API v2.0
+        if isinstance(result, dict):
+            # Mangum should return the correct format, but let's verify
+            if 'statusCode' not in result:
+                logger.error("Result missing statusCode!")
+            if 'headers' not in result:
+                logger.error("Result missing headers!")
+            if 'body' not in result:
+                logger.error("Result missing body!")
         return result
     except Exception as exc:
         error_msg = str(exc)
-        logger.error(f"❌ Unhandled exception in Lambda handler: {error_msg}")
+        logger.error(f"Unhandled exception in Lambda handler: {error_msg}")
         logger.error(traceback.format_exc())
         return {
             "statusCode": 500,
