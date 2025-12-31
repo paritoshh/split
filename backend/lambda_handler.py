@@ -74,12 +74,16 @@ except Exception as e:
     
     handler = error_handler
 
+# Store reference to original handler BEFORE wrapping
+_original_handler = handler
+
 # Wrap handler to catch and log runtime errors
 def wrapped_handler(event, context):
     """Wrapper to catch and log any runtime errors"""
     try:
         logger.info(f"Lambda invoked - Path: {event.get('rawPath', 'unknown')}")
-        result = handler(event, context)
+        # Call the ORIGINAL handler, not the wrapped one (to avoid recursion)
+        result = _original_handler(event, context)
         logger.info(f"Lambda completed - Status: {result.get('statusCode', 'unknown')}")
         return result
     except Exception as e:
@@ -98,13 +102,8 @@ def wrapped_handler(event, context):
             })
         }
 
-# Export the wrapped handler (use original handler if wrapped fails to initialize)
-# Lambda will call this as "lambda_handler.handler"
-try:
-    handler = wrapped_handler
-except:
-    # If wrapping fails, use the original handler
-    pass
+# Replace handler with wrapped version (Lambda will call this as "lambda_handler.handler")
+handler = wrapped_handler
 
 # Note: lifespan="off" because Lambda doesn't support
 # the ASGI lifespan protocol well. We handle initialization
