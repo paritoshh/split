@@ -49,7 +49,8 @@ try:
     
     # Create Lambda handler
     # This is the entry point AWS Lambda calls
-    handler = Mangum(app, lifespan="off")
+    # api_gateway_base_path is needed for HTTP API v2.0
+    handler = Mangum(app, lifespan="off", api_gateway_base_path="/")
     logger.info("Mangum handler created successfully")
 except Exception as exc:
     # Store error for use in error handler
