@@ -269,16 +269,22 @@ function AddExpensePage() {
       
       // Only include optional fields if they have values
       // Convert group_id to string and only include if not empty
-      const groupIdValue = formData.group_id ? String(formData.group_id).trim() : ''
-      if (groupIdValue !== '') {
-        expenseData.group_id = groupIdValue
+      // Handle both empty string and null cases
+      if (formData.group_id && formData.group_id !== '' && formData.group_id !== null) {
+        const groupIdValue = String(formData.group_id).trim()
+        if (groupIdValue !== '') {
+          expenseData.group_id = groupIdValue
+        }
       }
-      // If group_id is empty, we don't include it in expenseData at all
+      // If group_id is empty/null, we don't include it in expenseData at all
       // This prevents sending null or empty string to the backend
       
-      const notesValue = formData.notes ? formData.notes.trim() : ''
-      if (notesValue !== '') {
-        expenseData.notes = notesValue
+      // Only include notes if it has a non-empty value
+      if (formData.notes && formData.notes !== '' && formData.notes !== null) {
+        const notesValue = formData.notes.trim()
+        if (notesValue !== '') {
+          expenseData.notes = notesValue
+        }
       }
 
       if (formData.split_type === 'equal') {
@@ -295,6 +301,16 @@ function AddExpensePage() {
       // Debug: Log the expense data before sending
       console.log('Expense data being sent:', JSON.stringify(expenseData, null, 2))
       console.log('formData.group_id value:', formData.group_id, 'type:', typeof formData.group_id)
+      console.log('formData.notes value:', formData.notes, 'type:', typeof formData.notes)
+      
+      // Final check: Remove any null/undefined/empty values to prevent sending them
+      Object.keys(expenseData).forEach(key => {
+        if (expenseData[key] === null || expenseData[key] === undefined || expenseData[key] === '') {
+          delete expenseData[key]
+        }
+      })
+      
+      console.log('Expense data after cleanup:', JSON.stringify(expenseData, null, 2))
 
       await expensesAPI.create(expenseData)
 
