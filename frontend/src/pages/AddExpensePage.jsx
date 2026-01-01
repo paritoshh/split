@@ -268,9 +268,15 @@ function AddExpensePage() {
       }
       
       // Only include optional fields if they have values
-      if (formData.group_id && formData.group_id.trim() !== '') {
-        expenseData.group_id = formData.group_id // Keep as string (UUID)
+      // Convert group_id to string and only include if not empty
+      if (formData.group_id) {
+        const groupIdValue = String(formData.group_id).trim()
+        if (groupIdValue !== '') {
+          expenseData.group_id = groupIdValue
+        }
       }
+      // Note: If group_id is empty/undefined, we don't include it in expenseData
+      // This way the backend will receive undefined (not null) and handle it correctly
       
       if (formData.notes && formData.notes.trim() !== '') {
         expenseData.notes = formData.notes
