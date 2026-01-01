@@ -54,6 +54,9 @@ async def lifespan(app: FastAPI):
     if settings.database_type == "dynamodb":
         # DynamoDB setup
         print("🔄 Checking DynamoDB tables...")
+        print(f"📍 DynamoDB Endpoint: {settings.dynamodb_endpoint_url or 'AWS (not set)'}")
+        print(f"📍 AWS Region: {settings.aws_region}")
+        print(f"📍 AWS Access Key ID: {'SET' if settings.aws_access_key_id else 'NOT SET'}")
         try:
             from app.db.dynamodb_client import create_tables
             create_tables()
@@ -164,6 +167,36 @@ async def health_check():
         "app_name": settings.app_name,
         "debug": settings.debug
     }
+
+
+@app.get("/debug/dynamodb", tags=["Debug"])
+async def debug_dynamodb():
+    """
+    Debug endpoint to check which DynamoDB is being used.
+    """
+    from app.db.dynamodb_client import get_dynamodb_client
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        client = get_dynamodb_client()
+        endpoint_url = client._client_config.endpoint_url if hasattr(client, '_client_config') else None
+        
+        return {
+            "dynamodb_endpoint_url": settings.dynamodb_endpoint_url,
+            "actual_endpoint": str(endpoint_url) if endpoint_url else "AWS (default)",
+            "aws_region": settings.aws_region,
+            "has_credentials": bool(settings.aws_access_key_id and settings.aws_secret_access_key),
+            "database_type": settings.database_type,
+            "status": "local" if settings.dynamodb_endpoint_url else "aws"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "dynamodb_endpoint_url": settings.dynamodb_endpoint_url,
+            "database_type": settings.database_type
+        }
 
 
 # --- Main Entry Point ---
