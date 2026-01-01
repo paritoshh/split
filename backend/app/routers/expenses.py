@@ -67,6 +67,13 @@ async def create_expense(
         user_ids = [current_user["id"]] + [str(uid) for uid in (expense_data.split_with_user_ids or [])]
         user_ids = list(set(user_ids))  # Remove duplicates
         
+        # Validate: At least 2 people required to split an expense
+        if len(user_ids) < 2:
+            raise HTTPException(
+                status_code=400, 
+                detail="At least 2 people are required to split an expense"
+            )
+        
         per_person = expense_data.amount / len(user_ids)
         
         for user_id in user_ids:
@@ -95,23 +102,53 @@ async def create_expense(
                 })
     
     elif expense_data.split_type.value == "percentage":
+        if not expense_data.splits or len(expense_data.splits) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one split entry is required for percentage split type"
+            )
+        
+        unique_user_ids = set()
         for s in expense_data.splits:
+            unique_user_ids.add(str(s.user_id))
             amount = (expense_data.amount * s.percentage) / 100
             splits.append({
                 "user_id": str(s.user_id),
                 "amount": round(amount, 2),
                 "percentage": s.percentage
             })
+        
+        # Validate: At least 2 people required
+        if len(unique_user_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 people are required to split an expense"
+            )
     
     elif expense_data.split_type.value == "shares":
+        if not expense_data.splits or len(expense_data.splits) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one split entry is required for shares split type"
+            )
+        
         total_shares = sum(s.shares for s in expense_data.splits)
+        unique_user_ids = set()
         for s in expense_data.splits:
+            unique_user_ids.add(str(s.user_id))
             amount = (expense_data.amount * s.shares) / total_shares
             splits.append({
                 "user_id": str(s.user_id),
                 "amount": round(amount, 2),
                 "shares": s.shares
             })
+        
+        # Validate: At least 2 people required
+        if len(unique_user_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 people are required to split an expense"
+            )
     
     # Create the expense
     expense_date = expense_data.expense_date.isoformat() if expense_data.expense_date else datetime.utcnow().isoformat()
