@@ -46,6 +46,11 @@ async def create_expense(
     """
     Create a new expense.
     """
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating expense - group_id received: {expense_data.group_id}, type: {type(expense_data.group_id)}")
+    
     # Validate group membership if group_id provided
     if expense_data.group_id:
         group = db_service.get_group_by_id(str(expense_data.group_id))
@@ -111,11 +116,21 @@ async def create_expense(
     # Create the expense
     expense_date = expense_data.expense_date.isoformat() if expense_data.expense_date else datetime.utcnow().isoformat()
     
+    # Ensure group_id is properly handled
+    final_group_id = None
+    if expense_data.group_id:
+        final_group_id = str(expense_data.group_id).strip()
+        if final_group_id == '' or final_group_id.lower() == 'null':
+            final_group_id = None
+        logger.info(f"Final group_id to save: {final_group_id}")
+    else:
+        logger.info("No group_id provided in expense_data")
+    
     new_expense = db_service.create_expense(
         amount=expense_data.amount,
         description=expense_data.description,
         paid_by_id=current_user["id"],
-        group_id=str(expense_data.group_id) if expense_data.group_id else None,
+        group_id=final_group_id,
         split_type=expense_data.split_type.value,
         category=expense_data.category,
         currency=expense_data.currency,
