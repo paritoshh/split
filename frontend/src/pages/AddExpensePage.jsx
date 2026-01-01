@@ -255,8 +255,10 @@ function AddExpensePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('🔵 Form submitted!', { step, formData, selectedParticipants: selectedParticipants.length })
     
     if (!validateExactSplit()) {
+      console.log('❌ Exact split validation failed')
       setError('Exact split amounts must equal the total expense amount')
       return
     }
@@ -274,6 +276,7 @@ function AddExpensePage() {
       return
     }
     
+    console.log('✅ Calling submitExpense with group_id:', formData.group_id)
     submitExpense(formData.group_id)
   }
   
