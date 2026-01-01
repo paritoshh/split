@@ -244,24 +244,44 @@ class DynamoDBService:
     
     def update_user(self, user_id: str, **kwargs) -> Optional[dict]:
         """Update user fields."""
-        table = get_table("users")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for update_user")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("users")
         
         update_expr = "SET updated_at = :updated_at"
-        expr_values = {":updated_at": now_iso()}
+        expr_values = {":updated_at": {"S": now_iso()}}
         
         for key, value in kwargs.items():
             if value is not None:
                 update_expr += f", {key} = :{key}"
-                expr_values[f":{key}"] = value
+                if isinstance(value, str):
+                    expr_values[f":{key}"] = {"S": value}
+                elif isinstance(value, bool):
+                    expr_values[f":{key}"] = {"BOOL": value}
+                elif isinstance(value, (int, float)):
+                    expr_values[f":{key}"] = {"N": str(value)}
+                else:
+                    expr_values[f":{key}"] = {"S": str(value)}
         
-        response = table.update_item(
-            Key={"user_id": str(user_id)},
+        logger.info(f"Updating user {user_id}")
+        response = client.update_item(
+            TableName=table_name,
+            Key={"user_id": {"S": str(user_id)}},
             UpdateExpression=update_expr,
             ExpressionAttributeValues=expr_values,
             ReturnValues="ALL_NEW"
         )
         attributes = response.get("Attributes")
-        # Deserialize if needed (handles both boto3.resource and boto3.client formats)
+        # Deserialize if needed
         if attributes:
             attributes = deserialize_dynamodb_item(attributes)
         return self._user_to_response(attributes)
@@ -427,21 +447,44 @@ class DynamoDBService:
     
     def update_group(self, group_id: str, **kwargs) -> Optional[dict]:
         """Update group fields."""
-        table = get_table("groups")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for update_group")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("groups")
         
         update_expr = "SET updated_at = :updated_at"
-        expr_values = {":updated_at": now_iso()}
+        expr_values = {":updated_at": {"S": now_iso()}}
+        expr_names = {}
         
         for key, value in kwargs.items():
             if value is not None:
-                update_expr += f", #{key} = :{key}"
-                expr_values[f":{key}"] = value
-        
-        # Handle reserved words
-        expr_names = {f"#{k}": k for k in kwargs.keys() if k in ["name", "description"]}
+                # Handle reserved words
+                if key in ["name", "description"]:
+                    update_expr += f", #{key} = :{key}"
+                    expr_names[f"#{key}"] = key
+                else:
+                    update_expr += f", {key} = :{key}"
+                
+                if isinstance(value, str):
+                    expr_values[f":{key}"] = {"S": value}
+                elif isinstance(value, bool):
+                    expr_values[f":{key}"] = {"BOOL": value}
+                elif isinstance(value, (int, float)):
+                    expr_values[f":{key}"] = {"N": str(value)}
+                else:
+                    expr_values[f":{key}"] = {"S": str(value)}
         
         update_params = {
-            "Key": {"group_id": str(group_id)},
+            "TableName": table_name,
+            "Key": {"group_id": {"S": str(group_id)}},
             "UpdateExpression": update_expr,
             "ExpressionAttributeValues": expr_values,
             "ReturnValues": "ALL_NEW"
@@ -449,18 +492,36 @@ class DynamoDBService:
         if expr_names:
             update_params["ExpressionAttributeNames"] = expr_names
         
-        response = table.update_item(**update_params)
-        return self._group_to_response(response.get("Attributes"))
+        logger.info(f"Updating group {group_id}")
+        response = client.update_item(**update_params)
+        attributes = response.get("Attributes")
+        if attributes:
+            attributes = deserialize_dynamodb_item(attributes)
+        return self._group_to_response(attributes)
     
     def delete_group(self, group_id: str) -> bool:
         """Soft delete a group."""
-        table = get_table("groups")
-        table.update_item(
-            Key={"group_id": str(group_id)},
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for delete_group")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("groups")
+        
+        logger.info(f"Soft deleting group {group_id}")
+        client.update_item(
+            TableName=table_name,
+            Key={"group_id": {"S": str(group_id)}},
             UpdateExpression="SET is_active = :inactive, updated_at = :updated",
             ExpressionAttributeValues={
-                ":inactive": False,
-                ":updated": now_iso()
+                ":inactive": {"BOOL": False},
+                ":updated": {"S": now_iso()}
             }
         )
         return True
@@ -569,31 +630,86 @@ class DynamoDBService:
     
     def remove_group_member(self, group_id: str, user_id: str) -> bool:
         """Remove a member from a group (soft delete)."""
-        table = get_table("group_members")
-        table.update_item(
-            Key={"group_id": str(group_id), "user_id": str(user_id)},
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for remove_group_member")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("group_members")
+        
+        logger.info(f"Removing member {user_id} from group {group_id}")
+        client.update_item(
+            TableName=table_name,
+            Key={
+                "group_id": {"S": str(group_id)},
+                "user_id": {"S": str(user_id)}
+            },
             UpdateExpression="SET is_active = :inactive",
-            ExpressionAttributeValues={":inactive": False}
+            ExpressionAttributeValues={":inactive": {"BOOL": False}}
         )
         return True
     
     def is_group_member(self, group_id: str, user_id: str) -> bool:
         """Check if user is an active member of a group."""
-        table = get_table("group_members")
-        response = table.get_item(
-            Key={"group_id": str(group_id), "user_id": str(user_id)}
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for is_group_member")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("group_members")
+        
+        response = client.get_item(
+            TableName=table_name,
+            Key={
+                "group_id": {"S": str(group_id)},
+                "user_id": {"S": str(user_id)}
+            }
         )
         item = response.get("Item")
-        return item is not None and item.get("is_active", True)
+        if not item:
+            return False
+        item = deserialize_dynamodb_item(item)
+        return item.get("is_active", True)
     
     def is_group_admin(self, group_id: str, user_id: str) -> bool:
         """Check if user is an admin of a group."""
-        table = get_table("group_members")
-        response = table.get_item(
-            Key={"group_id": str(group_id), "user_id": str(user_id)}
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for is_group_admin")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("group_members")
+        
+        response = client.get_item(
+            TableName=table_name,
+            Key={
+                "group_id": {"S": str(group_id)},
+                "user_id": {"S": str(user_id)}
+            }
         )
         item = response.get("Item")
-        return item is not None and item.get("role") == "admin" and item.get("is_active", True)
+        if not item:
+            return False
+        item = deserialize_dynamodb_item(item)
+        return item.get("role") == "admin" and item.get("is_active", True)
     
     # ===========================================
     # EXPENSE OPERATIONS
