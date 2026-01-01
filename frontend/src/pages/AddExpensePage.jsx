@@ -428,12 +428,16 @@ function AddExpensePage() {
                 <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <select
                   value={formData.group_id}
-                  onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
+                  onChange={(e) => {
+                    const selectedGroupId = e.target.value
+                    console.log('📝 Group selected:', selectedGroupId, 'type:', typeof selectedGroupId)
+                    setFormData({ ...formData, group_id: selectedGroupId })
+                  }}
                   className="input-field pl-9 appearance-none"
                 >
                   <option value="">No group</option>
                   {groups.map(group => (
-                    <option key={group.id} value={group.id}>{group.name}</option>
+                    <option key={group.id} value={String(group.id)}>{group.name}</option>
                   ))}
                 </select>
               </div>
