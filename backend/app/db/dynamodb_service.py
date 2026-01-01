@@ -66,19 +66,32 @@ def deserialize_dynamodb_item(item: dict) -> dict:
     # Check if item is already in regular format (from boto3.resource)
     # If any value is a dict with DynamoDB type markers, it's low-level format
     is_low_level = False
-    for value in item.values():
-        if isinstance(value, dict) and len(value) == 1 and list(value.keys())[0] in ["S", "N", "BOOL", "SS", "NS", "BS", "M", "L"]:
-            is_low_level = True
-            break
+    try:
+        for value in item.values():
+            if isinstance(value, dict) and len(value) == 1:
+                first_key = list(value.keys())[0]
+                if first_key in ["S", "N", "BOOL", "SS", "NS", "BS", "M", "L"]:
+                    is_low_level = True
+                    break
+    except (AttributeError, TypeError):
+        # If item.values() fails or item is not a dict, assume it's already regular format
+        return item
     
     if not is_low_level:
         # Already in regular format, just return it
         return item
     
     # Convert from low-level format
-    from boto3.dynamodb.types import TypeDeserializer
-    deserializer = TypeDeserializer()
-    return {k: deserializer.deserialize(v) for k, v in item.items()}
+    try:
+        from boto3.dynamodb.types import TypeDeserializer
+        deserializer = TypeDeserializer()
+        return {k: deserializer.deserialize(v) for k, v in item.items()}
+    except Exception as e:
+        # If deserialization fails, log and return original item
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to deserialize DynamoDB item: {e}. Returning as-is.")
+        return item
 
 
 class DynamoDBService:
