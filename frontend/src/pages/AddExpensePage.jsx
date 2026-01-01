@@ -262,11 +262,18 @@ function AddExpensePage() {
       const expenseData = {
         amount: parseFloat(formData.amount),
         description: formData.description,
-        notes: formData.notes || null,
         category: formData.category,
-        group_id: formData.group_id ? parseInt(formData.group_id) : null,
         split_type: formData.split_type,
         expense_date: new Date(formData.expense_date).toISOString(),
+      }
+      
+      // Only include optional fields if they have values
+      if (formData.group_id && formData.group_id.trim() !== '') {
+        expenseData.group_id = formData.group_id // Keep as string (UUID)
+      }
+      
+      if (formData.notes && formData.notes.trim() !== '') {
+        expenseData.notes = formData.notes
       }
 
       if (formData.split_type === 'equal') {
