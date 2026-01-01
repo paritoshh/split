@@ -281,6 +281,7 @@ function AddExpensePage() {
   }
   
   const submitExpense = async (groupIdToUse) => {
+    console.log('🚀 submitExpense called with groupIdToUse:', groupIdToUse)
     setLoading(true)
     setError('')
 
@@ -383,7 +384,14 @@ function AddExpensePage() {
       console.log('Expense data after cleanup:', JSON.stringify(expenseData, null, 2))
       console.log('Has group_id?', 'group_id' in expenseData, expenseData.group_id)
 
-      await expensesAPI.create(expenseData)
+      console.log('📤 Making API call to expensesAPI.create...')
+      try {
+        const response = await expensesAPI.create(expenseData)
+        console.log('✅ API call successful:', response)
+      } catch (apiError) {
+        console.error('❌ API call failed:', apiError)
+        throw apiError
+      }
 
       // Navigate back - use groupIdToUse or formData.group_id or preSelectedGroup
       const navigateGroupId = groupIdToUse || formData.group_id || preSelectedGroup
