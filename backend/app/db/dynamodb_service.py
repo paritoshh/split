@@ -656,12 +656,30 @@ class DynamoDBService:
     
     def get_group_expenses(self, group_id: str, skip: int = 0, limit: int = 50) -> List[dict]:
         """Get all expenses for a group."""
-        table = get_table("expenses")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = table.query(
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_group_expenses")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expenses")
+        
+        logger.info(f"Querying {table_name} for group {group_id}")
+        
+        response = client.query(
+            TableName=table_name,
             IndexName="group_id-index",
-            KeyConditionExpression=Key("group_id").eq(str(group_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="group_id = :group_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":group_id": {"S": str(group_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         expenses = []
@@ -680,19 +698,42 @@ class DynamoDBService:
     
     def get_user_expenses(self, user_id: str, skip: int = 0, limit: int = 50) -> List[dict]:
         """Get all expenses where user is involved (paid or split)."""
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_expenses")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        expenses_table_name = get_table_name("expenses")
+        splits_table_name = get_table_name("expense_splits")
+        
+        logger.info(f"Querying expenses for user {user_id}")
+        
         # Get expenses user paid for
-        expenses_table = get_table("expenses")
-        paid_response = expenses_table.query(
+        paid_response = client.query(
+            TableName=expenses_table_name,
             IndexName="paid_by-index",
-            KeyConditionExpression=Key("paid_by_id").eq(str(user_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="paid_by_id = :paid_by_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":paid_by_id": {"S": str(user_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         # Get expenses user is split in
-        splits_table = get_table("expense_splits")
-        splits_response = splits_table.query(
+        splits_response = client.query(
+            TableName=splits_table_name,
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(str(user_id))
+            KeyConditionExpression="user_id = :user_id",
+            ExpressionAttributeValues={
+                ":user_id": {"S": str(user_id)}
+            }
         )
         
         expense_ids = set()
@@ -875,12 +916,30 @@ class DynamoDBService:
     
     def get_group_settlements(self, group_id: str) -> List[dict]:
         """Get all settlements for a group."""
-        table = get_table("settlements")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = table.query(
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_group_settlements")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("settlements")
+        
+        logger.info(f"Querying {table_name} for group {group_id}")
+        
+        response = client.query(
+            TableName=table_name,
             IndexName="group_id-index",
-            KeyConditionExpression=Key("group_id").eq(str(group_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="group_id = :group_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":group_id": {"S": str(group_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         settlements = []
@@ -896,20 +955,43 @@ class DynamoDBService:
     
     def get_user_settlements(self, user_id: str) -> List[dict]:
         """Get all settlements involving a user."""
-        table = get_table("settlements")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_settlements")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("settlements")
+        
+        logger.info(f"Querying settlements for user {user_id}")
         
         # Get settlements from user
-        from_response = table.query(
+        from_response = client.query(
+            TableName=table_name,
             IndexName="from_user-index",
-            KeyConditionExpression=Key("from_user_id").eq(str(user_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="from_user_id = :from_user_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":from_user_id": {"S": str(user_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         # Get settlements to user
-        to_response = table.query(
+        to_response = client.query(
+            TableName=table_name,
             IndexName="to_user-index",
-            KeyConditionExpression=Key("to_user_id").eq(str(user_id)),
-            FilterExpression=Attr("is_active").eq(True)
+            KeyConditionExpression="to_user_id = :to_user_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":to_user_id": {"S": str(user_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         settlements = []
