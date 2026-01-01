@@ -347,10 +347,25 @@ function AddExpensePage() {
       console.log('formData.notes value:', formData.notes, 'type:', typeof formData.notes)
       
       // Final check: Remove any null/undefined/empty values to prevent sending them
-      // Specifically check group_id and notes
-      if ('group_id' in expenseData && (expenseData.group_id === null || expenseData.group_id === undefined || expenseData.group_id === '')) {
-        delete expenseData.group_id
+      // CRITICAL: Remove group_id if it's null/undefined/empty BEFORE sending
+      // This must happen AFTER all other logic to ensure we don't send null
+      if ('group_id' in expenseData) {
+        const groupIdValue = expenseData.group_id
+        if (groupIdValue === null || 
+            groupIdValue === undefined || 
+            groupIdValue === '' || 
+            String(groupIdValue).trim() === '' ||
+            String(groupIdValue).toLowerCase() === 'null' ||
+            String(groupIdValue).toLowerCase() === 'undefined') {
+          console.log('🗑️ Removing invalid group_id from expenseData:', groupIdValue)
+          delete expenseData.group_id
+        } else {
+          console.log('✅ Keeping valid group_id:', expenseData.group_id)
+        }
+      } else {
+        console.log('ℹ️ group_id not in expenseData (this is OK if no group selected)')
       }
+      
       if ('notes' in expenseData && (expenseData.notes === null || expenseData.notes === undefined || expenseData.notes === '')) {
         delete expenseData.notes
       }
