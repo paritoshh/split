@@ -104,11 +104,10 @@ class DynamoDBService:
     def create_user(self, email: str, name: str, hashed_password: str, 
                    phone: Optional[str] = None, upi_id: Optional[str] = None) -> dict:
         """Create a new user."""
-        # Use boto3 client directly (like get_user_by_email) to avoid credential issues
-        import boto3
-        from app.config import settings
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
-        client = boto3.client('dynamodb', region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("users")
         
         user_id = generate_id()
@@ -145,17 +144,15 @@ class DynamoDBService:
     
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         """Get user by ID."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_by_id")
+        logger.info("Getting DynamoDB client for get_user_by_id")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        # Use the shared client which has endpoint_url configured
+        client = get_dynamodb_client()
         table_name = get_table_name("users")
         
         logger.info(f"Getting user {user_id} from {table_name}")
@@ -209,17 +206,15 @@ class DynamoDBService:
     
     def search_users(self, query: str, exclude_ids: List[str] = None) -> List[dict]:
         """Search users by name or email."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for search_users")
+        logger.info("Getting DynamoDB client for search_users")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        # Use the shared client which has endpoint_url configured
+        client = get_dynamodb_client()
         table_name = get_table_name("users")
         
         logger.info(f"Scanning table {table_name} for query: {query}")
