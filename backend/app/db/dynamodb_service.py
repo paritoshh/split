@@ -923,10 +923,21 @@ class DynamoDBService:
     
     def update_expense(self, expense_id: str, **kwargs) -> Optional[dict]:
         """Update expense fields."""
-        table = get_table("expenses")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for update_expense")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expenses")
         
         update_expr = "SET updated_at = :updated_at"
-        expr_values = {":updated_at": now_iso()}
+        expr_values = {":updated_at": {"S": now_iso()}}
         expr_names = {}
         
         for key, value in kwargs.items():
@@ -936,13 +947,21 @@ class DynamoDBService:
                     expr_names[f"#{key}"] = key
                 else:
                     update_expr += f", {key} = :{key}"
+                
                 if isinstance(value, float):
-                    expr_values[f":{key}"] = to_decimal(value)
+                    expr_values[f":{key}"] = {"N": str(to_decimal(value))}
+                elif isinstance(value, str):
+                    expr_values[f":{key}"] = {"S": value}
+                elif isinstance(value, bool):
+                    expr_values[f":{key}"] = {"BOOL": value}
+                elif isinstance(value, (int, Decimal)):
+                    expr_values[f":{key}"] = {"N": str(value)}
                 else:
-                    expr_values[f":{key}"] = value
+                    expr_values[f":{key}"] = {"S": str(value)}
         
         update_params = {
-            "Key": {"expense_id": str(expense_id)},
+            "TableName": table_name,
+            "Key": {"expense_id": {"S": str(expense_id)}},
             "UpdateExpression": update_expr,
             "ExpressionAttributeValues": expr_values,
             "ReturnValues": "ALL_NEW"
@@ -950,18 +969,36 @@ class DynamoDBService:
         if expr_names:
             update_params["ExpressionAttributeNames"] = expr_names
         
-        response = table.update_item(**update_params)
-        return self._expense_to_response(response.get("Attributes"))
+        logger.info(f"Updating expense {expense_id}")
+        response = client.update_item(**update_params)
+        attributes = response.get("Attributes")
+        if attributes:
+            attributes = deserialize_dynamodb_item(attributes)
+        return self._expense_to_response(attributes)
     
     def delete_expense(self, expense_id: str) -> bool:
         """Soft delete an expense."""
-        table = get_table("expenses")
-        table.update_item(
-            Key={"expense_id": str(expense_id)},
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for delete_expense")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expenses")
+        
+        logger.info(f"Soft deleting expense {expense_id}")
+        client.update_item(
+            TableName=table_name,
+            Key={"expense_id": {"S": str(expense_id)}},
             UpdateExpression="SET is_active = :inactive, updated_at = :updated",
             ExpressionAttributeValues={
-                ":inactive": False,
-                ":updated": now_iso()
+                ":inactive": {"BOOL": False},
+                ":updated": {"S": now_iso()}
             }
         )
         return True
@@ -1077,20 +1114,51 @@ class DynamoDBService:
     
     def delete_expense_splits(self, expense_id: str) -> bool:
         """Delete all splits for an expense."""
-        table = get_table("expense_splits")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for delete_expense_splits")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expense_splits")
+        
+        logger.info(f"Deleting splits for expense {expense_id}")
         
         # Get all splits
-        response = table.query(
-            KeyConditionExpression=Key("expense_id").eq(str(expense_id))
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="expense_id = :expense_id",
+            ExpressionAttributeValues={
+                ":expense_id": {"S": str(expense_id)}
+            }
         )
         
-        # Delete each split
-        with table.batch_writer() as batch:
-            for item in response.get("Items", []):
-                batch.delete_item(Key={
-                    "expense_id": item["expense_id"],
-                    "user_id": item["user_id"]
-                })
+        # Delete each split using batch_write_item
+        items_to_delete = []
+        for item in response.get("Items", []):
+            item = deserialize_dynamodb_item(item)
+            items_to_delete.append({
+                "DeleteRequest": {
+                    "Key": {
+                        "expense_id": {"S": str(item["expense_id"])},
+                        "user_id": {"S": str(item["user_id"])}
+                    }
+                }
+            })
+        
+        # Batch delete (DynamoDB allows up to 25 items per batch)
+        for i in range(0, len(items_to_delete), 25):
+            batch = items_to_delete[i:i+25]
+            client.batch_write_item(
+                RequestItems={
+                    table_name: batch
+                }
+            )
         
         return True
     
@@ -1322,12 +1390,29 @@ class DynamoDBService:
     
     def get_user_notifications(self, user_id: str, limit: int = 20) -> List[dict]:
         """Get notifications for a user."""
-        table = get_table("notifications")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = table.query(
-            KeyConditionExpression=Key("user_id").eq(str(user_id)),
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_notifications")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("notifications")
+        
+        logger.info(f"Querying notifications for user {user_id}")
+        
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="user_id = :user_id",
             ScanIndexForward=False,  # Sort descending by notification_id
-            Limit=limit
+            Limit=limit,
+            ExpressionAttributeValues={
+                ":user_id": {"S": str(user_id)}
+            }
         )
         
         notifications = []
