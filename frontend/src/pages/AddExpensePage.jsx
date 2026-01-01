@@ -269,14 +269,15 @@ function AddExpensePage() {
       
       // Only include optional fields if they have values
       // Convert group_id to string and only include if not empty
-      // Handle both empty string and null cases
-      if (formData.group_id && formData.group_id !== '' && formData.group_id !== null) {
-        const groupIdValue = String(formData.group_id).trim()
-        if (groupIdValue !== '') {
+      // Handle both empty string and null cases - be very explicit
+      const groupIdRaw = formData.group_id
+      if (groupIdRaw !== null && groupIdRaw !== undefined && groupIdRaw !== '') {
+        const groupIdValue = String(groupIdRaw).trim()
+        if (groupIdValue !== '' && groupIdValue !== 'null' && groupIdValue !== 'undefined') {
           expenseData.group_id = groupIdValue
         }
       }
-      // If group_id is empty/null, we don't include it in expenseData at all
+      // If group_id is empty/null/undefined, we don't include it in expenseData at all
       // This prevents sending null or empty string to the backend
       
       // Only include notes if it has a non-empty value
@@ -304,6 +305,15 @@ function AddExpensePage() {
       console.log('formData.notes value:', formData.notes, 'type:', typeof formData.notes)
       
       // Final check: Remove any null/undefined/empty values to prevent sending them
+      // Specifically check group_id and notes
+      if ('group_id' in expenseData && (expenseData.group_id === null || expenseData.group_id === undefined || expenseData.group_id === '')) {
+        delete expenseData.group_id
+      }
+      if ('notes' in expenseData && (expenseData.notes === null || expenseData.notes === undefined || expenseData.notes === '')) {
+        delete expenseData.notes
+      }
+      
+      // Also do a general cleanup for any other fields
       Object.keys(expenseData).forEach(key => {
         if (expenseData[key] === null || expenseData[key] === undefined || expenseData[key] === '') {
           delete expenseData[key]
@@ -311,6 +321,7 @@ function AddExpensePage() {
       })
       
       console.log('Expense data after cleanup:', JSON.stringify(expenseData, null, 2))
+      console.log('Has group_id?', 'group_id' in expenseData, expenseData.group_id)
 
       await expensesAPI.create(expenseData)
 
