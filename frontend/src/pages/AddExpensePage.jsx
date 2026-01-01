@@ -292,6 +292,10 @@ function AddExpensePage() {
         }))
       }
 
+      // Debug: Log the expense data before sending
+      console.log('Expense data being sent:', JSON.stringify(expenseData, null, 2))
+      console.log('formData.group_id value:', formData.group_id, 'type:', typeof formData.group_id)
+
       await expensesAPI.create(expenseData)
 
       // Navigate back
