@@ -367,9 +367,10 @@ function AddExpensePage() {
 
       await expensesAPI.create(expenseData)
 
-      // Navigate back
-      if (formData.group_id) {
-        navigate(`/groups/${formData.group_id}`)
+      // Navigate back - use groupIdToUse or formData.group_id or preSelectedGroup
+      const navigateGroupId = groupIdToUse || formData.group_id || preSelectedGroup
+      if (navigateGroupId) {
+        navigate(`/groups/${navigateGroupId}`)
       } else {
         navigate('/dashboard')
       }
