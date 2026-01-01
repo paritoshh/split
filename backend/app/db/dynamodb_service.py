@@ -19,7 +19,7 @@ from typing import List, Optional, Dict, Any
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
-from app.db.dynamodb_client import get_table, get_table_name
+from app.db.dynamodb_client import get_table, get_table_name, get_dynamodb_client
 from app.config import settings
 
 
@@ -250,17 +250,14 @@ class DynamoDBService:
     
     def update_user(self, user_id: str, **kwargs) -> Optional[dict]:
         """Update user fields."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for update_user")
+        logger.info("Getting DynamoDB client for update_user")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("users")
         
         update_expr = "SET updated_at = :updated_at"
@@ -318,17 +315,14 @@ class DynamoDBService:
                     description: Optional[str] = None,
                     category: str = "other") -> dict:
         """Create a new group and add creator as admin."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for create_group")
+        logger.info("Getting DynamoDB client for create_group")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("groups")
         
         group_id = generate_id()
@@ -367,17 +361,14 @@ class DynamoDBService:
     
     def get_group_by_id(self, group_id: str) -> Optional[dict]:
         """Get group by ID."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_group_by_id")
+        logger.info("Getting DynamoDB client for get_group_by_id")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("groups")
         
         logger.info(f"Getting group {group_id} from {table_name}")
@@ -399,17 +390,14 @@ class DynamoDBService:
     
     def get_user_groups(self, user_id: str) -> List[dict]:
         """Get all groups a user is member of."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_groups")
+        logger.info("Getting DynamoDB client for get_user_groups")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         members_table_name = get_table_name("group_members")
         groups_table_name = get_table_name("groups")
         
@@ -451,17 +439,14 @@ class DynamoDBService:
     
     def update_group(self, group_id: str, **kwargs) -> Optional[dict]:
         """Update group fields."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for update_group")
+        logger.info("Getting DynamoDB client for update_group")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("groups")
         
         update_expr = "SET updated_at = :updated_at"
@@ -505,17 +490,14 @@ class DynamoDBService:
     
     def delete_group(self, group_id: str) -> bool:
         """Soft delete a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for delete_group")
+        logger.info("Getting DynamoDB client for delete_group")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("groups")
         
         logger.info(f"Soft deleting group {group_id}")
@@ -553,17 +535,14 @@ class DynamoDBService:
     
     def add_group_member(self, group_id: str, user_id: str, role: str = "member") -> dict:
         """Add a member to a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for add_group_member")
+        logger.info("Getting DynamoDB client for add_group_member")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("group_members")
         
         item = {
@@ -592,17 +571,14 @@ class DynamoDBService:
     
     def get_group_members(self, group_id: str) -> List[dict]:
         """Get all members of a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_group_members")
+        logger.info("Getting DynamoDB client for get_group_members")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("group_members")
         
         logger.info(f"Querying {table_name} for group {group_id}")
@@ -634,17 +610,14 @@ class DynamoDBService:
     
     def remove_group_member(self, group_id: str, user_id: str) -> bool:
         """Remove a member from a group (soft delete)."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for remove_group_member")
+        logger.info("Getting DynamoDB client for remove_group_member")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("group_members")
         
         logger.info(f"Removing member {user_id} from group {group_id}")
@@ -661,17 +634,14 @@ class DynamoDBService:
     
     def is_group_member(self, group_id: str, user_id: str) -> bool:
         """Check if user is an active member of a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for is_group_member")
+        logger.info("Getting DynamoDB client for is_group_member")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("group_members")
         
         response = client.get_item(
@@ -689,17 +659,14 @@ class DynamoDBService:
     
     def is_group_admin(self, group_id: str, user_id: str) -> bool:
         """Check if user is an admin of a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for is_group_admin")
+        logger.info("Getting DynamoDB client for is_group_admin")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("group_members")
         
         response = client.get_item(
@@ -725,17 +692,14 @@ class DynamoDBService:
                       expense_date: Optional[str] = None, notes: Optional[str] = None,
                       splits: List[dict] = None) -> dict:
         """Create a new expense with splits."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for create_expense")
+        logger.info("Getting DynamoDB client for create_expense")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expenses")
         
         expense_id = generate_id()
@@ -790,17 +754,14 @@ class DynamoDBService:
     
     def get_expense_by_id(self, expense_id: str) -> Optional[dict]:
         """Get expense by ID with splits."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_expense_by_id")
+        logger.info("Getting DynamoDB client for get_expense_by_id")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expenses")
         
         logger.info(f"Getting expense {expense_id} from {table_name}")
@@ -824,17 +785,14 @@ class DynamoDBService:
     
     def get_group_expenses(self, group_id: str, skip: int = 0, limit: int = 50) -> List[dict]:
         """Get all expenses for a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_group_expenses")
+        logger.info("Getting DynamoDB client for get_group_expenses")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expenses")
         
         logger.info(f"Querying {table_name} for group {group_id}")
@@ -868,17 +826,14 @@ class DynamoDBService:
     
     def get_user_expenses(self, user_id: str, skip: int = 0, limit: int = 50) -> List[dict]:
         """Get all expenses where user is involved (paid or split)."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_expenses")
+        logger.info("Getting DynamoDB client for get_user_expenses")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         expenses_table_name = get_table_name("expenses")
         splits_table_name = get_table_name("expense_splits")
         
@@ -929,17 +884,14 @@ class DynamoDBService:
     
     def update_expense(self, expense_id: str, **kwargs) -> Optional[dict]:
         """Update expense fields."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for update_expense")
+        logger.info("Getting DynamoDB client for update_expense")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expenses")
         
         update_expr = "SET updated_at = :updated_at"
@@ -984,17 +936,14 @@ class DynamoDBService:
     
     def delete_expense(self, expense_id: str) -> bool:
         """Soft delete an expense."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for delete_expense")
+        logger.info("Getting DynamoDB client for delete_expense")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expenses")
         
         logger.info(f"Soft deleting expense {expense_id}")
@@ -1041,17 +990,14 @@ class DynamoDBService:
                             percentage: Optional[float] = None,
                             shares: Optional[float] = None) -> dict:
         """Create an expense split."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for create_expense_split")
+        logger.info("Getting DynamoDB client for create_expense_split")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expense_splits")
         
         item = {
@@ -1085,17 +1031,14 @@ class DynamoDBService:
     
     def get_expense_splits(self, expense_id: str) -> List[dict]:
         """Get all splits for an expense."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_expense_splits")
+        logger.info("Getting DynamoDB client for get_expense_splits")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expense_splits")
         
         logger.info(f"Querying {table_name} for expense {expense_id}")
@@ -1120,17 +1063,14 @@ class DynamoDBService:
     
     def delete_expense_splits(self, expense_id: str) -> bool:
         """Delete all splits for an expense."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for delete_expense_splits")
+        logger.info("Getting DynamoDB client for delete_expense_splits")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("expense_splits")
         
         logger.info(f"Deleting splits for expense {expense_id}")
@@ -1177,17 +1117,14 @@ class DynamoDBService:
                          transaction_ref: Optional[str] = None,
                          notes: Optional[str] = None) -> dict:
         """Create a settlement record."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for create_settlement")
+        logger.info("Getting DynamoDB client for create_settlement")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("settlements")
         
         settlement_id = generate_id()
@@ -1226,17 +1163,14 @@ class DynamoDBService:
     
     def get_group_settlements(self, group_id: str) -> List[dict]:
         """Get all settlements for a group."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_group_settlements")
+        logger.info("Getting DynamoDB client for get_group_settlements")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("settlements")
         
         logger.info(f"Querying {table_name} for group {group_id}")
@@ -1265,17 +1199,14 @@ class DynamoDBService:
     
     def get_user_settlements(self, user_id: str) -> List[dict]:
         """Get all settlements involving a user."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_settlements")
+        logger.info("Getting DynamoDB client for get_user_settlements")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("settlements")
         
         logger.info(f"Querying settlements for user {user_id}")
@@ -1349,17 +1280,14 @@ class DynamoDBService:
                            group_id: Optional[str] = None,
                            from_user_id: Optional[str] = None) -> dict:
         """Create a notification."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for create_notification")
+        logger.info("Getting DynamoDB client for create_notification")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("notifications")
         
         notification_id = generate_id()
@@ -1396,17 +1324,14 @@ class DynamoDBService:
     
     def get_user_notifications(self, user_id: str, limit: int = 20) -> List[dict]:
         """Get notifications for a user."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_notifications")
+        logger.info("Getting DynamoDB client for get_user_notifications")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("notifications")
         
         logger.info(f"Querying notifications for user {user_id}")
@@ -1437,17 +1362,14 @@ class DynamoDBService:
     
     def mark_notification_read(self, user_id: str, notification_id: str) -> bool:
         """Mark a notification as read."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for mark_notification_read")
+        logger.info("Getting DynamoDB client for mark_notification_read")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("notifications")
         
         logger.info(f"Marking notification {notification_id} as read for user {user_id}")
@@ -1464,17 +1386,14 @@ class DynamoDBService:
     
     def mark_all_notifications_read(self, user_id: str) -> int:
         """Mark all notifications as read for a user."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for mark_all_notifications_read")
+        logger.info("Getting DynamoDB client for mark_all_notifications_read")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("notifications")
         
         logger.info(f"Marking all notifications as read for user {user_id}")
@@ -1509,17 +1428,14 @@ class DynamoDBService:
     
     def get_unread_notification_count(self, user_id: str) -> int:
         """Get count of unread notifications."""
-        # Use boto3.client() directly to avoid credential caching issues
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
-        from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_unread_notification_count")
+        logger.info("Getting DynamoDB client for get_unread_notification_count")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        client = get_dynamodb_client()
         table_name = get_table_name("notifications")
         
         logger.info(f"Querying table {table_name} for user {user_id}")
