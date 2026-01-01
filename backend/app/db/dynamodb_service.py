@@ -871,10 +871,27 @@ class DynamoDBService:
     
     def get_expense_splits(self, expense_id: str) -> List[dict]:
         """Get all splits for an expense."""
-        table = get_table("expense_splits")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = table.query(
-            KeyConditionExpression=Key("expense_id").eq(str(expense_id))
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_expense_splits")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expense_splits")
+        
+        logger.info(f"Querying {table_name} for expense {expense_id}")
+        
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="expense_id = :expense_id",
+            ExpressionAttributeValues={
+                ":expense_id": {"S": str(expense_id)}
+            }
         )
         
         splits = []
