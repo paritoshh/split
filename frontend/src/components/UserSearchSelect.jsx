@@ -24,25 +24,26 @@ function UserSearchSelect({
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
+  const [allSearchResults, setAllSearchResults] = useState([]) // Store unfiltered results
   const [searchLoading, setSearchLoading] = useState(false)
 
-  // Search users with debounce
+  // Search users with debounce (only when searchQuery changes)
   useEffect(() => {
     const searchUsers = async () => {
       if (searchQuery.length < 4) {
         setSearchResults([])
+        setAllSearchResults([])
         return
       }
       
       setSearchLoading(true)
       try {
         const response = await authAPI.searchUsers(searchQuery)
-        // Filter out excluded users and already selected users
-        const selectedIds = selectedUsers.map(u => u.id)
-        const allExcluded = [...excludeUserIds, ...selectedIds]
-        setSearchResults(response.data.filter(u => !allExcluded.includes(u.id)))
+        // Store all results (we'll filter in a separate effect)
+        setAllSearchResults(response.data)
       } catch (err) {
         console.error('Search failed:', err)
+        setAllSearchResults([])
       } finally {
         setSearchLoading(false)
       }
@@ -50,7 +51,21 @@ function UserSearchSelect({
 
     const debounceTimer = setTimeout(searchUsers, 300)
     return () => clearTimeout(debounceTimer)
-  }, [searchQuery, excludeUserIds, selectedUsers])
+    // Only depend on searchQuery - don't trigger on selectedUsers changes
+  }, [searchQuery])
+
+  // Filter results when selectedUsers or excludeUserIds change (without new API call)
+  useEffect(() => {
+    if (allSearchResults.length === 0) {
+      setSearchResults([])
+      return
+    }
+    
+    // Filter out excluded users and already selected users
+    const selectedIds = selectedUsers.map(u => u.id)
+    const allExcluded = [...excludeUserIds, ...selectedIds]
+    setSearchResults(allSearchResults.filter(u => !allExcluded.includes(u.id)))
+  }, [allSearchResults, selectedUsers, excludeUserIds])
 
   const handleSelectUser = (user) => {
     if (multiple) {
