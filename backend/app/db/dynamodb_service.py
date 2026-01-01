@@ -132,10 +132,32 @@ class DynamoDBService:
     
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         """Get user by ID."""
-        table = get_table("users")
-        response = table.get_item(Key={"user_id": str(user_id)})
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_user_by_id")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("users")
+        
+        logger.info(f"Getting user {user_id} from {table_name}")
+        
+        response = client.get_item(
+            TableName=table_name,
+            Key={"user_id": {"S": str(user_id)}}
+        )
         item = response.get("Item")
-        return self._user_to_response(item) if item else None
+        if not item:
+            return None
+        
+        # Deserialize item
+        item = deserialize_dynamodb_item(item)
+        return self._user_to_response(item)
     
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """Get user by email."""
