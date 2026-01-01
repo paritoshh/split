@@ -605,7 +605,19 @@ class DynamoDBService:
                       expense_date: Optional[str] = None, notes: Optional[str] = None,
                       splits: List[dict] = None) -> dict:
         """Create a new expense with splits."""
-        table = get_table("expenses")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for create_expense")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expenses")
+        
         expense_id = generate_id()
         
         item = {
@@ -625,7 +637,23 @@ class DynamoDBService:
             "updated_at": now_iso()
         }
         item = {k: v for k, v in item.items() if v is not None}
-        table.put_item(Item=item)
+        
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, Decimal):
+                dynamodb_item[key] = {"N": str(value)}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value)}
+        
+        logger.info(f"Creating expense {expense_id} in table {table_name}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         
         # Create splits
         if splits:
@@ -854,7 +882,18 @@ class DynamoDBService:
                             percentage: Optional[float] = None,
                             shares: Optional[float] = None) -> dict:
         """Create an expense split."""
-        table = get_table("expense_splits")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for create_expense_split")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expense_splits")
         
         item = {
             "expense_id": str(expense_id),
@@ -866,7 +905,23 @@ class DynamoDBService:
             "paid_at": None
         }
         item = {k: v for k, v in item.items() if v is not None}
-        table.put_item(Item=item)
+        
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, Decimal):
+                dynamodb_item[key] = {"N": str(value)}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value) if value is not None else ""}
+        
+        logger.info(f"Creating expense split for expense {expense_id}, user {user_id}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         return clean_item(item)
     
     def get_expense_splits(self, expense_id: str) -> List[dict]:
@@ -932,7 +987,19 @@ class DynamoDBService:
                          transaction_ref: Optional[str] = None,
                          notes: Optional[str] = None) -> dict:
         """Create a settlement record."""
-        table = get_table("settlements")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for create_settlement")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("settlements")
+        
         settlement_id = generate_id()
         
         item = {
@@ -948,7 +1015,23 @@ class DynamoDBService:
             "created_at": now_iso()
         }
         item = {k: v for k, v in item.items() if v is not None}
-        table.put_item(Item=item)
+        
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, Decimal):
+                dynamodb_item[key] = {"N": str(value)}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value) if value is not None else ""}
+        
+        logger.info(f"Creating settlement {settlement_id}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         return self._settlement_to_response(item)
     
     def get_group_settlements(self, group_id: str) -> List[dict]:
@@ -1076,7 +1159,19 @@ class DynamoDBService:
                            group_id: Optional[str] = None,
                            from_user_id: Optional[str] = None) -> dict:
         """Create a notification."""
-        table = get_table("notifications")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for create_notification")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("notifications")
+        
         notification_id = generate_id()
         
         item = {
@@ -1092,7 +1187,21 @@ class DynamoDBService:
             "created_at": now_iso()
         }
         item = {k: v for k, v in item.items() if v is not None}
-        table.put_item(Item=item)
+        
+        # Convert to DynamoDB format
+        dynamodb_item = {}
+        for key, value in item.items():
+            if isinstance(value, str):
+                dynamodb_item[key] = {"S": value}
+            elif isinstance(value, bool):
+                dynamodb_item[key] = {"BOOL": value}
+            elif isinstance(value, (int, float)):
+                dynamodb_item[key] = {"N": str(value)}
+            else:
+                dynamodb_item[key] = {"S": str(value) if value is not None else ""}
+        
+        logger.info(f"Creating notification {notification_id} for user {user_id}")
+        client.put_item(TableName=table_name, Item=dynamodb_item)
         return self._notification_to_response(item)
     
     def get_user_notifications(self, user_id: str, limit: int = 20) -> List[dict]:
@@ -1121,11 +1230,28 @@ class DynamoDBService:
     
     def mark_notification_read(self, user_id: str, notification_id: str) -> bool:
         """Mark a notification as read."""
-        table = get_table("notifications")
-        table.update_item(
-            Key={"user_id": str(user_id), "notification_id": str(notification_id)},
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for mark_notification_read")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("notifications")
+        
+        logger.info(f"Marking notification {notification_id} as read for user {user_id}")
+        client.update_item(
+            TableName=table_name,
+            Key={
+                "user_id": {"S": str(user_id)},
+                "notification_id": {"S": str(notification_id)}
+            },
             UpdateExpression="SET is_read = :read",
-            ExpressionAttributeValues={":read": True}
+            ExpressionAttributeValues={":read": {"BOOL": True}}
         )
         return True
     
