@@ -21,10 +21,6 @@ docker-compose up -d
 ```
 
 ## Step 3: Setup Backend
-
-**Choose one option:**
-
-### Option A: Use SQLite (Simpler - Recommended)
 ```bash
 cd backend
 
@@ -40,34 +36,19 @@ python -m venv venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy SQLite environment file (simplest for local)
-copy .env.sqlite.example .env
-
-# No need to initialize tables - SQLite creates them automatically
-```
-
-### Option B: Use DynamoDB Local (More complex)
-```bash
-cd backend
-
-# Create virtual environment (if not exists)
-python -m venv venv
-
-# Activate virtual environment
-# On Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-# On Windows CMD:
-# venv\Scripts\activate.bat
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy DynamoDB Local environment file
+# IMPORTANT: Copy DynamoDB Local environment file
+# This configures the app to use local DynamoDB (not AWS)
 copy env.dynamodb.local.example .env
 
-# Initialize DynamoDB tables
+# Initialize DynamoDB tables in local DynamoDB
 python scripts/init_dynamodb.py
 ```
+
+**Important:** The `.env` file must have:
+- `DATABASE_TYPE=dynamodb`
+- `DYNAMODB_ENDPOINT_URL=http://localhost:8000` (points to local DynamoDB)
+- `AWS_ACCESS_KEY_ID=local` (dummy credentials - any value works for local)
+- `AWS_SECRET_ACCESS_KEY=local` (dummy credentials - any value works for local)
 
 ## Step 4: Start Backend Server
 ```bash
