@@ -1458,25 +1458,44 @@ class DynamoDBService:
     
     def mark_all_notifications_read(self, user_id: str) -> int:
         """Mark all notifications as read for a user."""
-        table = get_table("notifications")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for mark_all_notifications_read")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("notifications")
+        
+        logger.info(f"Marking all notifications as read for user {user_id}")
         
         # Get all unread notifications
-        response = table.query(
-            KeyConditionExpression=Key("user_id").eq(str(user_id)),
-            FilterExpression=Attr("is_read").eq(False)
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="user_id = :user_id",
+            FilterExpression="is_read = :is_read",
+            ExpressionAttributeValues={
+                ":user_id": {"S": str(user_id)},
+                ":is_read": {"BOOL": False}
+            }
         )
         
         count = 0
         for item in response.get("Items", []):
             # Deserialize item if needed before accessing fields
             item = deserialize_dynamodb_item(item)
-            table.update_item(
+            client.update_item(
+                TableName=table_name,
                 Key={
-                    "user_id": item["user_id"],
-                    "notification_id": item["notification_id"]
+                    "user_id": {"S": item["user_id"]},
+                    "notification_id": {"S": item["notification_id"]}
                 },
                 UpdateExpression="SET is_read = :read",
-                ExpressionAttributeValues={":read": True}
+                ExpressionAttributeValues={":read": {"BOOL": True}}
             )
             count += 1
         
