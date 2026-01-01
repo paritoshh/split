@@ -346,7 +346,7 @@ function AddExpensePage() {
 
             {/* Description */}
             <div>
-              <label className="input-label">Description</label>
+              <label className="input-label">Description <span className="text-red-400">*</span></label>
               <div className="relative">
                 <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
@@ -356,8 +356,11 @@ function AddExpensePage() {
                   className="input-field pl-9"
                   placeholder="What was this for?"
                   required
+                  minLength={1}
+                  maxLength={255}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">Required field</p>
             </div>
 
             {/* Group */}

@@ -855,9 +855,11 @@ class DynamoDBService:
         
         expenses = []
         for item in response.get("Items", []):
-            # Deserialize item if needed before accessing fields
+            # Deserialize item once for field access
             item = deserialize_dynamodb_item(item)
+            # _expense_to_response will handle deserialization (but item is already deserialized, so it will just return it)
             expense = self._expense_to_response(item)
+            # Use deserialized item for field access
             expense["splits"] = self.get_expense_splits(item["expense_id"])
             expense["paid_by_user"] = self.get_user_by_id(item["paid_by_id"])
             expenses.append(expense)
