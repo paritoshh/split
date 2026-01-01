@@ -168,8 +168,7 @@ class DynamoDBService:
         if not item:
             return None
         
-        # Deserialize item
-        item = deserialize_dynamodb_item(item)
+        # _user_to_response will handle deserialization
         return self._user_to_response(item)
     
     def get_user_by_email(self, email: str) -> Optional[dict]:
@@ -203,10 +202,8 @@ class DynamoDBService:
         if not items:
             return None
         
-        # Convert DynamoDB format to regular dict
-        item = deserialize_dynamodb_item(items[0])
-        
-        return self._user_to_response(item)
+        # _user_to_response will handle deserialization
+        return self._user_to_response(items[0])
     
     def search_users(self, query: str, exclude_ids: List[str] = None) -> List[dict]:
         """Search users by name or email."""
