@@ -173,19 +173,21 @@ class DynamoDBService:
     
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """Get user by email."""
-        # Create client directly (like simple test Lambda that works)
-        # This ensures we use IAM role credentials, not cached/stale credentials
-        import boto3
+        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
         from app.config import settings
-        from app.db.dynamodb_client import get_table_name
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         logger = logging.getLogger(__name__)
-        logger.info("Creating fresh DynamoDB client for get_user_by_email")
+        logger.info("Getting DynamoDB client for get_user_by_email")
         
-        # Create client directly - boto3 will use IAM role automatically
-        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        # Use the shared client which has endpoint_url configured for local DynamoDB
+        client = get_dynamodb_client()
         table_name = get_table_name("users")
+        
+        # Log which endpoint we're using
+        endpoint = getattr(client._client_config, 'endpoint_url', None) if hasattr(client, '_client_config') else None
+        logger.info(f"Using DynamoDB endpoint: {endpoint or 'AWS (default)'}")
         
         logger.info(f"Querying table {table_name} with email {email}")
         
