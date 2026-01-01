@@ -319,11 +319,31 @@ class DynamoDBService:
     
     def get_group_by_id(self, group_id: str) -> Optional[dict]:
         """Get group by ID."""
-        table = get_table("groups")
-        response = table.get_item(Key={"group_id": str(group_id)})
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_group_by_id")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("groups")
+        
+        logger.info(f"Getting group {group_id} from {table_name}")
+        
+        response = client.get_item(
+            TableName=table_name,
+            Key={"group_id": {"S": str(group_id)}}
+        )
         item = response.get("Item")
         if not item:
             return None
+        
+        # Deserialize item
+        item = deserialize_dynamodb_item(item)
         
         # Get members
         members = self.get_group_members(group_id)
@@ -485,17 +505,35 @@ class DynamoDBService:
     
     def get_group_members(self, group_id: str) -> List[dict]:
         """Get all members of a group."""
-        members_table = get_table("group_members")
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
         
-        response = members_table.query(
-            KeyConditionExpression=Key("group_id").eq(str(group_id)),
-            FilterExpression=Attr("is_active").eq(True)
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_group_members")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("group_members")
+        
+        logger.info(f"Querying {table_name} for group {group_id}")
+        
+        response = client.query(
+            TableName=table_name,
+            KeyConditionExpression="group_id = :group_id",
+            FilterExpression="is_active = :is_active",
+            ExpressionAttributeValues={
+                ":group_id": {"S": str(group_id)},
+                ":is_active": {"BOOL": True}
+            }
         )
         
         members = []
-        for membership in response.get("Items", []):
-            # Deserialize membership item if needed
-            membership = deserialize_dynamodb_item(membership)
+        for membership_item in response.get("Items", []):
+            # Deserialize membership item
+            membership = deserialize_dynamodb_item(membership_item)
             user = self.get_user_by_id(membership["user_id"])
             if user:
                 members.append({
