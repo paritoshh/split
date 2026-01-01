@@ -271,11 +271,26 @@ function AddExpensePage() {
       // Convert group_id to string and only include if not empty
       // Handle both empty string and null cases - be very explicit
       const groupIdRaw = formData.group_id
+      console.log('🔍 Group ID Debug:', {
+        raw: groupIdRaw,
+        type: typeof groupIdRaw,
+        isNull: groupIdRaw === null,
+        isUndefined: groupIdRaw === undefined,
+        isEmpty: groupIdRaw === '',
+        truthy: !!groupIdRaw
+      })
+      
       if (groupIdRaw !== null && groupIdRaw !== undefined && groupIdRaw !== '') {
         const groupIdValue = String(groupIdRaw).trim()
+        console.log('✅ Group ID value after conversion:', groupIdValue)
         if (groupIdValue !== '' && groupIdValue !== 'null' && groupIdValue !== 'undefined') {
           expenseData.group_id = groupIdValue
+          console.log('✅ Added group_id to expenseData:', expenseData.group_id)
+        } else {
+          console.log('❌ Group ID value is invalid after conversion')
         }
+      } else {
+        console.log('❌ Group ID is null/undefined/empty, not adding to expenseData')
       }
       // If group_id is empty/null/undefined, we don't include it in expenseData at all
       // This prevents sending null or empty string to the backend
