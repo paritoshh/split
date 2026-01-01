@@ -240,8 +240,7 @@ class DynamoDBService:
         
         users = []
         for item in response.get("Items", []):
-            # Deserialize item
-            item = deserialize_dynamodb_item(item)
+            # _user_to_response will handle deserialization
             user = self._user_to_response(item)
             if user:
                 users.append(user)
@@ -394,9 +393,7 @@ class DynamoDBService:
         if not item:
             return None
         
-        # Deserialize item
-        item = deserialize_dynamodb_item(item)
-        
+        # _group_to_response will handle deserialization
         # Get members
         members = self.get_group_members(group_id)
         response_item = self._group_to_response(item)
@@ -819,7 +816,7 @@ class DynamoDBService:
         if not item:
             return None
         
-        # Deserialize item
+        # Deserialize item once for field access
         item = deserialize_dynamodb_item(item)
         
         expense = self._expense_to_response(item)
