@@ -54,18 +54,34 @@ function GroupDetailPage() {
 
   const fetchData = async () => {
     setLoading(true)
+    setError('')
     try {
       const [groupRes, expensesRes, balancesRes] = await Promise.all([
         groupsAPI.getOne(groupId),
-        expensesAPI.getByGroup(groupId),
-        expensesAPI.getGroupBalances(groupId).catch(() => null)
+        expensesAPI.getByGroup(groupId).catch(err => {
+          console.error('Failed to load expenses:', err)
+          return { data: [] } // Return empty array on error
+        }),
+        expensesAPI.getGroupBalances(groupId).catch(err => {
+          console.error('Failed to load balances:', err)
+          return null // Return null on error
+        })
       ])
 
+      // Check if group response is valid
+      if (!groupRes || !groupRes.data) {
+        throw new Error('Invalid group response')
+      }
+
       setGroup(groupRes.data)
-      setExpenses(expensesRes.data)
-      if (balancesRes) setBalances(balancesRes.data)
+      setExpenses(expensesRes.data || [])
+      if (balancesRes && balancesRes.data) {
+        setBalances(balancesRes.data)
+      }
     } catch (err) {
-      setError('Failed to load group')
+      console.error('Error loading group:', err)
+      console.error('Error details:', err.response?.data || err.message)
+      setError(err.response?.data?.detail || err.message || 'Failed to load group')
     } finally {
       setLoading(false)
     }
