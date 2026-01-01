@@ -21,6 +21,10 @@ docker-compose up -d
 ```
 
 ## Step 3: Setup Backend
+
+**Choose one option:**
+
+### Option A: Use SQLite (Simpler - Recommended)
 ```bash
 cd backend
 
@@ -36,7 +40,29 @@ python -m venv venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy environment file
+# Copy SQLite environment file (simplest for local)
+copy .env.sqlite.example .env
+
+# No need to initialize tables - SQLite creates them automatically
+```
+
+### Option B: Use DynamoDB Local (More complex)
+```bash
+cd backend
+
+# Create virtual environment (if not exists)
+python -m venv venv
+
+# Activate virtual environment
+# On Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+# On Windows CMD:
+# venv\Scripts\activate.bat
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy DynamoDB Local environment file
 copy env.dynamodb.local.example .env
 
 # Initialize DynamoDB tables
