@@ -87,18 +87,25 @@ function AddExpensePage() {
     }
   }, [user])
 
-  // Fetch groups on mount
+  // Fetch groups on mount and ensure group_id from URL is preserved
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const response = await groupsAPI.getAll()
         setGroups(response.data)
+        
+        // If we have a preSelectedGroup from URL, ensure it's set in formData
+        // This handles the case where groups load after formData is initialized
+        if (preSelectedGroup && preSelectedGroup !== formData.group_id) {
+          console.log('🔄 Setting group_id from URL after groups loaded:', preSelectedGroup)
+          setFormData(prev => ({ ...prev, group_id: String(preSelectedGroup) }))
+        }
       } catch (err) {
         console.error('Failed to fetch groups')
       }
     }
     fetchGroups()
-  }, [])
+  }, [preSelectedGroup]) // Re-run if preSelectedGroup changes
 
   // Fetch group members when group changes
   useEffect(() => {
@@ -254,6 +261,23 @@ function AddExpensePage() {
       return
     }
     
+    // Final check: Ensure group_id from URL is included if present
+    // This handles the race condition where groups haven't loaded yet
+    const finalGroupId = preSelectedGroup ? String(preSelectedGroup) : formData.group_id
+    if (finalGroupId && finalGroupId !== '' && formData.group_id !== finalGroupId) {
+      console.log('⚠️ Group ID mismatch detected. Using URL param:', finalGroupId)
+      setFormData(prev => ({ ...prev, group_id: finalGroupId }))
+      // Wait a tick for state to update, then continue
+      setTimeout(() => {
+        submitExpense(finalGroupId)
+      }, 0)
+      return
+    }
+    
+    submitExpense(formData.group_id)
+  }
+  
+  const submitExpense = async (groupIdToUse) => {
     setLoading(true)
     setError('')
 
@@ -268,11 +292,14 @@ function AddExpensePage() {
       }
       
       // Only include optional fields if they have values
-      // Convert group_id to string and only include if not empty
-      // Handle both empty string and null cases - be very explicit
-      const groupIdRaw = formData.group_id
+      // Use groupIdToUse parameter (from URL or formData) as the source of truth
+      // This handles the race condition where groups haven't loaded yet
+      const groupIdRaw = groupIdToUse || formData.group_id || preSelectedGroup
       console.log('🔍 Group ID Debug:', {
-        raw: groupIdRaw,
+        groupIdToUse,
+        formDataGroupId: formData.group_id,
+        preSelectedGroup,
+        finalRaw: groupIdRaw,
         type: typeof groupIdRaw,
         isNull: groupIdRaw === null,
         isUndefined: groupIdRaw === undefined,
