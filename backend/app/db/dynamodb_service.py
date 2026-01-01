@@ -642,11 +642,31 @@ class DynamoDBService:
     
     def get_expense_by_id(self, expense_id: str) -> Optional[dict]:
         """Get expense by ID with splits."""
-        table = get_table("expenses")
-        response = table.get_item(Key={"expense_id": str(expense_id)})
+        # Use boto3.client() directly to avoid credential caching issues
+        import boto3
+        import logging
+        from app.config import settings
+        from app.db.dynamodb_client import get_table_name
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Creating fresh DynamoDB client for get_expense_by_id")
+        
+        # Create client directly - boto3 will use IAM role automatically
+        client = boto3.client("dynamodb", region_name=settings.aws_region)
+        table_name = get_table_name("expenses")
+        
+        logger.info(f"Getting expense {expense_id} from {table_name}")
+        
+        response = client.get_item(
+            TableName=table_name,
+            Key={"expense_id": {"S": str(expense_id)}}
+        )
         item = response.get("Item")
         if not item:
             return None
+        
+        # Deserialize item
+        item = deserialize_dynamodb_item(item)
         
         expense = self._expense_to_response(item)
         expense["splits"] = self.get_expense_splits(expense_id)
