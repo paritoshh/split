@@ -213,10 +213,12 @@ function VoiceExpenseModal({
     // Try AI parsing first if enabled
     if (aiEnabled) {
       try {
+        console.log('🤖 Attempting AI parsing...')
         const response = await aiAPI.parseVoiceExpense(fullTranscript, groupMembers)
         const aiResult = response.data
 
         if (aiResult.success) {
+          console.log('✅ AI parsing successful')
           setParsingMode('ai')
           parsed = {
             amount: aiResult.amount,
@@ -239,10 +241,19 @@ function VoiceExpenseModal({
             confidence: aiResult.confidence,
             rawTranscript: fullTranscript
           }
+        } else {
+          console.warn('⚠️ AI parsing returned success=false:', aiResult.error)
         }
       } catch (err) {
-        console.warn('AI parsing failed, falling back to local:', err.message)
+        console.error('❌ AI parsing failed, falling back to local:', err)
+        console.error('Error details:', err.response?.data || err.message)
+        // Show user-friendly error if AI fails
+        if (err.response?.status === 503) {
+          setError('AI features are not configured. Using local parsing instead.')
+        }
       }
+    } else {
+      console.log('ℹ️ AI not enabled, using local parsing')
     }
 
     // Fallback to local parsing
