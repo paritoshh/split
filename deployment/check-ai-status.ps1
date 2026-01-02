@@ -20,7 +20,7 @@ foreach ($key in $envVars.PSObject.Properties.Name) {
     if ($key -eq "OPENAI_API_KEY" -or $key -eq "openai_api_key") {
         $hasOpenAIKey = $true
         $openAIKeyValue = $envVars[$key]
-        Write-Host "   ✅ Found: $key" -ForegroundColor Green
+        Write-Host "   Found: $key" -ForegroundColor Green
         if ($openAIKeyValue) {
             if ($openAIKeyValue.Length -gt 10) {
                 $preview = $openAIKeyValue.Substring(0, 10) + "..."
@@ -36,13 +36,11 @@ foreach ($key in $envVars.PSObject.Properties.Name) {
 }
 
 if (-not $hasOpenAIKey) {
-    Write-Host "   ❌ OPENAI_API_KEY not found in environment variables!" -ForegroundColor Red
+    Write-Host "   OPENAI_API_KEY not found in environment variables!" -ForegroundColor Red
     Write-Host ""
-    Write-Host "   To add it:" -ForegroundColor Yellow
-    Write-Host "   aws lambda update-function-configuration \`" -ForegroundColor Gray
-    Write-Host "       --function-name $LAMBDA_FUNCTION \`" -ForegroundColor Gray
-    Write-Host "       --environment 'Variables={OPENAI_API_KEY=sk-your-key-here,...}' \`" -ForegroundColor Gray
-    Write-Host "       --region $AWS_REGION" -ForegroundColor Gray
+    Write-Host "   To add it, run:" -ForegroundColor Yellow
+    $cmd = "aws lambda update-function-configuration --function-name $LAMBDA_FUNCTION --environment 'Variables={OPENAI_API_KEY=sk-your-key-here}' --region $AWS_REGION"
+    Write-Host "   $cmd" -ForegroundColor Gray
 }
 
 Write-Host ""
@@ -52,7 +50,11 @@ Write-Host "2. Testing AI status endpoint..." -ForegroundColor Yellow
 try {
     $response = Invoke-RestMethod -Uri "$API_URL/api/ai/status" -Method Get -ContentType "application/json"
     Write-Host "   Response:" -ForegroundColor Gray
-    Write-Host "   - AI Enabled: $($response.ai_enabled)" -ForegroundColor $(if ($response.ai_enabled) { "Green" } else { "Red" })
+    if ($response.ai_enabled) {
+        Write-Host "   - AI Enabled: $($response.ai_enabled)" -ForegroundColor Green
+    } else {
+        Write-Host "   - AI Enabled: $($response.ai_enabled)" -ForegroundColor Red
+    }
     Write-Host "   - Model: $($response.model)" -ForegroundColor Gray
     
     if ($response.debug) {
@@ -62,7 +64,7 @@ try {
         Write-Host "   - Key preview: $($response.debug.key_preview)" -ForegroundColor Gray
     }
 } catch {
-    Write-Host "   ❌ Failed to call status endpoint: $_" -ForegroundColor Red
+    Write-Host "   Failed to call status endpoint: $_" -ForegroundColor Red
     Write-Host "   Make sure you're logged in and the API is accessible" -ForegroundColor Yellow
 }
 
@@ -70,9 +72,9 @@ Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan
 Write-Host ""
 if ($hasOpenAIKey -and $openAIKeyValue) {
-    Write-Host "✅ OPENAI_API_KEY is set in Lambda" -ForegroundColor Green
+    Write-Host "OPENAI_API_KEY is set in Lambda" -ForegroundColor Green
 } else {
-    Write-Host "❌ OPENAI_API_KEY is missing or empty" -ForegroundColor Red
+    Write-Host "OPENAI_API_KEY is missing or empty" -ForegroundColor Red
 }
 
 Write-Host ""
@@ -81,4 +83,3 @@ Write-Host "1. Check CloudWatch logs for AI parsing errors" -ForegroundColor Gra
 Write-Host "2. Verify the API key is valid (starts with 'sk-')" -ForegroundColor Gray
 Write-Host "3. Check if OpenAI API is accessible from Lambda" -ForegroundColor Gray
 Write-Host ""
-
