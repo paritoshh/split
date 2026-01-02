@@ -201,19 +201,31 @@ async def generate_upi_link(
     if not payee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Splitwise-style approach: Don't specify pa (payee address)
-    # Let GPay match the recipient from user's contact list using name
-    # This avoids:
-    # - "Could not load banking name" errors
-    # - "Exceeded bank limit" errors
-    # - Need to store UPI IDs
-    # 
-    # We only need the payee's name - GPay will handle the rest
-    payee_name = payee.get('name', 'User')
-    if not payee_name or payee_name.strip() == '':
+    # UPI deep links require pa (payee address) parameter - it's mandatory
+    # Strategy: Use phone@upi format (works reliably, just shows a warning)
+    # The "Could not load banking name" warning doesn't prevent payment
+    # This avoids "exceeded bank limit" errors that occur with some UPI ID formats
+    payment_address = None
+    payee_upi_id_display = None
+    
+    # Prefer phone number format (phone@upi) - most reliable
+    if payee.get("phone"):
+        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
+        if len(phone_clean) == 10:  # Valid Indian mobile number
+            payment_address = f"{phone_clean}@upi"
+            payee_upi_id_display = payee.get("upi_id") or payment_address
+        elif payee.get("upi_id"):
+            # Fallback to UPI ID if phone is invalid
+            payment_address = payee["upi_id"]
+            payee_upi_id_display = payment_address
+    elif payee.get("upi_id"):
+        # Use UPI ID if no phone
+        payment_address = payee["upi_id"]
+        payee_upi_id_display = payment_address
+    else:
         raise HTTPException(
             status_code=400, 
-            detail="Payee name is required for payment"
+            detail=f"{payee.get('name', 'User')} hasn't added their phone number or UPI ID. Ask them to update their profile."
         )
     
     # Build transaction note
@@ -224,35 +236,25 @@ async def generate_upi_link(
             note = f"Hisab: {group.get('name')} settlement"
     
     # Clean name for UPI links - remove special characters that might cause issues
+    payee_name = payee.get('name', 'User')
     clean_name = ''.join(c for c in payee_name if c.isalnum() or c.isspace()).strip()[:50]
     if not clean_name:
         clean_name = 'User'
     
-    # Build UPI deep link WITHOUT pa (payee address)
-    # This lets GPay match the recipient from user's contact list
-    # Format: upi://pay?pn=Name&am=Amount&tn=Note&cu=INR
-    # No pa parameter = GPay handles the matching
+    # Build UPI deep link WITH pa parameter (mandatory)
+    # Using phone@upi format for better reliability
     upi_link = (
         f"upi://pay?"
+        f"pa={quote(payment_address)}&"
         f"pn={quote(clean_name)}&"
         f"am={amount}&"
         f"tn={quote(note)}&"
         f"cu=INR"
     )
     
-    # For display, show the payee's name (they'll select from GPay contacts)
-    # Optionally show UPI ID or phone if available, but it's not required
-    display_info = clean_name
-    if payee.get("upi_id"):
-        display_info = f"{clean_name} ({payee['upi_id']})"
-    elif payee.get("phone"):
-        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
-        if len(phone_clean) == 10:
-            display_info = f"{clean_name} ({phone_clean})"
-    
     return UPIPaymentInfo(
-        payee_upi_id=display_info,  # Show name with optional UPI ID/phone for reference
-        payee_name=clean_name,  # Use cleaned name
+        payee_upi_id=payee_upi_id_display or payment_address,
+        payee_name=clean_name,
         amount=amount,
         transaction_note=note,
         upi_link=upi_link

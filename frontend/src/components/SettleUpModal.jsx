@@ -103,17 +103,29 @@ function SettleUpModal({
       const encodedName = encodeURIComponent(cleanName || 'User')
       const encodedNote = encodeURIComponent(transaction_note)
       
-      // Splitwise-style: Don't include pa parameter - let the app match from contacts
-      // This avoids "Could not load banking name" and "exceeded bank limit" errors
+      // Extract payment address (pa parameter) from the upi_link
+      // The backend uses phone@upi format for better reliability
+      let paymentAddress = ''
+      try {
+        const urlParams = new URLSearchParams(upi_link.split('?')[1])
+        paymentAddress = urlParams.get('pa') || ''
+      } catch (e) {
+        // If parsing fails, try to extract from the link
+        const paMatch = upi_link.match(/pa=([^&]+)/)
+        if (paMatch) {
+          paymentAddress = decodeURIComponent(paMatch[1])
+        }
+      }
+      
       if (appType === 'gpay') {
-        // Google Pay iOS scheme - without pa, GPay will match from contacts
-        link = `gpay://upi/pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Google Pay iOS scheme - pa is mandatory
+        link = `gpay://upi/pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
-        // PhonePe iOS scheme - without pa
-        link = `phonepe://pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // PhonePe iOS scheme - pa is mandatory
+        link = `phonepe://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'paytm') {
-        // Paytm iOS scheme - without pa
-        link = `paytmmp://pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Paytm iOS scheme - pa is mandatory
+        link = `paytmmp://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       }
     }
 
@@ -385,13 +397,15 @@ function SettleUpModal({
                     </button>
                   </div>
                   <p className="text-center text-xs text-gray-500 mt-2">
-                    GPay will match the recipient from your contacts
+                    Or copy the UPI ID above and pay manually in any UPI app
                   </p>
-                  <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                    <p className="text-xs text-blue-400 text-center">
-                      💡 Tip: Make sure "{upiInfo.payee_name}" is saved in your phone contacts for GPay to find them easily
-                    </p>
-                  </div>
+                  {upiInfo.payee_upi_id.includes('@upi') && (
+                    <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <p className="text-xs text-yellow-400 text-center">
+                        Note: GPay may show "Could not load banking name" - this is a GPay limitation and doesn't prevent payment.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
