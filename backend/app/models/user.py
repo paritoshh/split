@@ -57,7 +57,6 @@ class User(Base):
     phone = Column(String(15), nullable=True)
     
     # UPI ID for payments (optional)
-    upi_id = Column(String(100), nullable=True)
     
     # Password - stored as a hash, never plain text!
     # We'll use bcrypt to hash passwords before storing
