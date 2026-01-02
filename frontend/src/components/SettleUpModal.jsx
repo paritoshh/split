@@ -93,7 +93,7 @@ function SettleUpModal({
 
     // For iOS, use specific app schemes
     if (isIOS()) {
-      const { payee_upi_id, payee_name, amount, transaction_note, upi_link } = upiInfo
+      const { payee_name, amount, transaction_note } = upiInfo
       // Clean name for GPay - remove special characters and limit length
       // GPay sometimes has issues with special characters in names
       const cleanName = payee_name
