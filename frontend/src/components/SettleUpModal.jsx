@@ -102,7 +102,15 @@ function SettleUpModal({
     
     // CRITICAL: Format amount to exactly 2 decimal places
     // GPay is extremely strict - 1.5 fails, 1.50 works
-    const formattedAmount = parseFloat(amount).toFixed(2)
+    // Ensure amount is a number and format to exactly 2 decimals
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+    const formattedAmount = numAmount.toFixed(2)
+    
+    // Validate: Amount must be a valid number and positive
+    if (isNaN(numAmount) || numAmount <= 0) {
+      console.error('Invalid amount:', amount)
+      return
+    }
     
     // Use URLSearchParams for proper encoding (like Uri.Builder in Android)
     // This ensures spaces are properly encoded and no invalid characters
