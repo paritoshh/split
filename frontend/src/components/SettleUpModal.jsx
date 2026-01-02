@@ -102,86 +102,66 @@ function SettleUpModal({
     
     // CRITICAL: Format amount to exactly 2 decimal places
     // GPay is extremely strict - 1.5 fails, 1.50 works
-    // Ensure amount is a number and format to exactly 2 decimals
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-    const formattedAmount = numAmount.toFixed(2)
+    const formattedAmount = parseFloat(amount).toFixed(2)
     
-    // Validate: Amount must be a valid number and positive
-    if (isNaN(numAmount) || numAmount <= 0) {
-      console.error('Invalid amount:', amount)
-      return
+    // CRITICAL: GPay requires %20 encoding, not + encoding
+    // URLSearchParams uses + by default, but GPay rejects it
+    // We need to manually encode with %20
+    const encodeParam = (value) => {
+      return encodeURIComponent(value).replace(/%20/g, '%20') // Ensure %20, not +
     }
     
-    // Use URLSearchParams for proper encoding (like Uri.Builder in Android)
-    // This ensures spaces are properly encoded and no invalid characters
-    // CRITICAL: Transaction note should be short (GPay may reject long notes)
-    const shortNote = (transaction_note || 'Hisab settlement')
-      .substring(0, 50) // Limit to 50 characters
-      .trim()
+    // Build parameters manually to ensure %20 encoding (not +)
+    const buildParams = (params) => {
+      const pairs = []
+      for (const [key, value] of Object.entries(params)) {
+        pairs.push(`${key}=${encodeParam(value)}`)
+      }
+      return pairs.join('&')
+    }
     
-    const params = new URLSearchParams({
+    const params = {
       pn: cleanName || 'User',
       am: formattedAmount,
       cu: 'INR',
-      tn: shortNote
-    })
+      tn: (transaction_note || 'Hisab settlement').substring(0, 50) // Limit note length
+    }
     
-    // Build UPI link with app-specific schemes
-    // CRITICAL: Use direct app schemes for better reliability
-    // GPay on both Android and iOS needs gpay://upi/pay (not upi://pay)
-    let link = ''
+    const encodedParams = buildParams(params)
     
-    if (appType === 'gpay') {
-      // Google Pay direct scheme - works on both Android and iOS
-      // NO pa parameter - let GPay match from contacts
-      link = `gpay://upi/pay?${params.toString()}`
-    } else if (appType === 'phonepe') {
-      // PhonePe direct scheme
-      link = `phonepe://pay?${params.toString()}`
-    } else if (appType === 'paytm') {
-      // Paytm direct scheme
-      link = `paytmmp://pay?${params.toString()}`
-    } else {
-      // Default: Use generic UPI scheme (will show app chooser)
-      link = `upi://pay?${params.toString()}`
+    // Build base UPI link
+    let link = `upi://pay?${encodedParams}`
+
+    // For iOS, use specific app schemes (also without pa)
+    // For Android GPay, also use direct scheme for better reliability
+    if (isIOS() || appType === 'gpay') {
+      if (appType === 'gpay') {
+        // Google Pay direct scheme - works on both Android and iOS
+        // CRITICAL: Use gpay:// directly, not upi://
+        link = `gpay://upi/pay?${encodedParams}`
+      } else if (appType === 'phonepe') {
+        // PhonePe direct scheme
+        link = `phonepe://pay?${encodedParams}`
+      } else if (appType === 'paytm') {
+        // Paytm direct scheme
+        link = `paytmmp://pay?${encodedParams}`
+      }
     }
     
     // Debug: Log the URI to verify format
-    console.log('=== UPI Intent Debug ===')
-    console.log('Full URI:', link)
-    console.log('Scheme:', link.split('://')[0])
-    console.log('Amount:', formattedAmount, 'Type:', typeof formattedAmount)
-    console.log('Payee Name:', cleanName)
-    console.log('Transaction Note:', shortNote)
-    console.log('All Params:', params.toString())
-    console.log('App Type:', appType)
-    console.log('User Agent:', navigator.userAgent)
-    console.log('========================')
-    
-    // CRITICAL: Verify the link format before opening
-    if (!link.startsWith('gpay://') && !link.startsWith('upi://') && !link.startsWith('phonepe://') && !link.startsWith('paytmmp://')) {
-      console.error('Invalid UPI scheme:', link)
-      return
-    }
-    
-    // Open the deep link
-    // On mobile, window.location.href works best for deep links
-    // On web, it will try to open but may fail (expected - deep links need mobile)
-    try {
-      // Use window.location.replace to avoid adding to history
-      window.location.replace(link)
-    } catch (error) {
-      console.error('Error opening UPI link:', error)
-      // Fallback: Try anchor tag method
-      const a = document.createElement('a')
-      a.href = link
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => {
-        document.body.removeChild(a)
-      }, 100)
-    }
+    console.log('UPI Intent URI:', link)
+    console.log('Encoded params:', encodedParams)
+    console.log('Has + encoding?', link.includes('+'))
+    console.log('Has %20 encoding?', link.includes('%20'))
+
+    // Create a temporary <a> tag to open the link
+    const a = document.createElement('a')
+    a.href = link
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
 
@@ -423,16 +403,16 @@ function SettleUpModal({
                 </div>
               ) : (
                 <>
-                  {/* Android: Direct GPay button (most reliable) */}
+                  {/* Android: Single button that opens app chooser */}
                   <button
-                    onClick={() => openUPIApp('gpay')}
+                    onClick={() => openUPIApp('default')}
                     className="w-full btn-primary flex items-center justify-center gap-2"
                   >
                     <ExternalLink className="w-5 h-5" />
-                    Pay via GPay
+                    Open UPI App to Pay
                   </button>
-                  <p className="text-center text-xs text-gray-400 mt-2">
-                    GPay will open with the payment details. Select {upiInfo.payee_name} from your contacts.
+                  <p className="text-center text-sm text-gray-500">
+                    This will open GPay, PhonePe, or your default UPI app
                   </p>
                 </>
               )}
