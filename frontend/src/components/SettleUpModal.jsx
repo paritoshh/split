@@ -398,11 +398,13 @@ function SettleUpModal({
                   <p className="text-center text-xs text-gray-500 mt-2">
                     Or copy the UPI ID above and pay manually in any UPI app
                   </p>
-                  <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <p className="text-xs text-yellow-400 text-center">
-                      Note: GPay may show "Could not load banking name" - this is a GPay limitation and doesn't affect payment functionality.
-                    </p>
-                  </div>
+                  {upiInfo.payee_upi_id.includes('@upi') && (
+                    <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <p className="text-xs text-yellow-400 text-center">
+                        Note: GPay may show "Could not load banking name" when using phone number format. This is a GPay limitation and doesn't prevent payment. For best experience, ask the recipient to add their UPI ID in their profile.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>

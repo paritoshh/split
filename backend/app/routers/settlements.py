@@ -202,17 +202,21 @@ async def generate_upi_link(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Determine payment address (pa parameter)
-    # Strategy: Prefer UPI ID format (shows banking name) but use phone@upi as fallback
-    # UPI ID format: username@bank (e.g., sumansha1194@okicici) - shows banking name
-    # Phone format: phone@upi (e.g., 9876543210@upi) - avoids limit errors but no banking name
+    # Best Practice: Use UPI ID format (username@bank) when available
+    # - Shows banking name in GPay
+    # - More reliable across all UPI apps
+    # - Falls back to phone@upi only if UPI ID is not available
+    # 
+    # Note: "Could not load banking name" warning with phone@upi is a GPay limitation
+    # and doesn't prevent payment - it's just informational
     payment_address = None
     payee_upi_id_display = None
     
-    # Prefer UPI ID format first (shows banking name in GPay)
+    # Prefer UPI ID format (username@bank) - this is the standard and shows banking name
     if payee.get("upi_id"):
         payment_address = payee["upi_id"]
         payee_upi_id_display = payment_address
-    # Fallback to phone number format if no UPI ID
+    # Fallback to phone number format only if UPI ID is not available
     elif payee.get("phone"):
         # Remove any non-digit characters from phone
         phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
