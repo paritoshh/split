@@ -90,6 +90,8 @@ function SettleUpModal({
 
     // Build UPI intent cleanly - Splitwise style: NO pa parameter
     // Let GPay match the recipient from user's contact list
+    // CRITICAL: Amount MUST be exactly 2 decimal places (e.g., 1.50 not 1.5)
+    // GPay rejects intents with invalid amount format and opens home page instead
     const { payee_name, amount, transaction_note } = upiInfo
     
     // Clean name for GPay - remove special characters and limit length
@@ -97,27 +99,39 @@ function SettleUpModal({
       .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
       .trim()
       .substring(0, 50) // Limit to 50 characters
-    const encodedName = encodeURIComponent(cleanName || 'User')
-    const encodedNote = encodeURIComponent(transaction_note)
-    const encodedAmount = amount.toFixed(2)
     
-    // Build UPI link without pa parameter
-    // Format: upi://pay?pn=Name&am=Amount&cu=INR&tn=Note
-    let link = `upi://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
+    // CRITICAL: Format amount to exactly 2 decimal places
+    // GPay is extremely strict - 1.5 fails, 1.50 works
+    const formattedAmount = parseFloat(amount).toFixed(2)
+    
+    // Use URLSearchParams for proper encoding (like Uri.Builder in Android)
+    // This ensures spaces are properly encoded and no invalid characters
+    const params = new URLSearchParams({
+      pn: cleanName || 'User',
+      am: formattedAmount,
+      cu: 'INR',
+      tn: transaction_note || 'Hisab settlement'
+    })
+    
+    // Build base UPI link
+    let link = `upi://pay?${params.toString()}`
 
     // For iOS, use specific app schemes (also without pa)
     if (isIOS()) {
       if (appType === 'gpay') {
         // Google Pay iOS scheme - NO pa parameter
-        link = `gpay://upi/pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
+        link = `gpay://upi/pay?${params.toString()}`
       } else if (appType === 'phonepe') {
         // PhonePe iOS scheme - NO pa parameter
-        link = `phonepe://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
+        link = `phonepe://pay?${params.toString()}`
       } else if (appType === 'paytm') {
         // Paytm iOS scheme - NO pa parameter
-        link = `paytmmp://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
+        link = `paytmmp://pay?${params.toString()}`
       }
     }
+    
+    // Debug: Log the URI to verify format (remove in production if needed)
+    console.log('UPI Intent URI:', link)
 
     // Create a temporary <a> tag to open the link
     const a = document.createElement('a')

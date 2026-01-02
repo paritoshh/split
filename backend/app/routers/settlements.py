@@ -225,10 +225,14 @@ async def generate_upi_link(
     # Splitwise-style: Let GPay match the recipient from user's contact list
     # Format: upi://pay?pn=Name&am=Amount&cu=INR&tn=Note
     # No pa parameter = GPay handles the matching
+    # CRITICAL: Amount MUST be exactly 2 decimal places (e.g., 1.50 not 1.5)
+    # GPay rejects intents with invalid amount format
+    formatted_amount = f"{amount:.2f}"
+    
     upi_link = (
         f"upi://pay?"
         f"pn={quote(clean_name)}&"
-        f"am={amount}&"
+        f"am={formatted_amount}&"
         f"cu=INR&"
         f"tn={quote(note)}"
     )
