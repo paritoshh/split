@@ -201,11 +201,31 @@ async def generate_upi_link(
     if not payee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Check if payee has UPI ID
-    if not payee.get("upi_id"):
+    # Determine payment address (pa parameter)
+    # GPay works better with mobile number format, so prefer phone if available
+    # Format: mobile@upi (e.g., 9876543210@upi) or UPI ID (e.g., username@bank)
+    payment_address = None
+    payee_upi_id_display = None
+    
+    # Prefer phone number format for better GPay compatibility
+    if payee.get("phone"):
+        # Remove any non-digit characters from phone
+        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
+        if len(phone_clean) == 10:  # Valid Indian mobile number
+            payment_address = f"{phone_clean}@upi"
+            payee_upi_id_display = payee.get("upi_id") or payment_address
+        elif payee.get("upi_id"):
+            # Fallback to UPI ID if phone is invalid
+            payment_address = payee["upi_id"]
+            payee_upi_id_display = payment_address
+    elif payee.get("upi_id"):
+        # Use UPI ID if no phone
+        payment_address = payee["upi_id"]
+        payee_upi_id_display = payment_address
+    else:
         raise HTTPException(
             status_code=400, 
-            detail=f"{payee.get('name', 'User')} hasn't added their UPI ID yet. Ask them to update their profile."
+            detail=f"{payee.get('name', 'User')} hasn't added their UPI ID or phone number. Ask them to update their profile."
         )
     
     # Build transaction note
@@ -223,9 +243,10 @@ async def generate_upi_link(
         clean_name = 'User'
     
     # Build UPI deep link
+    # Use payment_address (phone@upi or UPI ID) for better GPay compatibility
     upi_link = (
         f"upi://pay?"
-        f"pa={quote(payee['upi_id'])}&"
+        f"pa={quote(payment_address)}&"
         f"pn={quote(clean_name)}&"
         f"am={amount}&"
         f"cu=INR&"
@@ -233,7 +254,7 @@ async def generate_upi_link(
     )
     
     return UPIPaymentInfo(
-        payee_upi_id=payee["upi_id"],
+        payee_upi_id=payee_upi_id_display or payment_address,  # Show original UPI ID if available, else the payment address
         payee_name=clean_name,  # Use cleaned name
         amount=amount,
         transaction_note=note,

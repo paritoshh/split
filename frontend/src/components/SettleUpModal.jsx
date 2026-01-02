@@ -93,7 +93,7 @@ function SettleUpModal({
 
     // For iOS, use specific app schemes
     if (isIOS()) {
-      const { payee_upi_id, payee_name, amount, transaction_note } = upiInfo
+      const { payee_upi_id, payee_name, amount, transaction_note, upi_link } = upiInfo
       // Clean name for GPay - remove special characters and limit length
       // GPay sometimes has issues with special characters in names
       const cleanName = payee_name
@@ -103,11 +103,22 @@ function SettleUpModal({
       const encodedName = encodeURIComponent(cleanName || 'User')
       const encodedNote = encodeURIComponent(transaction_note)
       
+      // Extract payment address (pa parameter) from the upi_link
+      // The backend optimizes this to use phone@upi format for better GPay compatibility
+      let paymentAddress = payee_upi_id // Fallback to displayed UPI ID
+      try {
+        const urlParams = new URLSearchParams(upi_link.split('?')[1])
+        paymentAddress = urlParams.get('pa') || payee_upi_id
+      } catch (e) {
+        // If parsing fails, use payee_upi_id
+        paymentAddress = payee_upi_id
+      }
+      
       if (appType === 'gpay') {
         // Google Pay iOS scheme
-        // Note: GPay may show "Could not load banking name" - this is a GPay limitation
-        // The payment will still work, GPay just can't verify the name against the UPI ID
-        link = `gpay://upi/pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Use the optimized payment address from backend (phone@upi format preferred)
+        // This helps avoid "exceeded bank limit" errors in GPay
+        link = `gpay://upi/pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
         // PhonePe iOS scheme  
         link = `phonepe://pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
