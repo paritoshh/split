@@ -201,37 +201,19 @@ async def generate_upi_link(
     if not payee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Determine payment address (pa parameter)
-    # Best Practice: Use UPI ID format (username@bank) when available
-    # - Shows banking name in GPay
-    # - More reliable across all UPI apps
-    # - Falls back to phone@upi only if UPI ID is not available
+    # Splitwise-style approach: Don't specify pa (payee address)
+    # Let GPay match the recipient from user's contact list using name
+    # This avoids:
+    # - "Could not load banking name" errors
+    # - "Exceeded bank limit" errors
+    # - Need to store UPI IDs
     # 
-    # Note: "Could not load banking name" warning with phone@upi is a GPay limitation
-    # and doesn't prevent payment - it's just informational
-    payment_address = None
-    payee_upi_id_display = None
-    
-    # Prefer UPI ID format (username@bank) - this is the standard and shows banking name
-    if payee.get("upi_id"):
-        payment_address = payee["upi_id"]
-        payee_upi_id_display = payment_address
-    # Fallback to phone number format only if UPI ID is not available
-    elif payee.get("phone"):
-        # Remove any non-digit characters from phone
-        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
-        if len(phone_clean) == 10:  # Valid Indian mobile number
-            payment_address = f"{phone_clean}@upi"
-            payee_upi_id_display = payment_address
-        else:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"{payee.get('name', 'User')} has an invalid phone number. Please add a valid UPI ID or phone number."
-            )
-    else:
+    # We only need the payee's name - GPay will handle the rest
+    payee_name = payee.get('name', 'User')
+    if not payee_name or payee_name.strip() == '':
         raise HTTPException(
             status_code=400, 
-            detail=f"{payee.get('name', 'User')} hasn't added their UPI ID or phone number. Ask them to update their profile."
+            detail="Payee name is required for payment"
         )
     
     # Build transaction note
@@ -242,25 +224,34 @@ async def generate_upi_link(
             note = f"Hisab: {group.get('name')} settlement"
     
     # Clean name for UPI links - remove special characters that might cause issues
-    # Some UPI apps (especially GPay) have issues with special characters
-    payee_name = payee.get('name', 'User')
     clean_name = ''.join(c for c in payee_name if c.isalnum() or c.isspace()).strip()[:50]
     if not clean_name:
         clean_name = 'User'
     
-    # Build UPI deep link
-    # Use payment_address (phone@upi or UPI ID) for better GPay compatibility
+    # Build UPI deep link WITHOUT pa (payee address)
+    # This lets GPay match the recipient from user's contact list
+    # Format: upi://pay?pn=Name&am=Amount&tn=Note&cu=INR
+    # No pa parameter = GPay handles the matching
     upi_link = (
         f"upi://pay?"
-        f"pa={quote(payment_address)}&"
         f"pn={quote(clean_name)}&"
         f"am={amount}&"
-        f"cu=INR&"
-        f"tn={quote(note)}"
+        f"tn={quote(note)}&"
+        f"cu=INR"
     )
     
+    # For display, show the payee's name (they'll select from GPay contacts)
+    # Optionally show UPI ID or phone if available, but it's not required
+    display_info = clean_name
+    if payee.get("upi_id"):
+        display_info = f"{clean_name} ({payee['upi_id']})"
+    elif payee.get("phone"):
+        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
+        if len(phone_clean) == 10:
+            display_info = f"{clean_name} ({phone_clean})"
+    
     return UPIPaymentInfo(
-        payee_upi_id=payee_upi_id_display or payment_address,  # Show original UPI ID if available, else the payment address
+        payee_upi_id=display_info,  # Show name with optional UPI ID/phone for reference
         payee_name=clean_name,  # Use cleaned name
         amount=amount,
         transaction_note=note,
