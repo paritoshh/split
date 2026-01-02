@@ -273,7 +273,7 @@ function DashboardPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          ₹{Math.abs(balance).toFixed(0)}
+                          ₹{Math.abs(balance).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -308,7 +308,7 @@ function DashboardPage() {
                   </div>
                   <div className={`text-right flex-shrink-0 ${balance.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     <p className="text-xs">{balance.amount >= 0 ? 'owes you' : 'you owe'}</p>
-                    <p className="text-sm font-bold">₹{Math.abs(balance.amount).toFixed(0)}</p>
+                    <p className="text-sm font-bold">₹{Math.abs(balance.amount).toFixed(2)}</p>
                   </div>
                 </div>
                 
