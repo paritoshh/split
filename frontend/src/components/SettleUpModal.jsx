@@ -394,16 +394,16 @@ function SettleUpModal({
                 </div>
               ) : (
                 <>
-                  {/* Android: Single button that opens app chooser */}
+                  {/* Android: Direct GPay button (most reliable) */}
                   <button
-                    onClick={() => openUPIApp('default')}
+                    onClick={() => openUPIApp('gpay')}
                     className="w-full btn-primary flex items-center justify-center gap-2"
                   >
                     <ExternalLink className="w-5 h-5" />
-                    Open UPI App to Pay
+                    Pay via GPay
                   </button>
-                  <p className="text-center text-sm text-gray-500">
-                    This will open GPay, PhonePe, or your default UPI app
+                  <p className="text-center text-xs text-gray-400 mt-2">
+                    GPay will open with the payment details. Select {upiInfo.payee_name} from your contacts.
                   </p>
                 </>
               )}
