@@ -183,7 +183,6 @@ export const settlementsAPI = {
   getUPILink: (userId, amount, groupId = null) => api.get(`/api/settlements/upi-link/${userId}`, { 
     params: { amount, group_id: groupId } 
   }),
-  getUserUPIId: (userId) => api.get(`/api/settlements/user/${userId}/upi-id`),
 }
 
 // AI Features

@@ -201,31 +201,12 @@ async def generate_upi_link(
     if not payee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # UPI deep links require pa (payee address) parameter - it's mandatory
-    # Strategy: Use phone@upi format (works reliably, just shows a warning)
-    # The "Could not load banking name" warning doesn't prevent payment
-    # This avoids "exceeded bank limit" errors that occur with some UPI ID formats
-    payment_address = None
-    payee_upi_id_display = None
-    
-    # Prefer phone number format (phone@upi) - most reliable
-    if payee.get("phone"):
-        phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
-        if len(phone_clean) == 10:  # Valid Indian mobile number
-            payment_address = f"{phone_clean}@upi"
-            payee_upi_id_display = payee.get("upi_id") or payment_address
-        elif payee.get("upi_id"):
-            # Fallback to UPI ID if phone is invalid
-            payment_address = payee["upi_id"]
-            payee_upi_id_display = payment_address
-    elif payee.get("upi_id"):
-        # Use UPI ID if no phone
-        payment_address = payee["upi_id"]
-        payee_upi_id_display = payment_address
-    else:
+    # Get payee name - required for payment
+    payee_name = payee.get('name', 'User')
+    if not payee_name or payee_name.strip() == '':
         raise HTTPException(
             status_code=400, 
-            detail=f"{payee.get('name', 'User')} hasn't added their phone number or UPI ID. Ask them to update their profile."
+            detail="Payee name is required for payment"
         )
     
     # Build transaction note
@@ -236,24 +217,23 @@ async def generate_upi_link(
             note = f"Hisab: {group.get('name')} settlement"
     
     # Clean name for UPI links - remove special characters that might cause issues
-    payee_name = payee.get('name', 'User')
     clean_name = ''.join(c for c in payee_name if c.isalnum() or c.isspace()).strip()[:50]
     if not clean_name:
         clean_name = 'User'
     
-    # Build UPI deep link WITH pa parameter (mandatory)
-    # Using phone@upi format for better reliability
+    # Build UPI deep link WITHOUT pa parameter
+    # Splitwise-style: Let GPay match the recipient from user's contact list
+    # Format: upi://pay?pn=Name&am=Amount&cu=INR&tn=Note
+    # No pa parameter = GPay handles the matching
     upi_link = (
         f"upi://pay?"
-        f"pa={quote(payment_address)}&"
         f"pn={quote(clean_name)}&"
         f"am={amount}&"
-        f"tn={quote(note)}&"
-        f"cu=INR"
+        f"cu=INR&"
+        f"tn={quote(note)}"
     )
     
     return UPIPaymentInfo(
-        payee_upi_id=payee_upi_id_display or payment_address,
         payee_name=clean_name,
         amount=amount,
         transaction_note=note,
@@ -261,24 +241,3 @@ async def generate_upi_link(
     )
 
 
-@router.get("/user/{user_id}/upi-id")
-async def get_user_upi_id(
-    user_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Get a user's UPI ID for payment.
-    
-    Returns whether they have a UPI ID set up.
-    """
-    user = db_service.get_user_by_id(str(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "user_id": user["id"],
-        "name": user.get("name", "Unknown"),
-        "has_upi_id": bool(user.get("upi_id")),
-        "upi_id": user.get("upi_id")
-    }

@@ -32,7 +32,6 @@ class UserBase(BaseModel):
     email: EmailStr  # EmailStr validates email format automatically
     name: str = Field(..., min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=15)
-    upi_id: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -46,7 +45,6 @@ class UserCreate(UserBase):
     
     Optional:
     - phone: Phone number
-    - upi_id: UPI ID for payments
     """
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
 
@@ -85,7 +83,6 @@ class UserUpdate(BaseModel):
     """
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=15)
-    upi_id: Optional[str] = None
 
 
 class Token(BaseModel):

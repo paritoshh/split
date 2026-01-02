@@ -102,7 +102,7 @@ class DynamoDBService:
     # ===========================================
     
     def create_user(self, email: str, name: str, hashed_password: str, 
-                   phone: Optional[str] = None, upi_id: Optional[str] = None) -> dict:
+                   phone: Optional[str] = None) -> dict:
         """Create a new user."""
         # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         from app.db.dynamodb_client import get_table_name, get_dynamodb_client
@@ -118,7 +118,6 @@ class DynamoDBService:
             "name": name,
             "hashed_password": hashed_password,
             "phone": phone,
-            "upi_id": upi_id,
             "is_active": True,
             "created_at": now_iso(),
             "updated_at": now_iso()
@@ -317,7 +316,6 @@ class DynamoDBService:
             "email": item.get("email"),
             "name": item.get("name"),
             "phone": item.get("phone"),
-            "upi_id": item.get("upi_id"),
             "hashed_password": item.get("hashed_password"),
             "is_active": item.get("is_active", True),
             "created_at": item.get("created_at"),

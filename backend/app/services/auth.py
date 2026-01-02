@@ -106,41 +106,18 @@ async def get_current_user(
         raise credentials_exception
     
     # Get user from database using the service
-    import logging
-    logger = logging.getLogger(__name__)
+    user = db_service.get_user_by_email(token_data.email)
     
-    try:
-        user = db_service.get_user_by_email(token_data.email)
+    if user is None:
+        raise credentials_exception
         
-        if user is None:
-            logger.warning(f"User not found for email: {token_data.email}")
-            raise credentials_exception
-            
-        if not user.get("is_active", True):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Inactive user"
-            )
-        
-        # Ensure user dict has all required fields
-        if not user.get("id"):
-            logger.error(f"User from DB missing 'id' field: {user}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User data from database is invalid"
-            )
-        
-        return user
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in get_current_user: {str(e)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+    if not user.get("is_active", True):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get user: {str(e)}"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user"
         )
+    
+    return user
 
 
 def authenticate_user(db_service: DBService, email: str, password: str) -> Optional[dict]:

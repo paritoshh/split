@@ -42,8 +42,7 @@ function ProfilePage() {
   
   const [formData, setFormData] = useState({
     name: '',
-    phone: '',
-    upi_id: ''
+    phone: ''
   })
   const [loading, setLoading] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
@@ -58,8 +57,7 @@ function ProfilePage() {
     if (user) {
       setFormData({
         name: user.name || '',
-        phone: user.phone || '',
-        upi_id: user.upi_id || ''
+        phone: user.phone || ''
       })
     }
   }, [user])
@@ -182,29 +180,6 @@ function ProfilePage() {
                   placeholder="+91 9876543210"
                 />
               </div>
-            </div>
-
-            {/* UPI ID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                UPI ID
-                <span className="ml-2 text-primary-400 text-xs font-normal">
-                  For receiving payments
-                </span>
-              </label>
-              <div className="relative">
-                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  type="text"
-                  value={formData.upi_id}
-                  onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
-                  className="input-field pl-12"
-                  placeholder="yourname@paytm or 9876543210@upi"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                This UPI ID will be used when others pay you
-              </p>
             </div>
 
             {/* Submit Button */}

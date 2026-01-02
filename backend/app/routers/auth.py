@@ -56,8 +56,7 @@ async def register(
         email=user_data.email,
         name=user_data.name,
         hashed_password=hashed_password,
-        phone=user_data.phone,
-        upi_id=user_data.upi_id
+        phone=user_data.phone
     )
     
     return UserResponse(
@@ -65,7 +64,6 @@ async def register(
         email=new_user["email"],
         name=new_user["name"],
         phone=new_user.get("phone"),
-        upi_id=new_user.get("upi_id"),
         is_active=new_user.get("is_active", True),
         created_at=new_user.get("created_at")
     )
@@ -103,88 +101,14 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     """
     Get current logged-in user's profile.
     """
-    import logging
-    import sys
-    logger = logging.getLogger(__name__)
-    
-    # Force log to stdout (CloudWatch)
-    print(f"[ERROR] /auth/me called - Starting")
-    sys.stdout.flush()
-    
-    try:
-        print(f"[ERROR] /auth/me - current_user keys: {list(current_user.keys()) if current_user else 'None'}")
-        sys.stdout.flush()
-        
-        logger.error(f"[ERROR] Getting user profile for user_id: {current_user.get('id')}")
-        logger.error(f"[ERROR] Current user data: {current_user}")
-        
-        # Ensure all required fields are present
-        user_data = {
-            "id": current_user.get("id"),
-            "email": current_user.get("email"),
-            "name": current_user.get("name"),
-            "phone": current_user.get("phone"),
-            "upi_id": current_user.get("upi_id"),
-            "is_active": current_user.get("is_active", True),
-            "created_at": current_user.get("created_at")
-        }
-        
-        print(f"[ERROR] /auth/me - user_data: {user_data}")
-        sys.stdout.flush()
-        
-        # Validate required fields
-        if not user_data["id"]:
-            error_msg = "User missing 'id' field"
-            print(f"[ERROR] {error_msg}")
-            sys.stdout.flush()
-            logger.error(f"[ERROR] {error_msg}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User data is missing required field: id"
-            )
-        if not user_data["email"]:
-            error_msg = "User missing 'email' field"
-            print(f"[ERROR] {error_msg}")
-            sys.stdout.flush()
-            logger.error(f"[ERROR] {error_msg}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User data is missing required field: email"
-            )
-        if not user_data["name"]:
-            error_msg = "User missing 'name' field"
-            print(f"[ERROR] {error_msg}")
-            sys.stdout.flush()
-            logger.error(f"[ERROR] {error_msg}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User data is missing required field: name"
-            )
-        
-        print(f"[ERROR] /auth/me - Creating UserResponse")
-        sys.stdout.flush()
-        result = UserResponse(**user_data)
-        print(f"[ERROR] /auth/me - Success")
-        sys.stdout.flush()
-        return result
-    except HTTPException:
-        print(f"[ERROR] /auth/me - HTTPException raised")
-        sys.stdout.flush()
-        raise
-    except Exception as e:
-        error_msg = f"Error in /auth/me: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-        print(f"[ERROR] Current user data: {current_user}")
-        import traceback
-        print(f"[ERROR] Traceback: {traceback.format_exc()}")
-        sys.stdout.flush()
-        logger.error(f"[ERROR] {error_msg}")
-        logger.error(f"[ERROR] Current user data: {current_user}")
-        logger.error(f"[ERROR] Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get user profile: {str(e)}"
-        )
+    return UserResponse(
+        id=current_user["id"],
+        email=current_user["email"],
+        name=current_user["name"],
+        phone=current_user.get("phone"),
+        is_active=current_user.get("is_active", True),
+        created_at=current_user.get("created_at")
+    )
 
 
 @router.put("/me", response_model=UserResponse)
@@ -201,8 +125,6 @@ async def update_me(
         update_fields["name"] = user_data.name
     if user_data.phone is not None:
         update_fields["phone"] = user_data.phone
-    if user_data.upi_id is not None:
-        update_fields["upi_id"] = user_data.upi_id
     
     if update_fields:
         updated_user = db_service.update_user(current_user["id"], **update_fields)
@@ -214,7 +136,6 @@ async def update_me(
         email=updated_user["email"],
         name=updated_user["name"],
         phone=updated_user.get("phone"),
-        upi_id=updated_user.get("upi_id"),
         is_active=updated_user.get("is_active", True),
         created_at=updated_user.get("created_at")
     )
@@ -237,7 +158,6 @@ async def search_users(
             email=u["email"],
             name=u["name"],
             phone=u.get("phone"),
-            upi_id=u.get("upi_id"),
             is_active=u.get("is_active", True),
             created_at=u.get("created_at")
         )

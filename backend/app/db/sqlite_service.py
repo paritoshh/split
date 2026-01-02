@@ -42,15 +42,14 @@ class SQLiteService:
     # ===========================================
     
     def create_user(self, email: str, name: str, hashed_password: str,
-                   phone: Optional[str] = None, upi_id: Optional[str] = None) -> dict:
+                   phone: Optional[str] = None) -> dict:
         """Create a new user."""
         db = self._get_session()
         user = User(
             email=email.lower(),
             name=name,
             hashed_password=hashed_password,
-            phone=phone,
-            upi_id=upi_id
+            phone=phone
         )
         db.add(user)
         db.commit()
@@ -109,7 +108,6 @@ class SQLiteService:
             "email": user.email,
             "name": user.name,
             "phone": user.phone,
-            "upi_id": user.upi_id,
             "hashed_password": user.hashed_password,
             "is_active": user.is_active,
             "created_at": user.created_at.isoformat() if user.created_at else None,

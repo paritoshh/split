@@ -84,48 +84,38 @@ function SettleUpModal({
     }
   }
 
-  const [copiedUPI, setCopiedUPI] = useState(false)
 
   const openUPIApp = (appType = 'default') => {
     if (!upiInfo) return
 
-    let link = upiInfo.upi_link // Default Android upi:// link
+    // Build UPI intent cleanly - Splitwise style: NO pa parameter
+    // Let GPay match the recipient from user's contact list
+    const { payee_name, amount, transaction_note } = upiInfo
+    
+    // Clean name for GPay - remove special characters and limit length
+    const cleanName = payee_name
+      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+      .trim()
+      .substring(0, 50) // Limit to 50 characters
+    const encodedName = encodeURIComponent(cleanName || 'User')
+    const encodedNote = encodeURIComponent(transaction_note)
+    const encodedAmount = amount.toFixed(2)
+    
+    // Build UPI link without pa parameter
+    // Format: upi://pay?pn=Name&am=Amount&cu=INR&tn=Note
+    let link = `upi://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
 
-    // For iOS, use specific app schemes
+    // For iOS, use specific app schemes (also without pa)
     if (isIOS()) {
-      const { payee_name, amount, transaction_note } = upiInfo
-      // Clean name for GPay - remove special characters and limit length
-      // GPay sometimes has issues with special characters in names
-      const cleanName = payee_name
-        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
-        .trim()
-        .substring(0, 50) // Limit to 50 characters
-      const encodedName = encodeURIComponent(cleanName || 'User')
-      const encodedNote = encodeURIComponent(transaction_note)
-      
-      // Extract payment address (pa parameter) from the upi_link
-      // The backend uses phone@upi format for better reliability
-      let paymentAddress = ''
-      try {
-        const urlParams = new URLSearchParams(upi_link.split('?')[1])
-        paymentAddress = urlParams.get('pa') || ''
-      } catch (e) {
-        // If parsing fails, try to extract from the link
-        const paMatch = upi_link.match(/pa=([^&]+)/)
-        if (paMatch) {
-          paymentAddress = decodeURIComponent(paMatch[1])
-        }
-      }
-      
       if (appType === 'gpay') {
-        // Google Pay iOS scheme - pa is mandatory
-        link = `gpay://upi/pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Google Pay iOS scheme - NO pa parameter
+        link = `gpay://upi/pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
-        // PhonePe iOS scheme - pa is mandatory
-        link = `phonepe://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // PhonePe iOS scheme - NO pa parameter
+        link = `phonepe://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'paytm') {
-        // Paytm iOS scheme - pa is mandatory
-        link = `paytmmp://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Paytm iOS scheme - NO pa parameter
+        link = `paytmmp://pay?pn=${encodedName}&am=${encodedAmount}&cu=INR&tn=${encodedNote}`
       }
     }
 
@@ -139,13 +129,6 @@ function SettleUpModal({
     document.body.removeChild(a)
   }
 
-  const copyUPIId = () => {
-    if (upiInfo?.payee_upi_id) {
-      navigator.clipboard.writeText(upiInfo.payee_upi_id)
-      setCopiedUPI(true)
-      setTimeout(() => setCopiedUPI(false), 2000)
-    }
-  }
 
   const handleRecordPayment = async () => {
     setLoading(true)
@@ -340,33 +323,11 @@ function SettleUpModal({
 
           {step === 'upi' && upiInfo && (
             <div className="space-y-4">
-              {/* UPI Info */}
-              <div className="p-4 bg-dark-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Pay to</span>
-                  <span className="text-white font-medium">{upiInfo.payee_name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">UPI ID</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-mono text-sm">{upiInfo.payee_upi_id}</span>
-                    <button 
-                      onClick={copyUPIId}
-                      className="p-1 rounded hover:bg-dark-300 transition-colors"
-                      title="Copy UPI ID"
-                    >
-                      {copiedUPI ? (
-                        <Check className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-500" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Amount</span>
-                  <span className="text-primary-400 font-bold text-xl">₹{upiInfo.amount}</span>
-                </div>
+              {/* Payment Info */}
+              <div className="p-6 bg-dark-200 rounded-xl text-center">
+                <p className="text-white text-lg font-medium mb-2">
+                  Pay {upiInfo.payee_name} ₹{upiInfo.amount.toFixed(2)} via GPay
+                </p>
               </div>
 
               {/* iOS: Show app-specific buttons */}
@@ -399,13 +360,11 @@ function SettleUpModal({
                   <p className="text-center text-xs text-gray-500 mt-2">
                     Or copy the UPI ID above and pay manually in any UPI app
                   </p>
-                  {upiInfo.payee_upi_id.includes('@upi') && (
-                    <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                      <p className="text-xs text-yellow-400 text-center">
-                        Note: GPay may show "Could not load banking name" - this is a GPay limitation and doesn't prevent payment.
-                      </p>
-                    </div>
-                  )}
+                  <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p className="text-xs text-yellow-400 text-center">
+                      Note: GPay may show "Could not load banking name" - this is a GPay limitation and doesn't affect payment functionality.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <>

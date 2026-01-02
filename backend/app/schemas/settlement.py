@@ -44,7 +44,6 @@ class SettlementResponse(BaseModel):
 
 class UPIPaymentInfo(BaseModel):
     """Schema for generating UPI payment link."""
-    payee_upi_id: str
     payee_name: str
     amount: float
     transaction_note: str
