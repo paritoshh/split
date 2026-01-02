@@ -104,10 +104,19 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     Get current logged-in user's profile.
     """
     import logging
+    import sys
     logger = logging.getLogger(__name__)
     
+    # Force log to stdout (CloudWatch)
+    print(f"[ERROR] /auth/me called - Starting")
+    sys.stdout.flush()
+    
     try:
-        logger.info(f"Getting user profile for user_id: {current_user.get('id')}")
+        print(f"[ERROR] /auth/me - current_user keys: {list(current_user.keys()) if current_user else 'None'}")
+        sys.stdout.flush()
+        
+        logger.error(f"[ERROR] Getting user profile for user_id: {current_user.get('id')}")
+        logger.error(f"[ERROR] Current user data: {current_user}")
         
         # Ensure all required fields are present
         user_data = {
@@ -120,34 +129,58 @@ async def get_me(current_user: dict = Depends(get_current_user)):
             "created_at": current_user.get("created_at")
         }
         
+        print(f"[ERROR] /auth/me - user_data: {user_data}")
+        sys.stdout.flush()
+        
         # Validate required fields
         if not user_data["id"]:
-            logger.error("User missing 'id' field")
+            error_msg = "User missing 'id' field"
+            print(f"[ERROR] {error_msg}")
+            sys.stdout.flush()
+            logger.error(f"[ERROR] {error_msg}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User data is missing required field: id"
             )
         if not user_data["email"]:
-            logger.error("User missing 'email' field")
+            error_msg = "User missing 'email' field"
+            print(f"[ERROR] {error_msg}")
+            sys.stdout.flush()
+            logger.error(f"[ERROR] {error_msg}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User data is missing required field: email"
             )
         if not user_data["name"]:
-            logger.error("User missing 'name' field")
+            error_msg = "User missing 'name' field"
+            print(f"[ERROR] {error_msg}")
+            sys.stdout.flush()
+            logger.error(f"[ERROR] {error_msg}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User data is missing required field: name"
             )
         
-        return UserResponse(**user_data)
+        print(f"[ERROR] /auth/me - Creating UserResponse")
+        sys.stdout.flush()
+        result = UserResponse(**user_data)
+        print(f"[ERROR] /auth/me - Success")
+        sys.stdout.flush()
+        return result
     except HTTPException:
+        print(f"[ERROR] /auth/me - HTTPException raised")
+        sys.stdout.flush()
         raise
     except Exception as e:
-        logger.error(f"Error in /auth/me: {str(e)}")
-        logger.error(f"Current user data: {current_user}")
+        error_msg = f"Error in /auth/me: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        print(f"[ERROR] Current user data: {current_user}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        sys.stdout.flush()
+        logger.error(f"[ERROR] {error_msg}")
+        logger.error(f"[ERROR] Current user data: {current_user}")
+        logger.error(f"[ERROR] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get user profile: {str(e)}"
