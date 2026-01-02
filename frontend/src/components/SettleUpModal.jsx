@@ -120,11 +120,11 @@ function SettleUpModal({
         // This helps avoid "exceeded bank limit" errors in GPay
         link = `gpay://upi/pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
-        // PhonePe iOS scheme  
-        link = `phonepe://pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // PhonePe iOS scheme
+        link = `phonepe://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'paytm') {
         // Paytm iOS scheme
-        link = `paytmmp://pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        link = `paytmmp://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       }
     }
 
