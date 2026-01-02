@@ -238,8 +238,23 @@ Extract amount, description, and match names to group members. Return JSON only.
 @router.get("/status")
 async def ai_status():
     """Check if AI features are available."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Debug: Check if API key is set
+    has_key = bool(settings.openai_api_key)
+    key_length = len(settings.openai_api_key) if settings.openai_api_key else 0
+    key_preview = settings.openai_api_key[:10] + "..." if settings.openai_api_key and len(settings.openai_api_key) > 10 else "None"
+    
+    logger.info(f"AI Status Check - Has key: {has_key}, Key length: {key_length}, Preview: {key_preview}")
+    
     return {
-        "ai_enabled": bool(settings.openai_api_key),
-        "model": "gpt-4o-mini" if settings.openai_api_key else None
+        "ai_enabled": has_key,
+        "model": "gpt-4o-mini" if has_key else None,
+        "debug": {
+            "has_key": has_key,
+            "key_length": key_length,
+            "key_preview": key_preview
+        }
     }
 

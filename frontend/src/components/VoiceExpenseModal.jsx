@@ -81,8 +81,16 @@ function VoiceExpenseModal({
   // Check AI status on mount
   useEffect(() => {
     aiAPI.getStatus()
-      .then(res => setAiEnabled(res.data.ai_enabled))
-      .catch(() => setAiEnabled(false))
+      .then(res => {
+        console.log('🤖 AI Status Response:', res.data)
+        const enabled = res.data?.ai_enabled || false
+        console.log('🤖 AI Enabled:', enabled)
+        setAiEnabled(enabled)
+      })
+      .catch((err) => {
+        console.error('❌ Failed to check AI status:', err)
+        setAiEnabled(false)
+      })
   }, [])
 
   useEffect(() => {
