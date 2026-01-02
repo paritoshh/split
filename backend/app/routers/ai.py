@@ -32,7 +32,7 @@ class VoiceParseRequest(BaseModel):
 
 
 class ParsedMember(BaseModel):
-    user_id: int
+    user_id: str  # UUID string, not integer
     user_name: str
     confidence: str  # "exact", "partial", "fuzzy"
 
