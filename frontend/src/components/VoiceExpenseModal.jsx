@@ -326,11 +326,16 @@ function VoiceExpenseModal({
       const expenseData = {
         amount: parseFloat(draftAmount),
         description: draftDescription.trim(),
-        group_id: parseInt(groupId),
+        group_id: groupId ? String(groupId) : undefined, // UUID is a string, not a number
         category: 'other',
         expense_date: new Date(draftDate).toISOString(),
         split_type: 'equal',
         split_with_user_ids: selectedMembers
+      }
+      
+      // Remove group_id if it's empty/null/undefined
+      if (!expenseData.group_id) {
+        delete expenseData.group_id
       }
 
       await expensesAPI.create(expenseData)
