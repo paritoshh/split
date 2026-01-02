@@ -103,28 +103,17 @@ function SettleUpModal({
       const encodedName = encodeURIComponent(cleanName || 'User')
       const encodedNote = encodeURIComponent(transaction_note)
       
-      // Extract payment address (pa parameter) from the upi_link
-      // The backend optimizes this to use phone@upi format for better GPay compatibility
-      let paymentAddress = payee_upi_id // Fallback to displayed UPI ID
-      try {
-        const urlParams = new URLSearchParams(upi_link.split('?')[1])
-        paymentAddress = urlParams.get('pa') || payee_upi_id
-      } catch (e) {
-        // If parsing fails, use payee_upi_id
-        paymentAddress = payee_upi_id
-      }
-      
+      // Splitwise-style: Don't include pa parameter - let the app match from contacts
+      // This avoids "Could not load banking name" and "exceeded bank limit" errors
       if (appType === 'gpay') {
-        // Google Pay iOS scheme
-        // Use the optimized payment address from backend (phone@upi format preferred)
-        // This helps avoid "exceeded bank limit" errors in GPay
-        link = `gpay://upi/pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Google Pay iOS scheme - without pa, GPay will match from contacts
+        link = `gpay://upi/pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
-        // PhonePe iOS scheme
-        link = `phonepe://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // PhonePe iOS scheme - without pa
+        link = `phonepe://pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'paytm') {
-        // Paytm iOS scheme
-        link = `paytmmp://pay?pa=${encodeURIComponent(paymentAddress)}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
+        // Paytm iOS scheme - without pa
+        link = `paytmmp://pay?pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       }
     }
 
