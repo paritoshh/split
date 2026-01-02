@@ -103,15 +103,55 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     """
     Get current logged-in user's profile.
     """
-    return UserResponse(
-        id=current_user["id"],
-        email=current_user["email"],
-        name=current_user["name"],
-        phone=current_user.get("phone"),
-        upi_id=current_user.get("upi_id"),
-        is_active=current_user.get("is_active", True),
-        created_at=current_user.get("created_at")
-    )
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"Getting user profile for user_id: {current_user.get('id')}")
+        
+        # Ensure all required fields are present
+        user_data = {
+            "id": current_user.get("id"),
+            "email": current_user.get("email"),
+            "name": current_user.get("name"),
+            "phone": current_user.get("phone"),
+            "upi_id": current_user.get("upi_id"),
+            "is_active": current_user.get("is_active", True),
+            "created_at": current_user.get("created_at")
+        }
+        
+        # Validate required fields
+        if not user_data["id"]:
+            logger.error("User missing 'id' field")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User data is missing required field: id"
+            )
+        if not user_data["email"]:
+            logger.error("User missing 'email' field")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User data is missing required field: email"
+            )
+        if not user_data["name"]:
+            logger.error("User missing 'name' field")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User data is missing required field: name"
+            )
+        
+        return UserResponse(**user_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /auth/me: {str(e)}")
+        logger.error(f"Current user data: {current_user}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get user profile: {str(e)}"
+        )
 
 
 @router.put("/me", response_model=UserResponse)
