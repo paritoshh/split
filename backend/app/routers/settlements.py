@@ -210,11 +210,15 @@ async def generate_upi_link(
         )
     
     # Build transaction note
-    note = f"Hisab settlement from {current_user.get('name', 'User')}"
+    # CRITICAL: Keep note short - GPay may reject long transaction notes
+    # This can cause GPay to open home page instead of payment screen
+    note = "Hisab settlement"
     if group_id:
         group = db_service.get_group_by_id(str(group_id))
         if group:
-            note = f"Hisab: {group.get('name')} settlement"
+            # Keep group name short too
+            group_name = group.get('name', '')[:20]  # Limit to 20 chars
+            note = f"Hisab: {group_name}"
     
     # Clean name for UPI links - remove special characters that might cause issues
     clean_name = ''.join(c for c in payee_name if c.isalnum() or c.isspace()).strip()[:50]

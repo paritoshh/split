@@ -114,11 +114,16 @@ function SettleUpModal({
     
     // Use URLSearchParams for proper encoding (like Uri.Builder in Android)
     // This ensures spaces are properly encoded and no invalid characters
+    // CRITICAL: Transaction note should be short (GPay may reject long notes)
+    const shortNote = (transaction_note || 'Hisab settlement')
+      .substring(0, 50) // Limit to 50 characters
+      .trim()
+    
     const params = new URLSearchParams({
       pn: cleanName || 'User',
       am: formattedAmount,
       cu: 'INR',
-      tn: transaction_note || 'Hisab settlement'
+      tn: shortNote
     })
     
     // Build UPI link with app-specific schemes
@@ -142,24 +147,40 @@ function SettleUpModal({
     }
     
     // Debug: Log the URI to verify format
-    console.log('UPI Intent URI:', link)
+    console.log('=== UPI Intent Debug ===')
+    console.log('Full URI:', link)
+    console.log('Scheme:', link.split('://')[0])
     console.log('Amount:', formattedAmount, 'Type:', typeof formattedAmount)
-    console.log('Params:', params.toString())
+    console.log('Payee Name:', cleanName)
+    console.log('Transaction Note:', shortNote)
+    console.log('All Params:', params.toString())
     console.log('App Type:', appType)
+    console.log('User Agent:', navigator.userAgent)
+    console.log('========================')
+    
+    // CRITICAL: Verify the link format before opening
+    if (!link.startsWith('gpay://') && !link.startsWith('upi://') && !link.startsWith('phonepe://') && !link.startsWith('paytmmp://')) {
+      console.error('Invalid UPI scheme:', link)
+      return
+    }
     
     // Open the deep link
     // On mobile, window.location.href works best for deep links
     // On web, it will try to open but may fail (expected - deep links need mobile)
     try {
-      window.location.href = link
+      // Use window.location.replace to avoid adding to history
+      window.location.replace(link)
     } catch (error) {
       console.error('Error opening UPI link:', error)
       // Fallback: Try anchor tag method
       const a = document.createElement('a')
       a.href = link
+      a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
-      setTimeout(() => document.body.removeChild(a), 100)
+      setTimeout(() => {
+        document.body.removeChild(a)
+      }, 100)
     }
   }
 
