@@ -222,12 +222,21 @@ Extract amount, description, and match names to group members. Return JSON only.
         )
         
     except json.JSONDecodeError as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"AI JSON decode error: {str(e)}")
         return VoiceParseResponse(
             success=False,
             error=f"Failed to parse AI response: {str(e)}",
             raw_transcript=request.transcript
         )
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"AI parsing exception: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return VoiceParseResponse(
             success=False,
             error=f"AI parsing failed: {str(e)}",
