@@ -22,11 +22,15 @@ foreach ($key in $envVars.PSObject.Properties.Name) {
         $openAIKeyValue = $envVars[$key]
         Write-Host "   ✅ Found: $key" -ForegroundColor Green
         if ($openAIKeyValue) {
-            $preview = if ($openAIKeyValue.Length -gt 10) { $openAIKeyValue.Substring(0, 10) + "..." } else { $openAIKeyValue }
+            if ($openAIKeyValue.Length -gt 10) {
+                $preview = $openAIKeyValue.Substring(0, 10) + "..."
+            } else {
+                $preview = $openAIKeyValue
+            }
             Write-Host "      Value preview: $preview" -ForegroundColor Gray
             Write-Host "      Length: $($openAIKeyValue.Length) characters" -ForegroundColor Gray
         } else {
-            Write-Host "      ⚠️  Value is empty!" -ForegroundColor Red
+            Write-Host "      Warning: Value is empty!" -ForegroundColor Red
         }
     }
 }
