@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/ai", tags=["AI"])
 
 
 class GroupMember(BaseModel):
-    user_id: int
+    user_id: str  # UUID string, not integer
     user_name: str
 
 
