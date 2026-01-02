@@ -58,10 +58,16 @@ try {
     Write-Host "   - Model: $($response.model)" -ForegroundColor Gray
     
     if ($response.debug) {
-        Write-Host "   Debug info:" -ForegroundColor Gray
+        Write-Host "   Debug info from backend:" -ForegroundColor Gray
         Write-Host "   - Has key: $($response.debug.has_key)" -ForegroundColor Gray
         Write-Host "   - Key length: $($response.debug.key_length)" -ForegroundColor Gray
         Write-Host "   - Key preview: $($response.debug.key_preview)" -ForegroundColor Gray
+        
+        if ($response.debug.key_length -eq 0) {
+            Write-Host ""
+            Write-Host "   WARNING: Backend sees empty key!" -ForegroundColor Red
+            Write-Host "   The environment variable exists but has no value." -ForegroundColor Yellow
+        }
     }
 } catch {
     Write-Host "   Failed to call status endpoint: $_" -ForegroundColor Red
