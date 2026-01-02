@@ -122,11 +122,16 @@ function SettleUpModal({
       return pairs.join('&')
     }
     
+    // CRITICAL: Transaction note must be SHORT
+    // GPay rejects long notes and opens home page instead
+    // Keep it simple and short
+    const shortNote = 'Hisab settlement'
+    
     const params = {
       pn: cleanName || 'User',
       am: formattedAmount,
       cu: 'INR',
-      tn: (transaction_note || 'Hisab settlement').substring(0, 50) // Limit note length
+      tn: shortNote  // Use short note only
     }
     
     const encodedParams = buildParams(params)
@@ -136,26 +141,38 @@ function SettleUpModal({
     // This is the ONLY valid UPI payment scheme
     let link = `upi://pay?${encodedParams}`
 
-    // For iOS, some apps support direct schemes, but upi://pay is always safe
-    // On Android, upi://pay will show app chooser or open default UPI app
-    // To force GPay specifically, we'd need native Android code with setPackage()
-    // For web/mobile web, upi://pay is the only option
-    
     // Debug: Log the URI to verify format
-    console.log('UPI Intent URI:', link)
-    console.log('Scheme:', link.split('://')[0], '(must be upi://pay)')
-    console.log('Encoded params:', encodedParams)
-    console.log('Has + encoding?', link.includes('+'), '(should be false)')
-    console.log('Has %20 encoding?', link.includes('%20'), '(should be true)')
-
-    // Create a temporary <a> tag to open the link
-    const a = document.createElement('a')
-    a.href = link
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    console.log('=== UPI Intent Debug ===')
+    console.log('Full URI:', link)
+    console.log('Scheme:', link.split('://')[0], '(must be upi)')
+    console.log('Amount:', formattedAmount, '(must be 2 decimals)')
+    console.log('Payee Name:', cleanName)
+    console.log('Transaction Note:', shortNote, '(short)')
+    console.log('Has + encoding?', link.includes('+'), '(MUST be false)')
+    console.log('Has %20 encoding?', link.includes('%20'), '(MUST be true)')
+    console.log('No pa parameter?', !link.includes('pa='), '(MUST be true)')
+    console.log('========================')
+    
+    // CRITICAL: Use window.location.href for deep links on mobile
+    // This is equivalent to Intent.ACTION_VIEW in Android
+    // DO NOT use anchor tag with target="_blank" - it interferes with deep links
+    try {
+      // Direct navigation - cleanest method for deep links
+      window.location.href = link
+    } catch (error) {
+      console.error('Error opening UPI link:', error)
+      // Fallback: Clean anchor tag (NO target, NO rel attributes)
+      const a = document.createElement('a')
+      a.href = link
+      // DO NOT add target, rel, or any other attributes
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a)
+        }
+      }, 100)
+    }
   }
 
 
