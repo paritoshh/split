@@ -94,11 +94,19 @@ function SettleUpModal({
     // For iOS, use specific app schemes
     if (isIOS()) {
       const { payee_upi_id, payee_name, amount, transaction_note } = upiInfo
-      const encodedName = encodeURIComponent(payee_name)
+      // Clean name for GPay - remove special characters and limit length
+      // GPay sometimes has issues with special characters in names
+      const cleanName = payee_name
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+        .trim()
+        .substring(0, 50) // Limit to 50 characters
+      const encodedName = encodeURIComponent(cleanName || 'User')
       const encodedNote = encodeURIComponent(transaction_note)
       
       if (appType === 'gpay') {
         // Google Pay iOS scheme
+        // Note: GPay may show "Could not load banking name" - this is a GPay limitation
+        // The payment will still work, GPay just can't verify the name against the UPI ID
         link = `gpay://upi/pay?pa=${payee_upi_id}&pn=${encodedName}&am=${amount}&cu=INR&tn=${encodedNote}`
       } else if (appType === 'phonepe') {
         // PhonePe iOS scheme  

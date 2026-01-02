@@ -215,11 +215,18 @@ async def generate_upi_link(
         if group:
             note = f"Hisab: {group.get('name')} settlement"
     
+    # Clean name for UPI links - remove special characters that might cause issues
+    # Some UPI apps (especially GPay) have issues with special characters
+    payee_name = payee.get('name', 'User')
+    clean_name = ''.join(c for c in payee_name if c.isalnum() or c.isspace()).strip()[:50]
+    if not clean_name:
+        clean_name = 'User'
+    
     # Build UPI deep link
     upi_link = (
         f"upi://pay?"
         f"pa={quote(payee['upi_id'])}&"
-        f"pn={quote(payee.get('name', 'User'))}&"
+        f"pn={quote(clean_name)}&"
         f"am={amount}&"
         f"cu=INR&"
         f"tn={quote(note)}"
@@ -227,7 +234,7 @@ async def generate_upi_link(
     
     return UPIPaymentInfo(
         payee_upi_id=payee["upi_id"],
-        payee_name=payee.get("name", "Unknown"),
+        payee_name=clean_name,  # Use cleaned name
         amount=amount,
         transaction_note=note,
         upi_link=upi_link
