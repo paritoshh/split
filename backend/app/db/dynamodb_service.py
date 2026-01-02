@@ -262,10 +262,21 @@ class DynamoDBService:
         
         update_expr = "SET updated_at = :updated_at"
         expr_values = {":updated_at": {"S": now_iso()}}
+        expr_names = {}  # For reserved keywords like "name"
+        
+        # DynamoDB reserved keywords that need ExpressionAttributeNames
+        reserved_keywords = {"name", "description", "data", "status", "type", "value"}
         
         for key, value in kwargs.items():
             if value is not None:
-                update_expr += f", {key} = :{key}"
+                # Use ExpressionAttributeNames for reserved keywords
+                if key in reserved_keywords:
+                    attr_name = f"#{key}"
+                    expr_names[attr_name] = key
+                    update_expr += f", {attr_name} = :{key}"
+                else:
+                    update_expr += f", {key} = :{key}"
+                
                 if isinstance(value, str):
                     expr_values[f":{key}"] = {"S": value}
                 elif isinstance(value, bool):
@@ -275,14 +286,20 @@ class DynamoDBService:
                 else:
                     expr_values[f":{key}"] = {"S": str(value)}
         
+        update_params = {
+            "TableName": table_name,
+            "Key": {"user_id": {"S": str(user_id)}},
+            "UpdateExpression": update_expr,
+            "ExpressionAttributeValues": expr_values,
+            "ReturnValues": "ALL_NEW"
+        }
+        
+        # Only add ExpressionAttributeNames if we have reserved keywords
+        if expr_names:
+            update_params["ExpressionAttributeNames"] = expr_names
+        
         logger.info(f"Updating user {user_id}")
-        response = client.update_item(
-            TableName=table_name,
-            Key={"user_id": {"S": str(user_id)}},
-            UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_values,
-            ReturnValues="ALL_NEW"
-        )
+        response = client.update_item(**update_params)
         attributes = response.get("Attributes")
         # Deserialize if needed
         if attributes:
