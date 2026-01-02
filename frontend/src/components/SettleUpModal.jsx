@@ -108,7 +108,7 @@ function SettleUpModal({
     // URLSearchParams uses + by default, but GPay rejects it
     // We need to manually encode with %20
     const encodeParam = (value) => {
-      return encodeURIComponent(value).replace(/%20/g, '%20') // Ensure %20, not +
+      return encodeURIComponent(value) // This gives %20, not +
     }
     
     // Build parameters manually to ensure %20 encoding (not +)
@@ -129,30 +129,22 @@ function SettleUpModal({
     
     const encodedParams = buildParams(params)
     
-    // Build base UPI link
+    // CRITICAL: ALL UPI apps (including GPay) accept ONLY upi://pay scheme
+    // gpay://upi/pay does NOT work for third-party apps
+    // This is the ONLY valid UPI payment scheme
     let link = `upi://pay?${encodedParams}`
 
-    // For iOS, use specific app schemes (also without pa)
-    // For Android GPay, also use direct scheme for better reliability
-    if (isIOS() || appType === 'gpay') {
-      if (appType === 'gpay') {
-        // Google Pay direct scheme - works on both Android and iOS
-        // CRITICAL: Use gpay:// directly, not upi://
-        link = `gpay://upi/pay?${encodedParams}`
-      } else if (appType === 'phonepe') {
-        // PhonePe direct scheme
-        link = `phonepe://pay?${encodedParams}`
-      } else if (appType === 'paytm') {
-        // Paytm direct scheme
-        link = `paytmmp://pay?${encodedParams}`
-      }
-    }
+    // For iOS, some apps support direct schemes, but upi://pay is always safe
+    // On Android, upi://pay will show app chooser or open default UPI app
+    // To force GPay specifically, we'd need native Android code with setPackage()
+    // For web/mobile web, upi://pay is the only option
     
     // Debug: Log the URI to verify format
     console.log('UPI Intent URI:', link)
+    console.log('Scheme:', link.split('://')[0], '(must be upi://pay)')
     console.log('Encoded params:', encodedParams)
-    console.log('Has + encoding?', link.includes('+'))
-    console.log('Has %20 encoding?', link.includes('%20'))
+    console.log('Has + encoding?', link.includes('+'), '(should be false)')
+    console.log('Has %20 encoding?', link.includes('%20'), '(should be true)')
 
     // Create a temporary <a> tag to open the link
     const a = document.createElement('a')
