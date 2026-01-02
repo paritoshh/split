@@ -113,34 +113,46 @@ function SettleUpModal({
       tn: transaction_note || 'Hisab settlement'
     })
     
-    // Build base UPI link
-    let link = `upi://pay?${params.toString()}`
-
-    // For iOS, use specific app schemes (also without pa)
-    if (isIOS()) {
-      if (appType === 'gpay') {
-        // Google Pay iOS scheme - NO pa parameter
-        link = `gpay://upi/pay?${params.toString()}`
-      } else if (appType === 'phonepe') {
-        // PhonePe iOS scheme - NO pa parameter
-        link = `phonepe://pay?${params.toString()}`
-      } else if (appType === 'paytm') {
-        // Paytm iOS scheme - NO pa parameter
-        link = `paytmmp://pay?${params.toString()}`
-      }
+    // Build UPI link with app-specific schemes
+    // CRITICAL: Use direct app schemes for better reliability
+    // GPay on both Android and iOS needs gpay://upi/pay (not upi://pay)
+    let link = ''
+    
+    if (appType === 'gpay') {
+      // Google Pay direct scheme - works on both Android and iOS
+      // NO pa parameter - let GPay match from contacts
+      link = `gpay://upi/pay?${params.toString()}`
+    } else if (appType === 'phonepe') {
+      // PhonePe direct scheme
+      link = `phonepe://pay?${params.toString()}`
+    } else if (appType === 'paytm') {
+      // Paytm direct scheme
+      link = `paytmmp://pay?${params.toString()}`
+    } else {
+      // Default: Use generic UPI scheme (will show app chooser)
+      link = `upi://pay?${params.toString()}`
     }
     
-    // Debug: Log the URI to verify format (remove in production if needed)
+    // Debug: Log the URI to verify format
     console.log('UPI Intent URI:', link)
-
-    // Create a temporary <a> tag to open the link
-    const a = document.createElement('a')
-    a.href = link
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    console.log('Amount:', formattedAmount, 'Type:', typeof formattedAmount)
+    console.log('Params:', params.toString())
+    console.log('App Type:', appType)
+    
+    // Open the deep link
+    // On mobile, window.location.href works best for deep links
+    // On web, it will try to open but may fail (expected - deep links need mobile)
+    try {
+      window.location.href = link
+    } catch (error) {
+      console.error('Error opening UPI link:', error)
+      // Fallback: Try anchor tag method
+      const a = document.createElement('a')
+      a.href = link
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => document.body.removeChild(a), 100)
+    }
   }
 
 
