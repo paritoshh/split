@@ -88,6 +88,8 @@ function SettleUpModal({
   const openUPIApp = (appType = 'default') => {
     if (!upiInfo) return
 
+    // CRITICAL: Always build a fresh link - never reuse or cache
+    // GPay rejects intents with stale data or extras
     // Build UPI intent cleanly - Splitwise style: NO pa parameter
     // Let GPay match the recipient from user's contact list
     // CRITICAL: Amount MUST be exactly 2 decimal places (e.g., 1.50 not 1.5)
