@@ -202,26 +202,28 @@ async def generate_upi_link(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Determine payment address (pa parameter)
-    # GPay works better with mobile number format, so prefer phone if available
-    # Format: mobile@upi (e.g., 9876543210@upi) or UPI ID (e.g., username@bank)
+    # Strategy: Prefer UPI ID format (shows banking name) but use phone@upi as fallback
+    # UPI ID format: username@bank (e.g., sumansha1194@okicici) - shows banking name
+    # Phone format: phone@upi (e.g., 9876543210@upi) - avoids limit errors but no banking name
     payment_address = None
     payee_upi_id_display = None
     
-    # Prefer phone number format for better GPay compatibility
-    if payee.get("phone"):
+    # Prefer UPI ID format first (shows banking name in GPay)
+    if payee.get("upi_id"):
+        payment_address = payee["upi_id"]
+        payee_upi_id_display = payment_address
+    # Fallback to phone number format if no UPI ID
+    elif payee.get("phone"):
         # Remove any non-digit characters from phone
         phone_clean = ''.join(c for c in payee["phone"] if c.isdigit())
         if len(phone_clean) == 10:  # Valid Indian mobile number
             payment_address = f"{phone_clean}@upi"
-            payee_upi_id_display = payee.get("upi_id") or payment_address
-        elif payee.get("upi_id"):
-            # Fallback to UPI ID if phone is invalid
-            payment_address = payee["upi_id"]
             payee_upi_id_display = payment_address
-    elif payee.get("upi_id"):
-        # Use UPI ID if no phone
-        payment_address = payee["upi_id"]
-        payee_upi_id_display = payment_address
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"{payee.get('name', 'User')} has an invalid phone number. Please add a valid UPI ID or phone number."
+            )
     else:
         raise HTTPException(
             status_code=400, 
