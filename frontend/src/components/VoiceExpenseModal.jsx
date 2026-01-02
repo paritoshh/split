@@ -419,12 +419,20 @@ function VoiceExpenseModal({
           {step === 'record' && (
             <div className="space-y-4">
               {/* AI Status Badge */}
-              {aiEnabled && (
+              {aiEnabled ? (
                 <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-3 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-purple-400" />
                   <div>
                     <p className="text-sm text-purple-300 font-medium">AI-Powered Parsing</p>
                     <p className="text-xs text-gray-400">GPT-4o-mini will understand your speech naturally</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="text-sm text-yellow-300 font-medium">AI Not Available</p>
+                    <p className="text-xs text-gray-400">Using local regex parsing. Set OPENAI_API_KEY to enable AI.</p>
                   </div>
                 </div>
               )}
