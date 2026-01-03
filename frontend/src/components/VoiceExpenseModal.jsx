@@ -391,12 +391,6 @@ function VoiceExpenseModal({
 
     setLoading(true)
     setError('')
-    
-    // Clear timer
-    if (draftTimerRef.current) {
-      clearInterval(draftTimerRef.current)
-      draftTimerRef.current = null
-    }
 
     try {
       // Build expense data as draft
@@ -416,7 +410,10 @@ function VoiceExpenseModal({
         delete expenseData.group_id
       }
 
-      await expensesAPI.create(expenseData)
+      console.log('Saving draft expense:', expenseData)
+      const response = await expensesAPI.create(expenseData)
+      console.log('Draft expense saved:', response.data)
+      
       setSuccess(true)
       
       setTimeout(() => {
@@ -424,7 +421,8 @@ function VoiceExpenseModal({
         onClose()
       }, 1500)
     } catch (err) {
-      setError(err.message || 'Failed to save draft expense')
+      console.error('Error saving draft expense:', err)
+      setError(err.response?.data?.detail || err.message || 'Failed to save draft expense')
     } finally {
       setLoading(false)
     }
