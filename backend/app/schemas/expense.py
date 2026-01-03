@@ -122,6 +122,7 @@ class ExpenseResponse(BaseModel):
     split_type: str
     expense_date: Optional[datetime] = None
     is_settled: bool = False
+    is_draft: bool = False  # True if this is a draft expense
     created_at: Optional[datetime] = None
     
     splits: List[ExpenseSplitResponse] = []

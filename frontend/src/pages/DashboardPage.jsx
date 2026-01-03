@@ -23,7 +23,8 @@ import {
   ArrowRight,
   RefreshCw,
   Banknote,
-  Mic
+  Mic,
+  FileText
 } from 'lucide-react'
 
 function DashboardPage() {
@@ -106,10 +107,16 @@ function DashboardPage() {
           >
             <RefreshCw className={`w-4 h-4 lg:w-5 lg:h-5 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <Link to="/add-expense" className="btn-primary flex items-center gap-1 text-xs sm:text-sm">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add</span>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/add-expense" className="btn-primary flex items-center gap-1 text-xs sm:text-sm">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add</span>
+            </Link>
+            <Link to="/drafts" className="btn-secondary flex items-center gap-1 text-xs sm:text-sm">
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Drafts</span>
+            </Link>
+          </div>
         </div>
       </div>
 

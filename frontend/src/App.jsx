@@ -26,6 +26,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
+import DraftExpensesPage from './pages/DraftExpensesPage'
 import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
 import AddExpensePage from './pages/AddExpensePage'
@@ -295,6 +296,11 @@ function App() {
               <ProtectedRoute>
                 <ExpenseDetailPage />
               </ProtectedRoute>
+            } />
+            <Route path="/drafts" element={
+                <ProtectedRoute>
+                    <DraftExpensesPage />
+                </ProtectedRoute>
             } />
             <Route path="/profile" element={
               <ProtectedRoute>

@@ -27,7 +27,7 @@ const getBaseUrl = () => {
   const isCapacitor = window.Capacitor !== undefined;
   
   // AWS API Gateway URL (production)
-  const AWS_API_URL = 'https://2cjvid84h1.execute-api.ap-south-1.amazonaws.com';
+  const AWS_API_URL = 'https://e65w7up0h8.execute-api.ap-south-1.amazonaws.com';
   
   if (isCapacitor) {
     // Mobile app - use AWS API Gateway
@@ -166,6 +166,9 @@ export const expensesAPI = {
   getOverallBalances: () => api.get('/api/expenses/balances/overall'),
   getGroupBalances: (groupId) => api.get(`/api/expenses/balances/group/${groupId}`),
   settle: (data) => api.post('/api/expenses/settle', data),
+  // Draft expenses
+  getDrafts: () => api.get('/api/expenses/drafts'),
+  submitDraft: (id) => api.put(`/api/expenses/drafts/${id}/submit`),
 }
 
 // Notifications

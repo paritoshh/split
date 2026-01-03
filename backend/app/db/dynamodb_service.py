@@ -705,7 +705,7 @@ class DynamoDBService:
                       group_id: Optional[str] = None, split_type: str = "equal",
                       category: str = "other", currency: str = "INR",
                       expense_date: Optional[str] = None, notes: Optional[str] = None,
-                      splits: List[dict] = None) -> dict:
+                      splits: List[dict] = None, is_draft: bool = False) -> dict:
         """Create a new expense with splits."""
         # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         import logging
@@ -732,6 +732,7 @@ class DynamoDBService:
             "expense_date": expense_date or now_iso(),
             "is_active": True,
             "is_settled": False,
+            "is_draft": is_draft,
             "created_at": now_iso(),
             "updated_at": now_iso()
         }
@@ -993,6 +994,7 @@ class DynamoDBService:
             "receipt_url": item.get("receipt_url"),
             "is_active": item.get("is_active", True),
             "is_settled": item.get("is_settled", False),
+            "is_draft": item.get("is_draft", False),
             "created_at": item.get("created_at"),
             "updated_at": item.get("updated_at")
         })

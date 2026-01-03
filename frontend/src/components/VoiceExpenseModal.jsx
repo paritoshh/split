@@ -69,6 +69,11 @@ function VoiceExpenseModal({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   
+  // Draft timer state
+  const [showSaveDraft, setShowSaveDraft] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState(10)
+  const draftTimerRef = useRef(null)
+  
   // AI status
   const [aiEnabled, setAiEnabled] = useState(false)
   
@@ -99,6 +104,10 @@ function VoiceExpenseModal({
     }
     return () => {
       stopListening()
+      // Cleanup timer on unmount
+      if (draftTimerRef.current) {
+        clearInterval(draftTimerRef.current)
+      }
     }
   }, [isOpen])
 
@@ -133,6 +142,12 @@ function VoiceExpenseModal({
     setSuccess(false)
     setIsListening(false)
     setParsing(false)
+    setShowSaveDraft(false)
+    setTimeRemaining(10)
+    if (draftTimerRef.current) {
+      clearInterval(draftTimerRef.current)
+      draftTimerRef.current = null
+    }
   }
 
   const startListening = () => {
@@ -299,6 +314,29 @@ function VoiceExpenseModal({
 
     setParsing(false)
     setStep('review')
+    
+    // Start 10-second timer for "Save as Draft" button
+    setShowSaveDraft(false)
+    setTimeRemaining(10)
+    
+    // Clear any existing timer
+    if (draftTimerRef.current) {
+      clearInterval(draftTimerRef.current)
+    }
+    
+    // Start countdown timer
+    draftTimerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          setShowSaveDraft(true)
+          if (draftTimerRef.current) {
+            clearInterval(draftTimerRef.current)
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
   }
 
   const handleAmbiguousSelect = (index, userId) => {
@@ -338,6 +376,12 @@ function VoiceExpenseModal({
 
     setLoading(true)
     setError('')
+    
+    // Clear timer
+    if (draftTimerRef.current) {
+      clearInterval(draftTimerRef.current)
+      draftTimerRef.current = null
+    }
 
     try {
       // Build expense data
@@ -349,7 +393,8 @@ function VoiceExpenseModal({
         category: 'other',
         expense_date: new Date(draftDate).toISOString(),
         split_type: 'equal',
-        split_with_user_ids: selectedMembers
+        split_with_user_ids: selectedMembers,
+        is_draft: false
       }
       
       // Remove group_id if it's empty/null/undefined
@@ -366,6 +411,58 @@ function VoiceExpenseModal({
       }, 1500)
     } catch (err) {
       setError(err.message || 'Failed to create expense')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    // Validate minimum fields
+    if (!draftAmount || parseFloat(draftAmount) <= 0) {
+      setError('Please enter a valid amount to save as draft')
+      return
+    }
+    if (!draftDescription.trim()) {
+      setError('Please enter a description to save as draft')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    
+    // Clear timer
+    if (draftTimerRef.current) {
+      clearInterval(draftTimerRef.current)
+      draftTimerRef.current = null
+    }
+
+    try {
+      // Build expense data as draft
+      const expenseData = {
+        amount: parseFloat(draftAmount),
+        description: draftDescription.trim(),
+        group_id: groupId ? String(groupId) : undefined,
+        category: 'other',
+        expense_date: new Date(draftDate).toISOString(),
+        split_type: 'equal',
+        split_with_user_ids: selectedMembers,
+        is_draft: true  // Mark as draft
+      }
+      
+      // Remove group_id if it's empty/null/undefined
+      if (!expenseData.group_id) {
+        delete expenseData.group_id
+      }
+
+      await expensesAPI.create(expenseData)
+      setSuccess(true)
+      
+      setTimeout(() => {
+        onExpenseCreated?.()
+        onClose()
+      }, 1500)
+    } catch (err) {
+      setError(err.message || 'Failed to save draft expense')
     } finally {
       setLoading(false)
     }
