@@ -69,11 +69,6 @@ function VoiceExpenseModal({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   
-  // Draft timer state
-  const [showSaveDraft, setShowSaveDraft] = useState(false)
-  const [timeRemaining, setTimeRemaining] = useState(10)
-  const draftTimerRef = useRef(null)
-  
   // AI status
   const [aiEnabled, setAiEnabled] = useState(false)
   
