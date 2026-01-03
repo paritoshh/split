@@ -831,32 +831,63 @@ function VoiceExpenseModal({
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setStep('record')
-                    setTranscript('')
-                    setInterimTranscript('')
-                  }}
-                  className="flex-1 btn-secondary flex items-center justify-center gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Re-record
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || !draftAmount || selectedMembers.length === 0}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      Create Expense
-                    </>
-                  )}
-                </button>
+              <div className="space-y-3 pt-2">
+                {/* Save as Draft button - appears after 10 seconds */}
+                {showSaveDraft && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
+                    <p className="text-sm text-yellow-400 mb-2 text-center">
+                      No action taken. Save this as a draft?
+                    </p>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={loading || !draftAmount || !draftDescription.trim()}
+                      className="w-full btn-secondary flex items-center justify-center gap-2 bg-yellow-500/20 hover:bg-yellow-500/30 border-yellow-500/50 text-yellow-300"
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Receipt className="w-4 h-4" />
+                          Save as Draft
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setStep('record')
+                      setTranscript('')
+                      setInterimTranscript('')
+                      if (draftTimerRef.current) {
+                        clearInterval(draftTimerRef.current)
+                        draftTimerRef.current = null
+                      }
+                      setShowSaveDraft(false)
+                      setTimeRemaining(10)
+                    }}
+                    className="flex-1 btn-secondary flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Re-record
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || !draftAmount || selectedMembers.length === 0}
+                    className="flex-1 btn-primary flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Create Expense
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
