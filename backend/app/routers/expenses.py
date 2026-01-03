@@ -350,6 +350,126 @@ async def record_settlement(
 
 
 # ===========================================
+# DRAFT EXPENSE ROUTES - Must come BEFORE /{expense_id}
+# ===========================================
+
+@router.get("/drafts", response_model=List[ExpenseResponse])
+async def get_draft_expenses(
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
+):
+    """
+    Get all draft expenses for the current user.
+    """
+    # Get all expenses where user is the payer and is_draft is True
+    all_expenses = db_service.get_user_expenses(str(current_user["id"]), skip=0, limit=1000)
+    draft_expenses = [e for e in all_expenses if e.get("is_draft", False) and e.get("is_active", True)]
+    return [_build_expense_response_from_dict(db_service, e) for e in draft_expenses]
+
+
+@router.put("/drafts/{expense_id}/submit", response_model=ExpenseResponse)
+async def submit_draft_expense(
+    expense_id: str,
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
+):
+    """
+    Submit a draft expense (convert draft to real expense).
+    Creates splits and sends notifications.
+    """
+    # Get the draft expense
+    draft = db_service.get_expense_by_id(expense_id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft expense not found")
+    
+    if not draft.get("is_draft", False):
+        raise HTTPException(status_code=400, detail="This expense is not a draft")
+    
+    if str(draft.get("paid_by_id")) != str(current_user["id"]):
+        raise HTTPException(status_code=403, detail="You can only submit your own draft expenses")
+    
+    # Extract split info from notes
+    import json
+    import re
+    notes = draft.get("notes", "") or ""
+    split_info = None
+    
+    # Look for __DRAFT_SPLIT_INFO__ in notes
+    match = re.search(r'__DRAFT_SPLIT_INFO__:(.+)', notes)
+    if match:
+        try:
+            split_info = json.loads(match.group(1))
+        except:
+            pass
+    
+    # If no split info found, default to equal split with no one (just the payer)
+    if not split_info:
+        split_info = {
+            "split_type": draft.get("split_type", "equal"),
+            "split_with_user_ids": []
+        }
+    
+    # Prepare splits based on stored split info
+    splits = []
+    if split_info.get("split_type") == "equal":
+        user_ids = [str(current_user["id"])] + [str(uid) for uid in (split_info.get("split_with_user_ids") or [])]
+        user_ids = list(set(user_ids))
+        per_person = draft.get("amount", 0) / len(user_ids) if len(user_ids) > 0 else 0
+        
+        for user_id in user_ids:
+            splits.append({
+                "user_id": str(user_id),
+                "amount": round(per_person, 2)
+            })
+    elif split_info.get("splits"):
+        for s in split_info["splits"]:
+            splits.append({
+                "user_id": str(s.get("user_id")),
+                "amount": s.get("amount", 0),
+                "percentage": s.get("percentage"),
+                "shares": s.get("shares")
+            })
+    
+    # Create splits
+    for split in splits:
+        if str(split["user_id"]) != str(current_user["id"]):
+            db_service.create_expense_split(
+                expense_id=expense_id,
+                user_id=str(split["user_id"]),
+                amount=split["amount"],
+                percentage=split.get("percentage"),
+                shares=split.get("shares")
+            )
+    
+    # Update expense to remove draft flag and clean notes
+    clean_notes = re.sub(r'__DRAFT_SPLIT_INFO__:.+', '', notes).strip()
+    db_service.update_expense(
+        expense_id,
+        is_draft=False,
+        notes=clean_notes if clean_notes else None
+    )
+    
+    # Send notifications to all participants (except the payer)
+    for split in splits:
+        if str(split["user_id"]) != str(current_user["id"]):
+            try:
+                create_expense_notification(
+                    db_service=db_service,
+                    to_user_id=split["user_id"],
+                    from_user=current_user,
+                    expense_id=expense_id,
+                    expense_description=draft.get("description", ""),
+                    amount=draft.get("amount", 0),
+                    user_share=split["amount"],
+                    group_id=draft.get("group_id")
+                )
+            except Exception as e:
+                print(f"Failed to send notification: {e}")
+    
+    return _build_expense_response(db_service, expense_id)
+
+
+# ===========================================
 # INDIVIDUAL EXPENSE ROUTES
 # ===========================================
 
@@ -469,122 +589,6 @@ async def update_expense(
                     print(f"Failed to send notification: {e}")
     
     return _build_expense_response(db_service, str(expense_id))
-
-
-@router.get("/drafts", response_model=List[ExpenseResponse])
-async def get_draft_expenses(
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Get all draft expenses for the current user.
-    """
-    # Get all expenses where user is the payer and is_draft is True
-    all_expenses = db_service.get_user_expenses(str(current_user["id"]), skip=0, limit=1000)
-    draft_expenses = [e for e in all_expenses if e.get("is_draft", False) and e.get("is_active", True)]
-    return [_build_expense_response_from_dict(db_service, e) for e in draft_expenses]
-
-
-@router.put("/drafts/{expense_id}/submit", response_model=ExpenseResponse)
-async def submit_draft_expense(
-    expense_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Submit a draft expense (convert draft to real expense).
-    Creates splits and sends notifications.
-    """
-    # Get the draft expense
-    draft = db_service.get_expense_by_id(expense_id)
-    if not draft:
-        raise HTTPException(status_code=404, detail="Draft expense not found")
-    
-    if not draft.get("is_draft", False):
-        raise HTTPException(status_code=400, detail="This expense is not a draft")
-    
-    if str(draft.get("paid_by_id")) != str(current_user["id"]):
-        raise HTTPException(status_code=403, detail="You can only submit your own draft expenses")
-    
-    # Extract split info from notes
-    import json
-    import re
-    notes = draft.get("notes", "") or ""
-    split_info = None
-    
-    # Look for __DRAFT_SPLIT_INFO__ in notes
-    match = re.search(r'__DRAFT_SPLIT_INFO__:(.+)', notes)
-    if match:
-        try:
-            split_info = json.loads(match.group(1))
-        except:
-            pass
-    
-    # If no split info found, default to equal split with no one (just the payer)
-    if not split_info:
-        split_info = {
-            "split_type": draft.get("split_type", "equal"),
-            "split_with_user_ids": []
-        }
-    
-    # Prepare splits based on stored split info
-    splits = []
-    if split_info.get("split_type") == "equal":
-        user_ids = [str(current_user["id"])] + [str(uid) for uid in (split_info.get("split_with_user_ids") or [])]
-        user_ids = list(set(user_ids))
-        per_person = draft.get("amount", 0) / len(user_ids) if len(user_ids) > 0 else 0
-        
-        for user_id in user_ids:
-            splits.append({
-                "user_id": str(user_id),
-                "amount": round(per_person, 2)
-            })
-    elif split_info.get("splits"):
-        for s in split_info["splits"]:
-            splits.append({
-                "user_id": str(s.get("user_id")),
-                "amount": s.get("amount", 0),
-                "percentage": s.get("percentage"),
-                "shares": s.get("shares")
-            })
-    
-    # Create splits
-    for split in splits:
-        if str(split["user_id"]) != str(current_user["id"]):
-            db_service.create_expense_split(
-                expense_id=expense_id,
-                user_id=str(split["user_id"]),
-                amount=split["amount"],
-                percentage=split.get("percentage"),
-                shares=split.get("shares")
-            )
-    
-    # Update expense to remove draft flag and clean notes
-    clean_notes = re.sub(r'__DRAFT_SPLIT_INFO__:.+', '', notes).strip()
-    db_service.update_expense(
-        expense_id,
-        is_draft=False,
-        notes=clean_notes if clean_notes else None
-    )
-    
-    # Send notifications to all participants (except the payer)
-    for split in splits:
-        if str(split["user_id"]) != str(current_user["id"]):
-            try:
-                create_expense_notification(
-                    db_service=db_service,
-                    to_user_id=split["user_id"],
-                    from_user=current_user,
-                    expense_id=expense_id,
-                    expense_description=draft.get("description", ""),
-                    amount=draft.get("amount", 0),
-                    user_share=split["amount"],
-                    group_id=draft.get("group_id")
-                )
-            except Exception as e:
-                print(f"Failed to send notification: {e}")
-    
-    return _build_expense_response(db_service, expense_id)
 
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
