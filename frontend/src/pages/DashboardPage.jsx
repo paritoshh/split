@@ -66,7 +66,9 @@ function DashboardPage() {
       setBalances(balancesRes.data)
       setGroups(groupsRes.data)
       setExpenses(expensesRes.data)
-      setDrafts(draftsRes.data || [])
+      const draftsData = draftsRes.data || []
+      console.log('📝 Drafts fetched:', draftsData.length, draftsData)
+      setDrafts(draftsData)
     } catch (err) {
       setError('Failed to load data. Please try again.')
     } finally {
@@ -227,13 +229,43 @@ function DashboardPage() {
           )}
         </div>
 
-        {/* Recent Expenses Section */}
+        {/* Recent Expenses / Drafts Section */}
         <div>
           <div className="flex items-center justify-between mb-2 lg:mb-4">
-            <h2 className="text-sm sm:text-base lg:text-xl font-display font-semibold text-white flex items-center gap-1 lg:gap-2">
-              <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-secondary-400" />
-              Recent
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base lg:text-xl font-display font-semibold text-white flex items-center gap-1 lg:gap-2">
+                <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-secondary-400" />
+                Expenses
+              </h2>
+              {/* Tabs */}
+              <div className="flex gap-1 bg-dark-200 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveTab('recent')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    activeTab === 'recent'
+                      ? 'bg-primary-500 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Recent
+                </button>
+                <button
+                  onClick={() => setActiveTab('drafts')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors relative ${
+                    activeTab === 'drafts'
+                      ? 'bg-primary-500 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Drafts
+                  {drafts.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-yellow-500 text-yellow-900 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {drafts.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {loading ? (

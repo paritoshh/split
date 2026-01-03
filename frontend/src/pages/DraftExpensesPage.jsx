@@ -47,7 +47,10 @@ function DraftExpensesPage() {
       setLoading(true)
       setError('')
       const response = await expensesAPI.getDrafts()
-      setDrafts(response.data || [])
+      console.log('📝 Drafts API response:', response)
+      const draftsData = response.data || []
+      console.log('📝 Drafts data:', draftsData.length, draftsData)
+      setDrafts(draftsData)
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Failed to load draft expenses')
     } finally {
