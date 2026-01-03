@@ -338,12 +338,6 @@ function VoiceExpenseModal({
 
     setLoading(true)
     setError('')
-    
-    // Clear timer
-    if (draftTimerRef.current) {
-      clearInterval(draftTimerRef.current)
-      draftTimerRef.current = null
-    }
 
     try {
       // Build expense data
