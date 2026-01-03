@@ -32,8 +32,10 @@ function DashboardPage() {
   const [balances, setBalances] = useState([])
   const [groups, setGroups] = useState([])
   const [expenses, setExpenses] = useState([])
+  const [drafts, setDrafts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('recent') // 'recent' or 'drafts'
   
   // Settle up modal state
   const [showSettleModal, setShowSettleModal] = useState(false)
@@ -54,15 +56,17 @@ function DashboardPage() {
 
     try {
       // Fetch all data in parallel
-      const [balancesRes, groupsRes, expensesRes] = await Promise.all([
+      const [balancesRes, groupsRes, expensesRes, draftsRes] = await Promise.all([
         expensesAPI.getOverallBalances().catch(() => ({ data: [] })),
         groupsAPI.getAll().catch(() => ({ data: [] })),
-        expensesAPI.getAll({ limit: 5 }).catch(() => ({ data: [] }))
+        expensesAPI.getAll({ limit: 10 }).catch(() => ({ data: [] })),
+        expensesAPI.getDrafts().catch(() => ({ data: [] }))
       ])
 
       setBalances(balancesRes.data)
       setGroups(groupsRes.data)
       setExpenses(expensesRes.data)
+      setDrafts(draftsRes.data || [])
     } catch (err) {
       setError('Failed to load data. Please try again.')
     } finally {
@@ -241,7 +245,63 @@ function DashboardPage() {
                 </div>
               ))}
             </div>
-          ) : expenses.length === 0 ? (
+          ) : activeTab === 'drafts' ? (
+            // Drafts tab
+            drafts.length === 0 ? (
+              <div className="card text-center py-4">
+                <FileText className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-400 text-xs mb-2">No draft expenses</p>
+                <Link to="/add-expense" className="btn-primary text-xs py-1.5 px-3">
+                  <Plus className="w-3 h-3 inline mr-1" />
+                  Create Expense
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {drafts.slice(0, 4).map(draft => {
+                  // Clean notes
+                  const cleanNotes = draft.notes?.replace(/__DRAFT_SPLIT_INFO__:.*/, '').trim() || ''
+                  
+                  return (
+                    <Link 
+                      key={draft.id} 
+                      to={`/drafts`}
+                      className="card block hover:border-yellow-500/30 transition-all border-yellow-500/20"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-yellow-500/20">
+                            <FileText className="w-4 h-4 text-yellow-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-white text-sm truncate">{draft.description}</h3>
+                              <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] rounded">
+                                Draft
+                              </span>
+                            </div>
+                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                              {draft.group_name || 'Personal'} • {formatDate(draft.expense_date)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-semibold text-sm text-yellow-400">
+                            ₹{parseFloat(draft.amount).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+                {drafts.length > 4 && (
+                  <Link to="/drafts" className="card block text-center py-2 hover:border-primary-500/30 transition-all">
+                    <p className="text-xs text-primary-400">View all {drafts.length} drafts →</p>
+                  </Link>
+                )}
+              </div>
+            )
+          ) : expenses.filter(e => !e.is_draft).length === 0 ? (
             <div className="card text-center py-4">
               <Receipt className="w-8 h-8 text-gray-600 mx-auto mb-2" />
               <p className="text-gray-400 text-xs mb-2">No expenses yet</p>
@@ -252,7 +312,7 @@ function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {expenses.slice(0, 4).map(expense => {
+              {expenses.filter(e => !e.is_draft).slice(0, 4).map(expense => {
                 // Determine if user paid or owes
                 const userPaid = expense.paid_by_id === user?.id
                 const userSplit = expense.splits?.find(s => s.user_id === user?.id)

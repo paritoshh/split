@@ -221,11 +221,15 @@ function DraftExpensesPage() {
                       </div>
                     </div>
 
-                    {draft.notes && (
-                      <p className="text-sm text-gray-400 mb-2">
-                        {draft.notes}
-                      </p>
-                    )}
+                    {draft.notes && (() => {
+                      // Clean notes - remove __DRAFT_SPLIT_INFO__ part
+                      const cleanNotes = draft.notes.replace(/__DRAFT_SPLIT_INFO__:.*/, '').trim()
+                      return cleanNotes ? (
+                        <p className="text-sm text-gray-400 mb-2">
+                          {cleanNotes}
+                        </p>
+                      ) : null
+                    })()}
 
                     {/* Split details */}
                     {draft.splits && draft.splits.length > 0 && (
