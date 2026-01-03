@@ -279,6 +279,10 @@ function DashboardPage() {
             </div>
           ) : activeTab === 'drafts' ? (
             // Drafts tab
+            (() => {
+              console.log('📝 Dashboard Drafts Tab - activeTab:', activeTab, 'drafts:', drafts.length, drafts)
+              return null
+            })(),
             drafts.length === 0 ? (
               <div className="card text-center py-4">
                 <FileText className="w-8 h-8 text-gray-600 mx-auto mb-2" />

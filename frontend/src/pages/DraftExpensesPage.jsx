@@ -158,6 +158,10 @@ function DraftExpensesPage() {
         )}
 
         {/* Drafts list */}
+        {(() => {
+          console.log('📝 Rendering DraftExpensesPage - drafts:', drafts.length, drafts)
+          return null
+        })()}
         {drafts.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-gray-600 mx-auto mb-4" />
