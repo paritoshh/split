@@ -87,6 +87,9 @@ class ExpenseCreate(BaseModel):
     
     # Receipt URL (optional)
     receipt_url: Optional[str] = None
+    
+    # Draft flag - if True, expense is saved as draft
+    is_draft: bool = Field(default=False, description="Save as draft expense")
 
 
 class ExpenseSplitResponse(BaseModel):
