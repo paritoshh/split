@@ -18,6 +18,8 @@
  */
 
 import axios from 'axios'
+import { offlineDetector } from './offline/detector.js'
+import { apiCache } from './offline/cache.js'
 
 // Determine the API base URL
 // For mobile app: use AWS API Gateway URL
@@ -81,8 +83,45 @@ api.interceptors.request.use(
 // Response Interceptor
 // Runs after EVERY response
 api.interceptors.response.use(
-  // Success - just return the response
-  (response) => response,
+  // Success - cache GET responses and return the response
+  async (response) => {
+    // Cache successful GET responses for offline support
+    if (response.config.method === 'get' && response.status === 200) {
+      const url = response.config.url || ''
+      
+      try {
+        // Cache expenses
+        if (url.includes('/api/expenses/') && !url.includes('/expenses/balances') && !url.includes('/expenses/drafts')) {
+          const params = response.config.params
+          if (!params || !params.group_id) {
+            // Cache all expenses
+            await apiCache.setExpenses(response.data || [])
+          }
+        }
+        
+        // Cache drafts
+        if (url.includes('/api/expenses/drafts')) {
+          await apiCache.setDrafts(response.data || [])
+        }
+        
+        // Cache groups
+        if (url.includes('/api/groups/') && !url.match(/\/api\/groups\/[^/]+$/)) {
+          await apiCache.setGroups(response.data || [])
+        }
+        
+        // Cache balances
+        if (url.includes('/api/expenses/balances/overall')) {
+          const userId = localStorage.getItem('userId') // You might need to store this
+          await apiCache.setBalances(userId, response.data || [])
+        }
+      } catch (error) {
+        console.warn('Failed to cache API response:', error)
+        // Don't fail the request if caching fails
+      }
+    }
+    
+    return response
+  },
   
   // Error handling
   (error) => {
@@ -145,8 +184,37 @@ export const authAPI = {
 
 // Groups - Note: trailing slashes to avoid 307 redirects
 export const groupsAPI = {
-  getAll: () => api.get('/api/groups/'),
-  getOne: (id) => api.get(`/api/groups/${id}`),
+  getAll: async () => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getGroups()
+      if (cached) {
+        console.log('📦 Serving groups from cache (offline)')
+        return { data: cached }
+      }
+      throw new Error('No cached groups available. Please connect to the internet.')
+    }
+    
+    return api.get('/api/groups/')
+  },
+  
+  getOne: async (id) => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getGroups()
+      if (cached) {
+        const group = cached.find(g => g.id === id)
+        if (group) {
+          console.log('📦 Serving group from cache (offline)')
+          return { data: group }
+        }
+      }
+      throw new Error('Group not found in cache. Please connect to the internet.')
+    }
+    
+    return api.get(`/api/groups/${id}`)
+  },
+  
   create: (data) => api.post('/api/groups/', data),
   update: (id, data) => api.put(`/api/groups/${id}`, data),
   delete: (id) => api.delete(`/api/groups/${id}`),
@@ -157,17 +225,90 @@ export const groupsAPI = {
 
 // Expenses - Note: trailing slashes to avoid 307 redirects
 export const expensesAPI = {
-  getAll: (params) => api.get('/api/expenses/', { params }),
-  getByGroup: (groupId) => api.get('/api/expenses/', { params: { group_id: groupId } }),
-  getOne: (id) => api.get(`/api/expenses/${id}`),
+  getAll: async (params) => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getExpenses()
+      if (cached) {
+        console.log('📦 Serving expenses from cache (offline)')
+        return { data: cached }
+      }
+      throw new Error('No cached data available. Please connect to the internet.')
+    }
+    
+    // Online - make API call (will be cached by interceptor)
+    return api.get('/api/expenses/', { params })
+  },
+  
+  getByGroup: async (groupId) => {
+    // For group expenses, we'll filter from cached all expenses
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getExpenses()
+      if (cached) {
+        const filtered = cached.filter(e => e.group_id === groupId)
+        console.log('📦 Serving group expenses from cache (offline)')
+        return { data: filtered }
+      }
+      throw new Error('No cached data available. Please connect to the internet.')
+    }
+    
+    return api.get('/api/expenses/', { params: { group_id: groupId } })
+  },
+  
+  getOne: async (id) => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getExpenses()
+      if (cached) {
+        const expense = cached.find(e => e.id === id)
+        if (expense) {
+          console.log('📦 Serving expense from cache (offline)')
+          return { data: expense }
+        }
+      }
+      throw new Error('Expense not found in cache. Please connect to the internet.')
+    }
+    
+    return api.get(`/api/expenses/${id}`)
+  },
+  
   create: (data) => api.post('/api/expenses/', data),
   update: (id, data) => api.put(`/api/expenses/${id}`, data),
   delete: (id) => api.delete(`/api/expenses/${id}`),
-  getOverallBalances: () => api.get('/api/expenses/balances/overall'),
+  
+  getOverallBalances: async () => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const userId = localStorage.getItem('userId')
+      const cached = await apiCache.getBalances(userId)
+      if (cached) {
+        console.log('📦 Serving balances from cache (offline)')
+        return { data: cached }
+      }
+      throw new Error('No cached balances available. Please connect to the internet.')
+    }
+    
+    return api.get('/api/expenses/balances/overall')
+  },
+  
   getGroupBalances: (groupId) => api.get(`/api/expenses/balances/group/${groupId}`),
   settle: (data) => api.post('/api/expenses/settle', data),
+  
   // Draft expenses
-  getDrafts: () => api.get('/api/expenses/drafts'),
+  getDrafts: async () => {
+    // If offline, try to get from cache
+    if (!offlineDetector.getStatus()) {
+      const cached = await apiCache.getDrafts()
+      if (cached) {
+        console.log('📦 Serving drafts from cache (offline)')
+        return { data: cached }
+      }
+      return { data: [] } // Return empty array if no cache
+    }
+    
+    return api.get('/api/expenses/drafts')
+  },
+  
   submitDraft: (id) => api.put(`/api/expenses/drafts/${id}/submit`),
 }
 

@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { expensesAPI, groupsAPI } from '../services/api'
+import { offlineDetector } from '../services/offline/detector'
 import Layout from '../components/Layout'
 import SettleUpModal from '../components/SettleUpModal'
 import VoiceExpenseModal from '../components/VoiceExpenseModal'
@@ -36,6 +37,8 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('recent') // 'recent' or 'drafts'
+  const [isOffline, setIsOffline] = useState(!offlineDetector.getStatus())
+  const [usingCache, setUsingCache] = useState(false)
   
   // Settle up modal state
   const [showSettleModal, setShowSettleModal] = useState(false)
@@ -48,13 +51,33 @@ function DashboardPage() {
   // Fetch data on component mount
   useEffect(() => {
     fetchData()
+    
+    // Listen to online/offline status changes
+    const checkStatus = () => {
+      setIsOffline(!offlineDetector.getStatus())
+    }
+    checkStatus()
+    
+    // Subscribe to status changes
+    const unsubscribe = offlineDetector.onStatusChange((isOnline) => {
+      setIsOffline(!isOnline)
+      if (isOnline) {
+        // When coming online, refresh data
+        fetchData()
+      }
+    })
+    
+    return unsubscribe
   }, [])
 
   const fetchData = async () => {
     setLoading(true)
     setError('')
+    setUsingCache(false)
 
     try {
+      const wasOffline = !offlineDetector.getStatus()
+      
       // Fetch all data in parallel
       const [balancesRes, groupsRes, expensesRes, draftsRes] = await Promise.all([
         expensesAPI.getOverallBalances().catch(() => ({ data: [] })),
@@ -69,8 +92,19 @@ function DashboardPage() {
       const draftsData = draftsRes.data || []
       console.log('📝 Drafts fetched:', draftsData.length, draftsData)
       setDrafts(draftsData)
+      
+      // Show cache indicator if we're offline
+      if (wasOffline) {
+        setUsingCache(true)
+      }
     } catch (err) {
-      setError('Failed to load data. Please try again.')
+      const errorMsg = err.message || 'Failed to load data. Please try again.'
+      setError(errorMsg)
+      
+      // If offline and error, we're using cache
+      if (!offlineDetector.getStatus()) {
+        setUsingCache(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -129,6 +163,14 @@ function DashboardPage() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
           <p className="text-red-400">{error}</p>
+        </div>
+      )}
+      
+      {usingCache && isOffline && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-6">
+          <p className="text-yellow-400 text-sm">
+            📦 Showing cached data. Some information may be outdated.
+          </p>
         </div>
       )}
 

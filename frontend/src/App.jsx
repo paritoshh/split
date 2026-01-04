@@ -91,6 +91,7 @@ function AuthProvider({ children }) {
                   headers: { Authorization: `Bearer ${result.token}` }
                 })
                 localStorage.setItem('token', result.token)
+                localStorage.setItem('userId', response.data.id)
                 setToken(result.token)
                 setUser(response.data)
                 biometricSuccess = true
@@ -120,6 +121,7 @@ function AuthProvider({ children }) {
       if (storedToken) {
         try {
           const response = await api.get('/api/auth/me')
+          localStorage.setItem('userId', response.data.id)
           setUser(response.data)
           setToken(storedToken)
         } catch (error) {
@@ -150,6 +152,7 @@ function AuthProvider({ children }) {
     const userResponse = await api.get('/api/auth/me', {
       headers: { Authorization: `Bearer ${access_token}` }
     })
+    localStorage.setItem('userId', userResponse.data.id)
     setUser(userResponse.data)
     
     // Check if we should offer biometric setup (native app only)
