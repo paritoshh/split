@@ -510,15 +510,6 @@ function DashboardPage() {
                     const userShare = userSplit?.amount || 0
                     const balance = userPaid ? expense.amount - userShare : -userShare
                     const isPending = expense.is_pending === true || expense.id?.startsWith('pending-')
-                    
-                    console.log('🎨 Rendering expense:', {
-                      id: expense.id,
-                      description: expense.description,
-                      is_pending: expense.is_pending,
-                      idStartsWithPending: expense.id?.startsWith('pending-'),
-                      isPending,
-                      queue_status: expense.queue_status
-                    })
 
                     return (
                       <div
