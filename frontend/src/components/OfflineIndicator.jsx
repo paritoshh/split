@@ -54,7 +54,7 @@ function OfflineIndicator() {
     
     // Update status with actual connectivity test
     const updateStatus = async () => {
-      if (!mountedRef.current) return
+      if (!mountedRef.current) return false
       
       // Always test actual connectivity (navigator.onLine is unreliable)
       const actuallyOnline = await checkConnectivity()
@@ -62,6 +62,7 @@ function OfflineIndicator() {
         setIsOnline(actuallyOnline)
         console.log('📡 Network status:', actuallyOnline ? '✅ Online' : '❌ Offline')
       }
+      return actuallyOnline
     }
     
     // Set initial status immediately
@@ -89,12 +90,13 @@ function OfflineIndicator() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     
-    // Poll connectivity more frequently (every 2 seconds)
+    // Poll connectivity periodically (every 10 seconds - less frequent)
+    // This is just a backup check - browser events handle most changes
     const statusCheckInterval = setInterval(() => {
       if (mountedRef.current) {
         updateStatus()
       }
-    }, 2000) // Check every 2 seconds
+    }, 10000) // Check every 10 seconds (less frequent, saves resources)
     
     // Try to get last sync time from IndexedDB (optional, non-blocking)
     // Use dynamic import to avoid circular dependencies
