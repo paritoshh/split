@@ -36,9 +36,11 @@ function PendingExpensesBanner() {
         // Wait a bit to ensure database is ready
         await new Promise(resolve => setTimeout(resolve, 100))
         
-        console.log('[PendingBanner] Loading pending expenses count...')
         const allItems = await getAllItems()
-        console.log('[PendingBanner] All queue items:', allItems.length, allItems)
+        // Only log if there are items (to reduce console spam)
+        if (allItems.length > 0) {
+          console.log('[PendingBanner] Loading pending expenses count...', allItems.length, 'items')
+        }
         
         // Count only CREATE_EXPENSE items with pending status
         const pendingExpenses = allItems.filter(item => 
@@ -47,7 +49,10 @@ function PendingExpensesBanner() {
         )
         const count = pendingExpenses.length
         
-        console.log('[PendingBanner] Pending expenses:', count, pendingExpenses)
+        // Only log if there are pending expenses
+        if (count > 0) {
+          console.log('[PendingBanner] Pending expenses:', count, pendingExpenses)
+        }
         
         // Log counts by type and status
         const countsByType = {
@@ -62,18 +67,24 @@ function PendingExpensesBanner() {
           FAILED: allItems.filter(i => i.status === QUEUE_STATUS.FAILED).length,
         }
         
-        console.log('[PendingBanner] Counts by type:', countsByType)
-        console.log('[PendingBanner] Counts by status:', countsByStatus)
-        console.log('[PendingBanner] Filter details:', {
-          totalItems: allItems.length,
-          createExpenseItems: allItems.filter(i => i.type === QUEUE_TYPE.CREATE_EXPENSE),
-          pendingItems: allItems.filter(i => i.status === QUEUE_STATUS.PENDING),
-          pendingExpenses: pendingExpenses
-        })
+        // Only log detailed info if there are items (to reduce console spam)
+        if (allItems.length > 0) {
+          console.log('[PendingBanner] Counts by type:', countsByType)
+          console.log('[PendingBanner] Counts by status:', countsByStatus)
+          console.log('[PendingBanner] Filter details:', {
+            totalItems: allItems.length,
+            createExpenseItems: allItems.filter(i => i.type === QUEUE_TYPE.CREATE_EXPENSE),
+            pendingItems: allItems.filter(i => i.status === QUEUE_STATUS.PENDING),
+            pendingExpenses: pendingExpenses
+          })
+        }
         
         if (mountedRef.current) {
+          const prevCount = pendingCount
           setPendingCount(count)
-          console.log('[PendingBanner] Set pending count to:', count)
+          if (prevCount !== count) {
+            console.log('[PendingBanner] Pending count changed:', prevCount, '->', count)
+          }
         }
       } catch (error) {
         console.error('[PendingBanner] Error loading pending count:', error)
@@ -91,12 +102,12 @@ function PendingExpensesBanner() {
 
     loadPendingCount()
 
-    // Poll for updates every 2 seconds
+    // Poll for updates every 5 seconds (reduced frequency to avoid performance issues)
     const interval = setInterval(() => {
       if (mountedRef.current) {
         loadPendingCount()
       }
-    }, 2000)
+    }, 5000)
 
     return () => {
       mountedRef.current = false
@@ -107,13 +118,9 @@ function PendingExpensesBanner() {
   }, [])
 
   // Don't show if no pending expenses
-  console.log('[PendingBanner] Render check - pendingCount:', pendingCount)
   if (pendingCount === 0) {
-    console.log('[PendingBanner] No pending expenses, hiding banner')
     return null
   }
-  
-  console.log('[PendingBanner] Showing banner with', pendingCount, 'pending expenses')
 
   // Position below offline banner if offline, otherwise at top
   const topOffset = isOffline ? '40px' : '0px'
