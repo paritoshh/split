@@ -18,11 +18,13 @@ function LoginPage() {
   
   const { login, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
+  const redirectRef = useRef(false)
   
-  // Redirect if already logged in (but only after loading completes)
+  // Redirect if already logged in (but only once, after loading completes)
   useEffect(() => {
-    // Don't redirect during initial auth check - wait for loading to complete
-    if (!loading && isAuthenticated) {
+    // Don't redirect during initial auth check or if already redirected
+    if (!loading && isAuthenticated && !redirectRef.current) {
+      redirectRef.current = true
       navigate('/dashboard', { replace: true })
     }
   }, [isAuthenticated, loading, navigate])

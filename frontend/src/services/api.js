@@ -136,25 +136,26 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
       localStorage.removeItem('token')
       
-      // NEVER redirect if we're checking auth or on login/register pages
-      // This prevents infinite reload loops
+      // NEVER redirect if on login/register pages - this causes infinite loops
       const currentPath = window.location.pathname
-      const isAuthPage = currentPath.includes('login') || currentPath.includes('register')
+      const isAuthPage = currentPath === '/login' || 
+                         currentPath === '/register' || 
+                         currentPath.includes('/login') || 
+                         currentPath.includes('/register')
       
-      // Only redirect if:
-      // 1. Not checking auth (to avoid redirects during initial load)
-      // 2. Not on auth pages (to avoid redirect loops)
-      // 3. Not a network error (user might be offline)
-      if (!isCheckingAuth && !isAuthPage) {
-        // Use a longer delay and check again to be safe
+      // Only redirect if NOT on auth pages and NOT checking auth
+      if (!isAuthPage && !isCheckingAuth) {
+        // Small delay to avoid race conditions
         setTimeout(() => {
           const path = window.location.pathname
-          const stillNotOnAuth = !path.includes('login') && !path.includes('register')
-          // Final check - only redirect if we're absolutely sure
-          if (stillNotOnAuth && !isCheckingAuth && path !== '/login' && path !== '/register') {
+          const stillNotOnAuth = path !== '/login' && 
+                                 path !== '/register' && 
+                                 !path.includes('/login') && 
+                                 !path.includes('/register')
+          if (stillNotOnAuth && !isCheckingAuth) {
             window.location.href = '/login'
           }
-        }, 500)
+        }, 100)
       }
     }
     

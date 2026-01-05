@@ -155,10 +155,8 @@ function AuthProvider({ children }) {
         setUser(null)
       }
       setLoading(false)
-      // Wait a bit before allowing redirects to ensure state is stable
-      setTimeout(() => {
-        setCheckingAuth(false)
-      }, 1000)
+      // Allow redirects immediately after auth check completes
+      setCheckingAuth(false)
     }
     checkAuth()
   }, []) // Run only on mount
