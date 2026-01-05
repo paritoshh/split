@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useState, lazy, Suspense } from 'react'
 import NotificationBell from './NotificationBell'
+import OfflineBanner from './OfflineBanner'
 // Lazy load OfflineIndicator to avoid module loading issues
 const OfflineIndicator = lazy(() => import('./OfflineIndicator'))
 
@@ -47,8 +48,11 @@ function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-dark-300">
+      {/* Offline Banner - shown at top when offline */}
+      <OfflineBanner />
+      
       {/* Mobile Header - compact with safe area for notch */}
-      <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top">
+      <header className={`lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top ${!isOnline ? 'mt-16' : ''}`}>
         <Link to="/dashboard" className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
             <Split className="w-4 h-4 text-white" />
