@@ -20,7 +20,7 @@
 import axios from 'axios'
 import { offlineDetector } from './offline/detector.js'
 import { apiCache } from './offline/cache.js'
-import { addToQueue, QUEUE_TYPE } from './offline/syncQueue.js'
+import { addToQueue, QUEUE_TYPE, getAllItems } from './offline/syncQueue.js'
 
 // Flag to prevent redirects during initial auth check
 let isCheckingAuth = false
