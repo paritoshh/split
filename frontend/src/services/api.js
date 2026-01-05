@@ -48,8 +48,16 @@ const getBaseUrl = () => {
 };
 
 // Create axios instance with base configuration
+const baseUrl = getBaseUrl()
+// Log base URL in development for debugging
+if (typeof window !== 'undefined' && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'))) {
+  console.log('🔧 API baseURL:', baseUrl || '(empty - using Vite proxy)')
+  console.log('🔧 import.meta.env.PROD:', import.meta.env.PROD)
+  console.log('🔧 window.location.hostname:', window.location.hostname)
+}
+
 const api = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: baseUrl,
   timeout: 15000, // 15 second timeout - prevents app from hanging
   headers: {
     'Content-Type': 'application/json',
