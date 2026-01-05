@@ -483,65 +483,54 @@ function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {/* Merge regular expenses with pending expenses */}
-              {(() => {
-                const allExpenses = [...expenses.filter(e => !e.is_draft), ...pendingExpenses]
-                console.log('📊 All expenses (regular + pending):', {
-                  regular: expenses.filter(e => !e.is_draft).length,
-                  pending: pendingExpenses.length,
-                  total: allExpenses.length,
-                  expenses: allExpenses
+              {[...expenses.filter(e => !e.is_draft), ...pendingExpenses]
+                .sort((a, b) => {
+                  const dateA = new Date(a.expense_date || a.created_at || 0)
+                  const dateB = new Date(b.expense_date || b.created_at || 0)
+                  return dateB - dateA
                 })
-                
-                return allExpenses
-                  .sort((a, b) => {
-                    // Sort by date (newest first)
-                    const dateA = new Date(a.expense_date || a.created_at || 0)
-                    const dateB = new Date(b.expense_date || b.created_at || 0)
-                    return dateB - dateA
-                  })
-                  .slice(0, 4)
-                  .map(expense => {
-                    // Determine if user paid or owes
-                    const userPaid = expense.paid_by_id === user?.id
-                    const userSplit = expense.splits?.find(s => s.user_id === user?.id)
-                    const userShare = userSplit?.amount || 0
-                    const balance = userPaid ? expense.amount - userShare : -userShare
-                    const isPending = expense.is_pending === true || expense.id?.startsWith('pending-')
+                .slice(0, 4)
+                .map(expense => {
+                  const userPaid = expense.paid_by_id === user?.id
+                  const userSplit = expense.splits?.find(s => s.user_id === user?.id)
+                  const userShare = userSplit?.amount || 0
+                  const balance = userPaid ? expense.amount - userShare : -userShare
+                  const isPending = expense.is_pending === true || expense.id?.startsWith('pending-')
 
-                    return (
-                      <div
-                        key={expense.id} 
-                        className={`card block transition-all ${
-                          isPending 
-                            ? '!border-yellow-500 border-2 bg-yellow-500/10 hover:!border-yellow-400' 
-                            : 'hover:border-primary-500/30'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                              ${getCategoryColor(expense.category || 'other')}`}>
-                              <Receipt className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-medium text-white text-sm truncate">{expense.description || 'Pending expense'}</h3>
-                                {isPending && (
-                                  <span className="px-2 py-0.5 bg-yellow-500/40 text-yellow-200 text-[10px] font-semibold rounded-md flex-shrink-0 border border-yellow-400/60 shadow-sm">
-                                    {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                                {expense.group_name || 'Personal'} • {formatDate(expense.expense_date || expense.created_at)}
-                              </p>
-                            </div>
+                  return (
+                    <div
+                      key={expense.id} 
+                      className={`card block transition-all ${
+                        isPending 
+                          ? '!border-yellow-500 border-2 bg-yellow-500/10 hover:!border-yellow-400' 
+                          : 'hover:border-primary-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                            ${getCategoryColor(expense.category || 'other')}`}>
+                            <Receipt className="w-4 h-4" />
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              ₹{Math.abs(balance).toFixed(2)}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-white text-sm truncate">{expense.description || 'Pending expense'}</h3>
+                              {isPending && (
+                                <span className="px-2 py-0.5 bg-yellow-500/40 text-yellow-200 text-[10px] font-semibold rounded-md flex-shrink-0 border border-yellow-400/60 shadow-sm">
+                                  {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                              {expense.group_name || 'Personal'} • {formatDate(expense.expense_date || expense.created_at)}
                             </p>
                           </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            ₹{Math.abs(balance).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )
