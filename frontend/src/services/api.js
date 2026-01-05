@@ -148,7 +148,13 @@ api.interceptors.response.use(
     let message = 'Something went wrong'
     
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      message = 'Connection timed out. Please check your internet connection and try again.'
+      // Check if we're in development and provide helpful message
+      const isDev = !import.meta.env.PROD && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'))
+      if (isDev) {
+        message = 'Connection timed out. Is your backend server running on http://127.0.0.1:8000?'
+      } else {
+        message = 'Connection timed out. Please check your internet connection and try again.'
+      }
     } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       // Don't throw error for network issues - let components handle offline state
       message = 'Network error. You may be offline.'
