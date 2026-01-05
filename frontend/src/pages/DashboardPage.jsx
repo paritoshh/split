@@ -168,25 +168,39 @@ function DashboardPage() {
   const loadPendingExpenses = async () => {
     try {
       const queueItems = await getAllItems()
-      const pending = queueItems
-        .filter(item => 
-          item.type === QUEUE_TYPE.CREATE_EXPENSE && 
-          (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.SYNCING)
-        )
-        .map(item => ({
-          id: `pending-${item.id}`,
-          ...item.data,
-          is_pending: true,
-          queue_id: item.id,
-          queue_status: item.status,
-          created_at: new Date(item.createdAt).toISOString(),
-          expense_date: item.data.expense_date || new Date().toISOString().split('T')[0]
-        }))
+      console.log('🔍 All queue items:', queueItems.length, queueItems)
       
+      const pending = queueItems
+        .filter(item => {
+          const isExpense = item.type === QUEUE_TYPE.CREATE_EXPENSE
+          const isPendingOrSyncing = item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.SYNCING
+          console.log('🔍 Queue item:', { type: item.type, status: item.status, isExpense, isPendingOrSyncing })
+          return isExpense && isPendingOrSyncing
+        })
+        .map(item => {
+          const expense = {
+            id: `pending-${item.id}`,
+            ...item.data,
+            is_pending: true,
+            queue_id: item.id,
+            queue_status: item.status,
+            created_at: new Date(item.createdAt).toISOString(),
+            expense_date: item.data.expense_date || new Date().toISOString().split('T')[0],
+            // Ensure required fields have defaults
+            category: item.data.category || 'other',
+            amount: item.data.amount || 0,
+            description: item.data.description || 'Pending expense',
+            paid_by_id: item.data.paid_by_id || user?.id,
+            splits: item.data.splits || []
+          }
+          console.log('📋 Mapped pending expense:', expense)
+          return expense
+        })
+      
+      console.log('📋 Pending expenses from queue:', pending.length, pending)
       setPendingExpenses(pending)
-      console.log('📋 Pending expenses from queue:', pending.length)
     } catch (error) {
-      console.warn('Failed to load pending expenses:', error)
+      console.error('❌ Failed to load pending expenses:', error)
     }
   }
 
@@ -481,58 +495,77 @@ function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {/* Merge regular expenses with pending expenses */}
-              {[...expenses.filter(e => !e.is_draft), ...pendingExpenses]
-                .sort((a, b) => {
-                  // Sort by date (newest first)
-                  const dateA = new Date(a.expense_date || a.created_at || 0)
-                  const dateB = new Date(b.expense_date || b.created_at || 0)
-                  return dateB - dateA
+              {(() => {
+                const allExpenses = [...expenses.filter(e => !e.is_draft), ...pendingExpenses]
+                console.log('📊 All expenses (regular + pending):', {
+                  regular: expenses.filter(e => !e.is_draft).length,
+                  pending: pendingExpenses.length,
+                  total: allExpenses.length,
+                  expenses: allExpenses
                 })
-                .slice(0, 4)
-                .map(expense => {
-                  // Determine if user paid or owes
-                  const userPaid = expense.paid_by_id === user?.id
-                  const userSplit = expense.splits?.find(s => s.user_id === user?.id)
-                  const userShare = userSplit?.amount || 0
-                  const balance = userPaid ? expense.amount - userShare : -userShare
-                  const isPending = expense.is_pending || expense.id?.startsWith('pending-')
+                
+                return allExpenses
+                  .sort((a, b) => {
+                    // Sort by date (newest first)
+                    const dateA = new Date(a.expense_date || a.created_at || 0)
+                    const dateB = new Date(b.expense_date || b.created_at || 0)
+                    return dateB - dateA
+                  })
+                  .slice(0, 4)
+                  .map(expense => {
+                    // Determine if user paid or owes
+                    const userPaid = expense.paid_by_id === user?.id
+                    const userSplit = expense.splits?.find(s => s.user_id === user?.id)
+                    const userShare = userSplit?.amount || 0
+                    const balance = userPaid ? expense.amount - userShare : -userShare
+                    const isPending = expense.is_pending === true || expense.id?.startsWith('pending-')
+                    
+                    console.log('🎨 Rendering expense:', {
+                      id: expense.id,
+                      description: expense.description,
+                      is_pending: expense.is_pending,
+                      idStartsWithPending: expense.id?.startsWith('pending-'),
+                      isPending,
+                      queue_status: expense.queue_status
+                    })
 
-                  return (
-                    <div
-                      key={expense.id} 
-                      className={`card block hover:border-primary-500/30 transition-all ${
-                        isPending ? 'border-yellow-500/30 bg-yellow-500/5' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                            ${getCategoryColor(expense.category)}`}>
-                            <Receipt className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-white text-sm truncate">{expense.description}</h3>
-                              {isPending && (
-                                <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] rounded flex-shrink-0">
-                                  {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
-                                </span>
-                              )}
+                    return (
+                      <div
+                        key={expense.id} 
+                        className={`card block hover:border-primary-500/30 transition-all ${
+                          isPending ? 'border-yellow-500/50 bg-yellow-500/10' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                              ${getCategoryColor(expense.category || 'other')}`}>
+                              <Receipt className="w-4 h-4" />
                             </div>
-                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                              {expense.group_name || 'Personal'} • {formatDate(expense.expense_date)}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium text-white text-sm truncate">{expense.description || 'Pending expense'}</h3>
+                                {isPending && (
+                                  <span className="px-1.5 py-0.5 bg-yellow-500/30 text-yellow-300 text-[10px] font-medium rounded flex-shrink-0 border border-yellow-500/50">
+                                    {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                                {expense.group_name || 'Personal'} • {formatDate(expense.expense_date || expense.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              ₹{Math.abs(balance).toFixed(2)}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            ₹{Math.abs(balance).toFixed(2)}
-                          </p>
-                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+              })()}
             </div>
           )}
         </div>
