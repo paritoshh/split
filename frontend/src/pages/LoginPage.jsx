@@ -14,20 +14,20 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   
-  const { login, isAuthenticated, loading } = useAuth()
+  const { login, isAuthenticated, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const redirectRef = useRef(false)
   
   // Redirect if already logged in (but only once, after loading completes)
   useEffect(() => {
     // Don't redirect during initial auth check or if already redirected
-    if (!loading && isAuthenticated && !redirectRef.current) {
+    if (!authLoading && isAuthenticated && !redirectRef.current) {
       redirectRef.current = true
       navigate('/dashboard', { replace: true })
     }
-  }, [isAuthenticated, loading, navigate])
+  }, [isAuthenticated, authLoading, navigate])
   
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -123,7 +123,7 @@ function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={submitting || loading}
+              disabled={submitting || authLoading}
               className="w-full btn-primary flex items-center justify-center gap-2"
             >
               {submitting ? (
