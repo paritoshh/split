@@ -33,6 +33,9 @@ function PendingExpensesBanner() {
     const loadPendingCount = async () => {
       if (!mountedRef.current) return
       try {
+        // Wait a bit to ensure database is ready
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         const allItems = await getAllItems()
         // Count only CREATE_EXPENSE items with pending status
         const count = allItems.filter(item => 
@@ -44,7 +47,14 @@ function PendingExpensesBanner() {
           setPendingCount(count)
         }
       } catch (error) {
-        console.error('Failed to load pending expenses:', error)
+        // Silently handle database errors (might be closed or not ready)
+        if (error.name !== 'DatabaseClosedError' && error.name !== 'UnknownError') {
+          console.error('Failed to load pending expenses:', error)
+        }
+        // Set count to 0 on error to hide banner
+        if (mountedRef.current) {
+          setPendingCount(0)
+        }
       }
     }
 

@@ -18,7 +18,7 @@
  * ===========================================
  */
 
-import db from './database.js'
+import db, { ensureDbOpen } from './database.js'
 
 // Queue item statuses
 export const QUEUE_STATUS = {
@@ -73,7 +73,18 @@ export const getPendingItems = async () => {
  * Get all items (for UI display)
  */
 export const getAllItems = async () => {
-  return await db.syncQueue.orderBy('createdAt').reverse().toArray()
+  try {
+    // Ensure database is open
+    await ensureDbOpen()
+    return await db.syncQueue.orderBy('createdAt').reverse().toArray()
+  } catch (error) {
+    // If database is closed or not accessible, return empty array
+    if (error.name === 'DatabaseClosedError' || error.name === 'UnknownError') {
+      console.warn('Database not accessible, returning empty array')
+      return []
+    }
+    throw error
+  }
 }
 
 /**

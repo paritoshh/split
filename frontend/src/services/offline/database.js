@@ -196,5 +196,16 @@ export const metadata = {
   }
 }
 
+// Ensure database is open before use
+export const ensureDbOpen = async () => {
+  try {
+    if (!db.isOpen()) {
+      await db.open()
+    }
+  } catch (error) {
+    console.warn('Failed to open database:', error)
+  }
+}
+
 export default db
 
