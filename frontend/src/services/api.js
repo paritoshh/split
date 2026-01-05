@@ -136,20 +136,25 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
       localStorage.removeItem('token')
       
-      // Don't redirect during initial auth check or if already on login/register pages
+      // NEVER redirect if we're checking auth or on login/register pages
+      // This prevents infinite reload loops
       const currentPath = window.location.pathname
       const isAuthPage = currentPath.includes('login') || currentPath.includes('register')
       
+      // Only redirect if:
+      // 1. Not checking auth (to avoid redirects during initial load)
+      // 2. Not on auth pages (to avoid redirect loops)
+      // 3. Not a network error (user might be offline)
       if (!isCheckingAuth && !isAuthPage) {
-        // Use setTimeout to avoid immediate redirect during app initialization
+        // Use a longer delay and check again to be safe
         setTimeout(() => {
-          // Double-check we're still not on login/register (in case user navigated)
-          const stillNotOnAuth = !window.location.pathname.includes('login') && 
-                                  !window.location.pathname.includes('register')
-          if (stillNotOnAuth && !isCheckingAuth) {
+          const path = window.location.pathname
+          const stillNotOnAuth = !path.includes('login') && !path.includes('register')
+          // Final check - only redirect if we're absolutely sure
+          if (stillNotOnAuth && !isCheckingAuth && path !== '/login' && path !== '/register') {
             window.location.href = '/login'
           }
-        }, 100)
+        }, 500)
       }
     }
     

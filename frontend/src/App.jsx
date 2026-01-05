@@ -129,24 +129,36 @@ function AuthProvider({ children }) {
         } catch (error) {
           // Only clear token on actual auth errors (401), not network errors
           // Network errors mean user might be offline - keep token
-          if (error.response?.status === 401 || (error.code !== 'ERR_NETWORK' && !error.message?.includes('Network'))) {
-            console.log('Stored token invalid, clearing...')
+          if (error.response?.status === 401) {
+            // Clear token only on 401 (unauthorized)
+            console.log('Stored token invalid (401), clearing...')
             localStorage.removeItem('token')
             setToken(null)
-          } else {
-            // Network error - keep token, user might be offline
+            setUser(null)
+          } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network')) {
+            // Network error - don't clear token, user might be offline
             console.log('Network error during auth check, keeping token for offline mode')
-            // Try to get userId from localStorage if available
-            const storedUserId = localStorage.getItem('userId')
-            if (storedUserId) {
-              // Keep user logged in with cached data
-              setToken(storedToken)
-            }
+            // Don't set user - we'll show login page but keep token for when online
+            setToken(null) // Clear token state so user sees login page
+            setUser(null)
+          } else {
+            // Other errors - clear token to be safe
+            console.log('Auth check failed, clearing token')
+            localStorage.removeItem('token')
+            setToken(null)
+            setUser(null)
           }
         }
+      } else {
+        // No token - make sure state is clear
+        setToken(null)
+        setUser(null)
       }
       setLoading(false)
-      setCheckingAuth(false) // Allow redirects after auth check completes
+      // Wait a bit before allowing redirects to ensure state is stable
+      setTimeout(() => {
+        setCheckingAuth(false)
+      }, 1000)
     }
     checkAuth()
   }, []) // Run only on mount

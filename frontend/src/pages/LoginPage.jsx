@@ -16,15 +16,16 @@ function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   
-  // Redirect if already logged in (using useEffect to avoid render issues)
+  // Redirect if already logged in (but only after loading completes)
   useEffect(() => {
-    if (isAuthenticated) {
+    // Don't redirect during initial auth check - wait for loading to complete
+    if (!loading && isAuthenticated) {
       navigate('/dashboard', { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, loading, navigate])
   
   const handleSubmit = async (e) => {
     e.preventDefault()
