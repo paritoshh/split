@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Clock, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
 import { onSyncStatusChange } from '../services/offline/syncService.js'
-import { getPendingCount, getSyncingCount, getFailedCount } from '../services/offline/syncQueue.js'
+import { getPendingCount, getSyncingCount, getFailedCount, getAllItems, QUEUE_TYPE } from '../services/offline/syncQueue.js'
 
 function PendingExpensesBanner() {
   const [pendingCount, setPendingCount] = useState(0)
@@ -26,30 +26,65 @@ function PendingExpensesBanner() {
     const loadCounts = async () => {
       if (!mountedRef.current) return
       try {
-        const [pending, syncing, failed] = await Promise.all([
+        const [pending, syncing, failed, allItems] = await Promise.all([
           getPendingCount(),
           getSyncingCount(),
-          getFailedCount()
+          getFailedCount(),
+          getAllItems() // Get all items for debugging
         ])
+        
+        // Filter for expenses only
+        const expensePending = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'pending'
+        ).length
+        const expenseSyncing = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'syncing'
+        ).length
+        const expenseFailed = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'failed'
+        ).length
+        
+        console.log('📊 PendingExpensesBanner - All counts:', { 
+          pending, syncing, failed,
+          expensePending, expenseSyncing, expenseFailed,
+          allItems: allItems.length,
+          allItemsDetails: allItems
+        })
+        
         if (mountedRef.current) {
-          setPendingCount(pending)
-          setSyncingCount(syncing)
-          setFailedCount(failed)
+          // Use expense-specific counts
+          setPendingCount(expensePending)
+          setSyncingCount(expenseSyncing)
+          setFailedCount(expenseFailed)
         }
       } catch (error) {
-        console.error('Failed to load sync counts:', error)
+        console.error('❌ Failed to load sync counts:', error)
       }
     }
 
     loadCounts()
 
     // Subscribe to sync status changes
-    const unsubscribe = onSyncStatusChange((syncStatus) => {
+    const unsubscribe = onSyncStatusChange(async (syncStatus) => {
       if (mountedRef.current) {
         setStatus(syncStatus.status)
-        setPendingCount(syncStatus.pendingCount || 0)
-        setSyncingCount(syncStatus.syncingCount || 0)
-        setFailedCount(syncStatus.failedCount || 0)
+        // Reload counts to get expense-specific counts
+        const allItems = await getAllItems()
+        const expensePending = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'pending'
+        ).length
+        const expenseSyncing = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'syncing'
+        ).length
+        const expenseFailed = allItems.filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && item.status === 'failed'
+        ).length
+        
+        if (mountedRef.current) {
+          setPendingCount(expensePending)
+          setSyncingCount(expenseSyncing)
+          setFailedCount(expenseFailed)
+        }
       }
     })
 
@@ -67,8 +102,14 @@ function PendingExpensesBanner() {
     }
   }, [])
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🎨 PendingExpensesBanner render:', { pendingCount, syncingCount, failedCount, status })
+  }, [pendingCount, syncingCount, failedCount, status])
+
   // Don't show if nothing to sync
   if (pendingCount === 0 && syncingCount === 0 && failedCount === 0) {
+    console.log('🚫 PendingExpensesBanner: No items to sync, hiding banner')
     return null
   }
 
