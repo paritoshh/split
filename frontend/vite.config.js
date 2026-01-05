@@ -32,9 +32,10 @@ export default defineConfig({
     
     // Proxy API requests to backend
     // This solves CORS issues during development
+    // Note: Backend runs on 8002 to avoid conflict with DynamoDB (8000)
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',  // Backend URL
+        target: 'http://localhost:8002',  // Backend URL (8002 to avoid DynamoDB on 8000)
         changeOrigin: true,
         ws: true,  // Enable WebSocket proxying
         secure: false,  // Allow self-signed certificates if needed
