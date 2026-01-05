@@ -125,10 +125,22 @@ function AuthProvider({ children }) {
           setUser(response.data)
           setToken(storedToken)
         } catch (error) {
-          // Token invalid or expired
-          console.log('Stored token invalid, clearing...')
-          localStorage.removeItem('token')
-          setToken(null)
+          // Only clear token on actual auth errors (401), not network errors
+          // Network errors mean user might be offline - keep token
+          if (error.response?.status === 401 || (error.code !== 'ERR_NETWORK' && !error.message?.includes('Network'))) {
+            console.log('Stored token invalid, clearing...')
+            localStorage.removeItem('token')
+            setToken(null)
+          } else {
+            // Network error - keep token, user might be offline
+            console.log('Network error during auth check, keeping token for offline mode')
+            // Try to get userId from localStorage if available
+            const storedUserId = localStorage.getItem('userId')
+            if (storedUserId) {
+              // Keep user logged in with cached data
+              setToken(storedToken)
+            }
+          }
         }
       }
       setLoading(false)
