@@ -42,19 +42,32 @@ export const QUEUE_TYPE = {
  * Add operation to sync queue
  */
 export const addToQueue = async (type, data) => {
-  const queueItem = {
-    type,
-    data,
-    status: QUEUE_STATUS.PENDING,
-    createdAt: Date.now(),
-    syncedAt: null,
-    retryCount: 0,
-    error: null
+  try {
+    // Ensure database is open
+    await ensureDbOpen()
+    
+    const queueItem = {
+      type,
+      data,
+      status: QUEUE_STATUS.PENDING,
+      createdAt: Date.now(),
+      syncedAt: null,
+      retryCount: 0,
+      error: null
+    }
+    
+    const id = await db.syncQueue.add(queueItem)
+    console.log('📥 Added to sync queue:', { id, type, status: queueItem.status, dataKeys: Object.keys(data) })
+    
+    // Verify it was added
+    const verify = await db.syncQueue.get(id)
+    console.log('✅ Verified queue item added:', verify ? 'Yes' : 'No', verify)
+    
+    return { ...queueItem, id }
+  } catch (error) {
+    console.error('❌ Failed to add to queue:', error)
+    throw error
   }
-  
-  const id = await db.syncQueue.add(queueItem)
-  console.log('📥 Added to sync queue:', { id, type, data })
-  return { ...queueItem, id }
 }
 
 /**
