@@ -42,9 +42,30 @@ const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // Check if we're in production (either via env or by checking if we're not in dev server)
-  const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1'));
-  return isProduction ? AWS_API_URL : '';
+  // Check if we're in production
+  // In development, import.meta.env.PROD is false, so we check hostname
+  const isProduction = import.meta.env.PROD || 
+    (typeof window !== 'undefined' && 
+     window.location.hostname !== 'localhost' && 
+     window.location.hostname !== '127.0.0.1' &&
+     !window.location.hostname.includes('localhost') &&
+     !window.location.hostname.includes('127.0.0.1'));
+  
+  // In development (localhost), return empty string to use Vite proxy
+  // In production, return AWS URL
+  const result = isProduction ? AWS_API_URL : '';
+  
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('🔍 getBaseUrl() check:', {
+      PROD: import.meta.env.PROD,
+      hostname: window.location.hostname,
+      isProduction,
+      result: result || '(empty - will use proxy)'
+    })
+  }
+  
+  return result;
 };
 
 // Create axios instance with base configuration
