@@ -27,13 +27,29 @@ function OfflineIndicator() {
   useEffect(() => {
     mountedRef.current = true
     
+    // Update status immediately based on navigator.onLine
+    const updateStatus = () => {
+      if (mountedRef.current) {
+        const online = typeof navigator !== 'undefined' && navigator.onLine !== undefined 
+          ? navigator.onLine 
+          : true
+        setIsOnline(online)
+        console.log('📡 Network status updated:', online ? 'Online' : 'Offline')
+      }
+    }
+    
+    // Set initial status
+    updateStatus()
+    
     // Listen to browser events (works offline, no module dependencies)
     const handleOnline = () => {
+      console.log('🌐 Browser online event fired')
       if (mountedRef.current) {
         setIsOnline(true)
       }
     }
     const handleOffline = () => {
+      console.log('📴 Browser offline event fired')
       if (mountedRef.current) {
         setIsOnline(false)
       }
@@ -41,6 +57,23 @@ function OfflineIndicator() {
     
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+    
+    // Also poll navigator.onLine periodically as a fallback
+    // Some browsers don't fire events immediately
+    const statusCheckInterval = setInterval(() => {
+      if (mountedRef.current) {
+        const currentStatus = typeof navigator !== 'undefined' && navigator.onLine !== undefined 
+          ? navigator.onLine 
+          : true
+        setIsOnline(prev => {
+          if (prev !== currentStatus) {
+            console.log('📡 Network status changed via polling:', currentStatus ? 'Online' : 'Offline')
+            return currentStatus
+          }
+          return prev
+        })
+      }
+    }, 2000) // Check every 2 seconds
     
     // Try to get last sync time from IndexedDB (optional, non-blocking)
     // Use dynamic import to avoid circular dependencies
@@ -68,6 +101,7 @@ function OfflineIndicator() {
       mountedRef.current = false
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      clearInterval(statusCheckInterval)
     }
   }, [])
 
