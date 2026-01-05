@@ -4,7 +4,7 @@
  * ===========================================
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { Split, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
