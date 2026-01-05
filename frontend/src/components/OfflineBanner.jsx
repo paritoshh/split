@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { WifiOff, AlertCircle, X } from 'lucide-react'
+import { WifiOff, AlertCircle } from 'lucide-react'
 
 function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(() => {
@@ -20,7 +20,6 @@ function OfflineBanner() {
       return true
     }
   })
-  const [isDismissed, setIsDismissed] = useState(false)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -54,10 +53,6 @@ function OfflineBanner() {
       const actuallyOnline = await checkConnectivity()
       if (mountedRef.current) {
         setIsOnline(actuallyOnline)
-        // Reset dismissed state when coming back online
-        if (actuallyOnline) {
-          setIsDismissed(false)
-        }
       }
     }
     
@@ -75,7 +70,6 @@ function OfflineBanner() {
     const handleOffline = () => {
       if (mountedRef.current) {
         setIsOnline(false)
-        setIsDismissed(false) // Show banner when going offline
       }
     }
     
@@ -97,34 +91,18 @@ function OfflineBanner() {
     }
   }, [])
 
-  // Don't show if online or dismissed
-  if (isOnline || isDismissed) {
+  // Don't show if online
+  if (isOnline) {
     return null
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 border-b-2 border-yellow-600 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <WifiOff className="w-5 h-5 text-yellow-900 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-yellow-900">You're offline</span>
-                <AlertCircle className="w-4 h-4 text-yellow-900" />
-              </div>
-              <p className="text-sm text-yellow-800">
-                Showing cached data. Some features are limited. Changes will sync when you're back online.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsDismissed(true)}
-            className="p-1 rounded hover:bg-yellow-600/30 transition-colors flex-shrink-0"
-            aria-label="Dismiss offline banner"
-          >
-            <X className="w-5 h-5 text-yellow-900" />
-          </button>
+    <div className="fixed top-0 left-0 right-0 z-40 bg-yellow-500/20 backdrop-blur-sm border-b border-yellow-500/30">
+      <div className="max-w-7xl mx-auto px-4 py-2">
+        <div className="flex items-center gap-2">
+          <WifiOff className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-yellow-300">Offline</span>
+          <span className="text-xs text-yellow-400/80">• Showing cached data</span>
         </div>
       </div>
     </div>
