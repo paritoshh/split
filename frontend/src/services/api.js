@@ -75,9 +75,10 @@ api.interceptors.request.use(
     }
     
     // Log the full URL for debugging (only in development)
-    if (import.meta.env.DEV) {
-      const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url
-      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl}`)
+    const isDev = !import.meta.env.PROD && (typeof window !== 'undefined' && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')))
+    if (isDev) {
+      const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : `http://127.0.0.1:8000${config.url}`
+      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl} (baseURL: ${config.baseURL || 'proxy'})`)
     }
     
     return config
