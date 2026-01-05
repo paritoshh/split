@@ -83,6 +83,12 @@ api.interceptors.request.use(
       delete config.headers['Content-Type']
     }
     
+    // Log the full URL for debugging (only in development)
+    if (import.meta.env.DEV) {
+      const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url
+      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl}`)
+    }
+    
     return config
   },
   (error) => {
