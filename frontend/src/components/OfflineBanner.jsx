@@ -101,9 +101,8 @@ function OfflineBanner() {
       <div className="max-w-7xl mx-auto px-4 py-2">
         <div className="flex items-center gap-2 flex-wrap">
           <WifiOff className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-yellow-300">You're offline</span>
-          <span className="text-xs text-yellow-400/80">
-            • Viewing saved data • Limited actions available • You can create expenses - they'll sync when you're back online
+          <span className="text-sm font-medium text-yellow-300">
+            You're offline • Limited actions available • You can create expenses - they'll sync when you're back online
           </span>
         </div>
       </div>
