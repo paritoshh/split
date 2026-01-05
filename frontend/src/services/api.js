@@ -42,8 +42,17 @@ const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // Check if we're in production (either via env or by checking if we're not in dev server)
-  const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1'));
+  
+  // In development mode, always use empty string to use Vite proxy
+  if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
+    return '';
+  }
+  
+  // Check if we're in production (check hostname)
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1');
+  
   return isProduction ? AWS_API_URL : '';
 };
 
