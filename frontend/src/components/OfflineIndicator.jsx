@@ -6,36 +6,91 @@
  * ===========================================
  */
 
-import { useState, useEffect } from 'react'
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
-import { offlineDetector } from '../services/offline/detector'
-import { apiCache } from '../services/offline/cache'
+import React, { useState, useEffect } from 'react'
+import { Wifi, WifiOff } from 'lucide-react'
 
 function OfflineIndicator() {
-  const [isOnline, setIsOnline] = useState(offlineDetector.getStatus())
+  // Initialize with safe default - use navigator.onLine directly
+  const [isOnline, setIsOnline] = useState(() => {
+    try {
+      return typeof navigator !== 'undefined' ? navigator.onLine : true
+    } catch (error) {
+      console.warn('Error getting offline status:', error)
+      return true
+    }
+  })
   const [lastSync, setLastSync] = useState(null)
-  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
-    // Subscribe to online/offline status changes
-    const unsubscribe = offlineDetector.onStatusChange((online) => {
-      setIsOnline(online)
-      if (online) {
-        // When coming online, update last sync
-        updateLastSync()
+    // Dynamically import to avoid circular dependencies
+    let offlineDetector = null
+    let apiCache = null
+    
+    const initOffline = async () => {
+      try {
+        const detectorModule = await import('../services/offline/detector')
+        const cacheModule = await import('../services/offline/cache')
+        offlineDetector = detectorModule.offlineDetector
+        apiCache = cacheModule.apiCache
+        
+        // Set initial status
+        if (offlineDetector) {
+          setIsOnline(offlineDetector.getStatus())
+        }
+        
+        // Subscribe to online/offline status changes
+        if (offlineDetector) {
+          const unsubscribe = offlineDetector.onStatusChange((online) => {
+            setIsOnline(online)
+            if (online && apiCache) {
+              // When coming online, update last sync
+              updateLastSync(apiCache)
+            }
+          })
+          
+          // Get initial last sync time
+          if (apiCache) {
+            updateLastSync(apiCache)
+          }
+          
+          return unsubscribe
+        }
+      } catch (error) {
+        console.warn('Error initializing offline detector:', error)
       }
-    })
-
-    // Get initial last sync time
-    updateLastSync()
-
-    return unsubscribe
+    }
+    
+    // Listen to browser events as fallback
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    const cleanup = initOffline()
+    
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      if (cleanup && typeof cleanup.then === 'function') {
+        cleanup.then(unsubscribe => {
+          if (typeof unsubscribe === 'function') {
+            unsubscribe()
+          }
+        })
+      }
+    }
   }, [])
 
-  const updateLastSync = async () => {
-    const syncTime = await apiCache.getLastSync()
-    if (syncTime) {
-      setLastSync(syncTime)
+  const updateLastSync = async (cacheService) => {
+    if (!cacheService) return
+    try {
+      const syncTime = await cacheService.getLastSync()
+      if (syncTime) {
+        setLastSync(syncTime)
+      }
+    } catch (error) {
+      console.warn('Error getting last sync time:', error)
     }
   }
 
