@@ -366,15 +366,27 @@ export const expensesAPI = {
   },
   
   create: async (data) => {
-    const isOffline = !offlineDetector.getStatus()
-    console.log('[ExpensesAPI] create called:', { isOffline, data })
+    const detectorStatus = offlineDetector.getStatus()
+    const navigatorStatus = navigator.onLine
+    const isOffline = !detectorStatus || !navigatorStatus
+    
+    console.log('[ExpensesAPI] create called:', { 
+      detectorStatus, 
+      navigatorStatus, 
+      isOffline, 
+      data: { ...data, splits: data.splits?.length || 0 } // Don't log full splits array
+    })
     
     // If offline, add to queue instead of calling API
     if (isOffline) {
       console.log('[ExpensesAPI] Offline detected, adding to queue...')
       try {
         const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
-        console.log('[ExpensesAPI] Added to queue, queueItem:', queueItem)
+        console.log('[ExpensesAPI] Added to queue successfully, queueItem:', queueItem)
+        
+        // Verify it was added
+        const verifyItems = await getAllItems()
+        console.log('[ExpensesAPI] Verification - items in queue:', verifyItems.length, verifyItems)
         
         // Return optimistic response
         const response = {
@@ -389,13 +401,38 @@ export const expensesAPI = {
         return response
       } catch (error) {
         console.error('[ExpensesAPI] Error adding to queue:', error)
+        console.error('[ExpensesAPI] Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        })
         throw error
       }
     }
     
     // Online - make API call
     console.log('[ExpensesAPI] Online, making API call...')
-    return api.post('/api/expenses/', data)
+    try {
+      const result = await api.post('/api/expenses/', data)
+      console.log('[ExpensesAPI] API call successful:', result.data)
+      return result
+    } catch (error) {
+      console.error('[ExpensesAPI] API call failed:', error)
+      // If API call fails with network error, try adding to queue
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network') || error.code === 'ECONNABORTED') {
+        console.log('[ExpensesAPI] Network error, falling back to queue...')
+        const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
+        return {
+          data: {
+            id: `pending-${queueItem.id}`,
+            ...data,
+            is_pending: true,
+            queue_id: queueItem.id
+          }
+        }
+      }
+      throw error
+    }
   },
   
   update: async (id, data) => {

@@ -142,7 +142,15 @@ class OfflineDetector {
    * Check current online status
    */
   getStatus() {
-    return this.isOnline
+    // Also check navigator.onLine as a fallback
+    const browserOnline = navigator.onLine
+    const actualStatus = this.isOnline && browserOnline
+    console.log('[OfflineDetector] getStatus called:', {
+      isOnline: this.isOnline,
+      navigatorOnLine: browserOnline,
+      actualStatus: actualStatus
+    })
+    return actualStatus
   }
 
   /**
