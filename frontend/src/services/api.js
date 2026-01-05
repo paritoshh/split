@@ -125,8 +125,9 @@ api.interceptors.response.use(
   
   // Error handling
   (error) => {
-    // If 401 Unauthorized, clear token and redirect to login
-    if (error.response?.status === 401) {
+    // Only clear token on actual 401 Unauthorized (not network errors)
+    // Network errors (ERR_NETWORK) should NOT clear token - user might be offline
+    if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
       localStorage.removeItem('token')
       
       // Only redirect if not already on login/register pages
@@ -142,7 +143,8 @@ api.interceptors.response.use(
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       message = 'Connection timed out. Please check your internet connection and try again.'
     } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-      message = 'Unable to connect to server. Please check if you are on the same WiFi network.'
+      // Don't throw error for network issues - let components handle offline state
+      message = 'Network error. You may be offline.'
     } else if (error.response?.data?.detail) {
       message = error.response.data.detail
     } else if (error.message) {

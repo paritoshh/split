@@ -21,9 +21,10 @@ import {
   User,
   Settings
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import NotificationBell from './NotificationBell'
-import OfflineIndicator from './OfflineIndicator'
+// Lazy load OfflineIndicator to avoid module loading issues
+const OfflineIndicator = lazy(() => import('./OfflineIndicator'))
 
 function Layout({ children }) {
   const { user, logout } = useAuth()
@@ -56,7 +57,9 @@ function Layout({ children }) {
         </Link>
 
         <div className="flex items-center gap-1">
-          <OfflineIndicator />
+          <Suspense fallback={null}>
+            <OfflineIndicator />
+          </Suspense>
           <NotificationBell />
           <button
             onClick={() => setSidebarOpen(true)}
@@ -187,7 +190,9 @@ function Layout({ children }) {
               <NotificationBell />
             </div>
             <div className="mb-3">
-              <OfflineIndicator />
+              <Suspense fallback={null}>
+                <OfflineIndicator />
+              </Suspense>
             </div>
             <button
               onClick={handleLogout}
