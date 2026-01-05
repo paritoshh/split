@@ -27,14 +27,47 @@ function OfflineIndicator() {
   useEffect(() => {
     mountedRef.current = true
     
-    // Update status immediately based on navigator.onLine
-    const updateStatus = () => {
+    // Test actual network connectivity (more reliable than navigator.onLine)
+    const checkConnectivity = async () => {
+      if (!mountedRef.current) return false
+      
+      // navigator.onLine is unreliable, so we test actual connectivity
+      try {
+        // Try to fetch a small resource with cache-busting
+        const response = await fetch('/favicon.svg?t=' + Date.now(), {
+          method: 'HEAD',
+          cache: 'no-cache',
+          mode: 'no-cors' // Use no-cors to avoid CORS issues
+        })
+        // If we get here, we have connectivity (even if response is opaque)
+        return true
+      } catch (error) {
+        // Network error - definitely offline
+        return false
+      }
+    }
+    
+    // Update status with actual connectivity test
+    const updateStatus = async () => {
+      if (!mountedRef.current) return
+      
+      // First check navigator.onLine (fast but unreliable)
+      const navOnline = typeof navigator !== 'undefined' && navigator.onLine !== undefined 
+        ? navigator.onLine 
+        : true
+      
+      // If navigator says offline, we're definitely offline
+      if (!navOnline) {
+        setIsOnline(false)
+        console.log('📴 Network status: Offline (navigator.onLine)')
+        return
+      }
+      
+      // If navigator says online, verify with actual connectivity test
+      const actuallyOnline = await checkConnectivity()
       if (mountedRef.current) {
-        const online = typeof navigator !== 'undefined' && navigator.onLine !== undefined 
-          ? navigator.onLine 
-          : true
-        setIsOnline(online)
-        console.log('📡 Network status updated:', online ? 'Online' : 'Offline')
+        setIsOnline(actuallyOnline)
+        console.log('📡 Network status:', actuallyOnline ? 'Online (verified)' : 'Offline (connectivity test failed)')
       }
     }
     
@@ -42,11 +75,10 @@ function OfflineIndicator() {
     updateStatus()
     
     // Listen to browser events (works offline, no module dependencies)
-    const handleOnline = () => {
+    const handleOnline = async () => {
       console.log('🌐 Browser online event fired')
-      if (mountedRef.current) {
-        setIsOnline(true)
-      }
+      // Verify with connectivity test
+      await updateStatus()
     }
     const handleOffline = () => {
       console.log('📴 Browser offline event fired')
@@ -58,22 +90,12 @@ function OfflineIndicator() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     
-    // Also poll navigator.onLine periodically as a fallback
-    // Some browsers don't fire events immediately
+    // Poll connectivity periodically (every 3 seconds)
     const statusCheckInterval = setInterval(() => {
       if (mountedRef.current) {
-        const currentStatus = typeof navigator !== 'undefined' && navigator.onLine !== undefined 
-          ? navigator.onLine 
-          : true
-        setIsOnline(prev => {
-          if (prev !== currentStatus) {
-            console.log('📡 Network status changed via polling:', currentStatus ? 'Online' : 'Offline')
-            return currentStatus
-          }
-          return prev
-        })
+        updateStatus()
       }
-    }, 2000) // Check every 2 seconds
+    }, 3000) // Check every 3 seconds
     
     // Try to get last sync time from IndexedDB (optional, non-blocking)
     // Use dynamic import to avoid circular dependencies
