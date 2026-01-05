@@ -356,22 +356,35 @@ export const expensesAPI = {
   },
   
   create: async (data) => {
+    const isOffline = !offlineDetector.getStatus()
+    console.log('[ExpensesAPI] create called:', { isOffline, data })
+    
     // If offline, add to queue instead of calling API
-    if (!offlineDetector.getStatus()) {
-      const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
-      
-      // Return optimistic response
-      return {
-        data: {
-          id: `pending-${queueItem.id}`,
-          ...data,
-          is_pending: true,
-          queue_id: queueItem.id
+    if (isOffline) {
+      console.log('[ExpensesAPI] Offline detected, adding to queue...')
+      try {
+        const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
+        console.log('[ExpensesAPI] Added to queue, queueItem:', queueItem)
+        
+        // Return optimistic response
+        const response = {
+          data: {
+            id: `pending-${queueItem.id}`,
+            ...data,
+            is_pending: true,
+            queue_id: queueItem.id
+          }
         }
+        console.log('[ExpensesAPI] Returning optimistic response:', response)
+        return response
+      } catch (error) {
+        console.error('[ExpensesAPI] Error adding to queue:', error)
+        throw error
       }
     }
     
     // Online - make API call
+    console.log('[ExpensesAPI] Online, making API call...')
     return api.post('/api/expenses/', data)
   },
   
