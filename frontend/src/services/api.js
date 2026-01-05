@@ -159,26 +159,36 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
       localStorage.removeItem('token')
       
-      // NEVER redirect if on login/register pages - this causes infinite loops
+      // NEVER redirect during auth check or on auth pages - this causes infinite loops
       const currentPath = window.location.pathname
       const isAuthPage = currentPath === '/login' || 
                          currentPath === '/register' || 
                          currentPath.includes('/login') || 
                          currentPath.includes('/register')
       
-      // Only redirect if NOT on auth pages and NOT checking auth
+      // Only redirect if NOT on auth pages, NOT checking auth, and NOT during initial load
+      // Add a longer delay and more checks to prevent infinite loops
       if (!isAuthPage && !isCheckingAuth) {
-        // Small delay to avoid race conditions
+        // Use a longer delay to ensure auth check is complete
         setTimeout(() => {
+          // Triple check - path, checking auth flag, and make sure we're not in a loop
           const path = window.location.pathname
           const stillNotOnAuth = path !== '/login' && 
                                  path !== '/register' && 
                                  !path.includes('/login') && 
                                  !path.includes('/register')
+          
+          // Only redirect if all conditions are met and we haven't redirected recently
           if (stillNotOnAuth && !isCheckingAuth) {
-            window.location.href = '/login'
+            // Check if we've redirected recently (prevent loops)
+            const lastRedirect = sessionStorage.getItem('lastRedirect')
+            const now = Date.now()
+            if (!lastRedirect || (now - parseInt(lastRedirect)) > 2000) {
+              sessionStorage.setItem('lastRedirect', now.toString())
+              window.location.href = '/login'
+            }
           }
-        }, 100)
+        }, 500)
       }
     }
     

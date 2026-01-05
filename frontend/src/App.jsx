@@ -122,7 +122,13 @@ function AuthProvider({ children }) {
       const storedToken = localStorage.getItem('token')
       if (storedToken) {
         try {
-          const response = await api.get('/api/auth/me')
+          // Add timeout to prevent hanging if backend is down
+          const response = await Promise.race([
+            api.get('/api/auth/me'),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+            )
+          ])
           localStorage.setItem('userId', response.data.id)
           setUser(response.data)
           setToken(storedToken)
@@ -135,15 +141,18 @@ function AuthProvider({ children }) {
             localStorage.removeItem('token')
             setToken(null)
             setUser(null)
-          } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network')) {
-            // Network error - don't clear token, user might be offline
-            console.log('Network error during auth check, keeping token for offline mode')
+          } else if (error.code === 'ERR_NETWORK' || 
+                     error.message?.includes('Network') || 
+                     error.message?.includes('timeout') ||
+                     error.code === 'ECONNABORTED') {
+            // Network error or timeout - don't clear token, user might be offline or backend down
+            console.log('Network/timeout error during auth check, keeping token for offline mode')
             // Don't set user - we'll show login page but keep token for when online
             setToken(null) // Clear token state so user sees login page
             setUser(null)
           } else {
             // Other errors - clear token to be safe
-            console.log('Auth check failed, clearing token')
+            console.log('Auth check failed, clearing token:', error.message)
             localStorage.removeItem('token')
             setToken(null)
             setUser(null)
@@ -155,8 +164,10 @@ function AuthProvider({ children }) {
         setUser(null)
       }
       setLoading(false)
-      // Allow redirects immediately after auth check completes
-      setCheckingAuth(false)
+      // Wait a bit before allowing redirects to ensure state is stable
+      setTimeout(() => {
+        setCheckingAuth(false)
+      }, 1000)
     }
     checkAuth()
   }, []) // Run only on mount
