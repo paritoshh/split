@@ -532,8 +532,10 @@ function DashboardPage() {
                     return (
                       <div
                         key={expense.id} 
-                        className={`card block hover:border-primary-500/30 transition-all ${
-                          isPending ? 'border-yellow-500/50 bg-yellow-500/10' : ''
+                        className={`card block transition-all ${
+                          isPending 
+                            ? '!border-yellow-500 border-2 bg-yellow-500/10 hover:!border-yellow-400' 
+                            : 'hover:border-primary-500/30'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -546,7 +548,7 @@ function DashboardPage() {
                               <div className="flex items-center gap-2">
                                 <h3 className="font-medium text-white text-sm truncate">{expense.description || 'Pending expense'}</h3>
                                 {isPending && (
-                                  <span className="px-1.5 py-0.5 bg-yellow-500/30 text-yellow-300 text-[10px] font-medium rounded flex-shrink-0 border border-yellow-500/50">
+                                  <span className="px-2 py-0.5 bg-yellow-500/40 text-yellow-200 text-[10px] font-semibold rounded-md flex-shrink-0 border border-yellow-400/60 shadow-sm">
                                     {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
                                   </span>
                                 )}
