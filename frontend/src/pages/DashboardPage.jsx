@@ -7,7 +7,7 @@
  * ===========================================
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { expensesAPI, groupsAPI } from '../services/api'
@@ -48,29 +48,58 @@ function DashboardPage() {
   const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState(null)
 
+  // Use refs to prevent duplicate calls and track mount status
+  const fetchingRef = useRef(false)
+  const mountedRef = useRef(true)
+  const unsubscribeRef = useRef(null)
+  
   // Fetch data on component mount
   useEffect(() => {
-    fetchData()
+    mountedRef.current = true
+    
+    // Initial fetch (only once, skip if already fetching)
+    if (!fetchingRef.current) {
+      fetchData()
+    }
     
     // Listen to online/offline status changes
     const checkStatus = () => {
-      setIsOffline(!offlineDetector.getStatus())
+      if (mountedRef.current) {
+        setIsOffline(!offlineDetector.getStatus())
+      }
     }
     checkStatus()
     
-    // Subscribe to status changes
-    const unsubscribe = offlineDetector.onStatusChange((isOnline) => {
-      setIsOffline(!isOnline)
-      if (isOnline) {
-        // When coming online, refresh data
-        fetchData()
-      }
-    })
+    // Subscribe to status changes (only once)
+    if (!unsubscribeRef.current) {
+      unsubscribeRef.current = offlineDetector.onStatusChange((isOnline) => {
+        if (!mountedRef.current) return
+        
+        setIsOffline(!isOnline)
+        // Only refresh if coming back online AND not already fetching
+        if (isOnline && !fetchingRef.current) {
+          fetchData()
+        }
+      })
+    }
     
-    return unsubscribe
+    return () => {
+      mountedRef.current = false
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current()
+        unsubscribeRef.current = null
+      }
+    }
   }, [])
 
   const fetchData = async () => {
+    // Prevent duplicate calls
+    if (fetchingRef.current) {
+      console.log('⏭️ Skipping duplicate fetchData call')
+      return
+    }
+    
+    fetchingRef.current = true
     setLoading(true)
     setError('')
     setUsingCache(false)
@@ -80,33 +109,53 @@ function DashboardPage() {
       
       // Fetch all data in parallel
       const [balancesRes, groupsRes, expensesRes, draftsRes] = await Promise.all([
-        expensesAPI.getOverallBalances().catch(() => ({ data: [] })),
-        groupsAPI.getAll().catch(() => ({ data: [] })),
-        expensesAPI.getAll({ limit: 10 }).catch(() => ({ data: [] })),
-        expensesAPI.getDrafts().catch(() => ({ data: [] }))
+        expensesAPI.getOverallBalances().catch((err) => {
+          console.warn('Failed to fetch balances:', err)
+          return { data: [] }
+        }),
+        groupsAPI.getAll().catch((err) => {
+          console.warn('Failed to fetch groups:', err)
+          return { data: [] }
+        }),
+        expensesAPI.getAll({ limit: 10 }).catch((err) => {
+          console.warn('Failed to fetch expenses:', err)
+          return { data: [] }
+        }),
+        expensesAPI.getDrafts().catch((err) => {
+          console.warn('Failed to fetch drafts:', err)
+          return { data: [] }
+        })
       ])
 
-      setBalances(balancesRes.data)
-      setGroups(groupsRes.data)
-      setExpenses(expensesRes.data)
-      const draftsData = draftsRes.data || []
-      console.log('📝 Drafts fetched:', draftsData.length, draftsData)
-      setDrafts(draftsData)
-      
-      // Show cache indicator if we're offline
-      if (wasOffline) {
-        setUsingCache(true)
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setBalances(balancesRes.data)
+        setGroups(groupsRes.data)
+        setExpenses(expensesRes.data)
+        const draftsData = draftsRes.data || []
+        console.log('📝 Drafts fetched:', draftsData.length, draftsData)
+        setDrafts(draftsData)
+        
+        // Show cache indicator if we're offline
+        if (wasOffline) {
+          setUsingCache(true)
+        }
       }
     } catch (err) {
-      const errorMsg = err.message || 'Failed to load data. Please try again.'
-      setError(errorMsg)
-      
-      // If offline and error, we're using cache
-      if (!offlineDetector.getStatus()) {
-        setUsingCache(true)
+      if (mountedRef.current) {
+        const errorMsg = err.message || 'Failed to load data. Please try again.'
+        setError(errorMsg)
+        
+        // If offline and error, we're using cache
+        if (!offlineDetector.getStatus()) {
+          setUsingCache(true)
+        }
       }
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setLoading(false)
+      }
+      fetchingRef.current = false
     }
   }
 
