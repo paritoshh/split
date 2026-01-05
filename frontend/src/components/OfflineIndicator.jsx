@@ -8,6 +8,9 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Wifi, WifiOff } from 'lucide-react'
+// Use static imports for better offline support (works with Service Worker cache)
+import { offlineDetector } from '../services/offline/detector'
+import { apiCache } from '../services/offline/cache'
 
 function OfflineIndicator() {
   // Initialize with safe default - use navigator.onLine directly
@@ -43,55 +46,31 @@ function OfflineIndicator() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     
-    // Try to initialize offline detector (may fail in offline mode)
-    let initPromise = null
+    // Try to initialize offline detector (may fail in offline mode, but browser events will work)
     try {
-      // Use static import with try-catch for better offline support
-      import('../services/offline/detector').then(detectorModule => {
-        if (!mountedRef.current) return
+      // Set initial status from detector if available
+      if (offlineDetector && mountedRef.current) {
+        setIsOnline(offlineDetector.getStatus())
         
-        const offlineDetector = detectorModule.offlineDetector
-        if (offlineDetector) {
-          // Set initial status from detector
-          if (mountedRef.current) {
-            setIsOnline(offlineDetector.getStatus())
-          }
-          
-          // Subscribe to status changes
-          if (!unsubscribeRef.current) {
-            unsubscribeRef.current = offlineDetector.onStatusChange((online) => {
-              if (mountedRef.current) {
-                setIsOnline(online)
-                if (online) {
-                  // When coming online, try to update last sync
-                  import('../services/offline/cache').then(cacheModule => {
-                    if (mountedRef.current && cacheModule.apiCache) {
-                      updateLastSync(cacheModule.apiCache)
-                    }
-                  }).catch(() => {
-                    // Ignore cache errors
-                  })
-                }
+        // Subscribe to status changes (only once)
+        if (!unsubscribeRef.current) {
+          unsubscribeRef.current = offlineDetector.onStatusChange((online) => {
+            if (mountedRef.current) {
+              setIsOnline(online)
+              if (online) {
+                // When coming online, try to update last sync
+                updateLastSync()
               }
-            })
-          }
+            }
+          })
         }
-      }).catch(error => {
-        // Ignore import errors in offline mode - browser events will handle it
-        console.warn('Offline detector not available (offline mode):', error)
-      })
+      }
       
       // Try to get last sync time
-      import('../services/offline/cache').then(cacheModule => {
-        if (mountedRef.current && cacheModule.apiCache) {
-          updateLastSync(cacheModule.apiCache)
-        }
-      }).catch(() => {
-        // Ignore cache errors
-      })
+      updateLastSync()
     } catch (error) {
-      // Fallback to browser events only
-      console.warn('Error initializing offline services:', error)
+      // Fallback to browser events only - this is fine
+      console.warn('Error initializing offline services (offline mode):', error)
     }
     
     return () => {
@@ -105,16 +84,18 @@ function OfflineIndicator() {
     }
   }, [])
 
-  const updateLastSync = async (cacheService) => {
-    if (!cacheService || !mountedRef.current) return
+  const updateLastSync = async () => {
+    if (!mountedRef.current) return
     try {
-      const syncTime = await cacheService.getLastSync()
-      if (syncTime && mountedRef.current) {
-        setLastSync(syncTime)
+      if (apiCache) {
+        const syncTime = await apiCache.getLastSync()
+        if (syncTime && mountedRef.current) {
+          setLastSync(syncTime)
+        }
       }
     } catch (error) {
-      // Silently ignore cache errors - not critical
-      console.warn('Error getting last sync time:', error)
+      // Silently ignore cache errors - not critical for offline indicator
+      // This is expected in offline mode if IndexedDB isn't available
     }
   }
 
