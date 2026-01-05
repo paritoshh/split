@@ -2,8 +2,8 @@
  * ===========================================
  * OFFLINE DETECTION SERVICE
  * ===========================================
- * Detects online/offline status and provides
- * callbacks for status changes.
+ * Detects online/offline status using actual
+ * connectivity test, not just navigator.onLine
  * ===========================================
  */
 
@@ -11,20 +11,67 @@ class OfflineDetector {
   constructor() {
     this.isOnline = navigator.onLine
     this.listeners = []
+    this.checkingConnectivity = false
     
     // Listen to browser online/offline events
     window.addEventListener('online', this.handleOnline.bind(this))
     window.addEventListener('offline', this.handleOffline.bind(this))
+    
+    // Initial connectivity check
+    this.checkConnectivity()
+    
+    // Poll connectivity every 5 seconds
+    setInterval(() => {
+      this.checkConnectivity()
+    }, 5000)
+  }
+
+  /**
+   * Test actual network connectivity
+   */
+  async checkConnectivity() {
+    if (this.checkingConnectivity) return
+    
+    this.checkingConnectivity = true
+    
+    try {
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => resolve(false), 2000)
+      })
+      
+      const fetchPromise = fetch('https://www.google.com/favicon.ico', {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(2000)
+      }).then(() => true).catch(() => false)
+      
+      const actuallyOnline = await Promise.race([fetchPromise, timeoutPromise])
+      
+      if (actuallyOnline !== this.isOnline) {
+        this.isOnline = actuallyOnline
+        console.log(actuallyOnline ? '🌐 Network: Actually Online' : '📴 Network: Actually Offline')
+        this.notifyListeners(actuallyOnline)
+      }
+    } catch (error) {
+      // If check fails, assume offline
+      if (this.isOnline) {
+        this.isOnline = false
+        console.log('📴 Network: Connectivity check failed, assuming offline')
+        this.notifyListeners(false)
+      }
+    } finally {
+      this.checkingConnectivity = false
+    }
   }
 
   handleOnline() {
-    console.log('🌐 Network: Online')
-    this.isOnline = true
-    this.notifyListeners(true)
+    // Trigger connectivity check when browser says online
+    this.checkConnectivity()
   }
 
   handleOffline() {
-    console.log('📴 Network: Offline')
+    console.log('📴 Network: Browser reports offline')
     this.isOnline = false
     this.notifyListeners(false)
   }
