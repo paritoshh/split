@@ -6,7 +6,8 @@
  * ===========================================
  */
 
-const CACHE_NAME = 'splitapp-v1';
+// Update cache version to force refresh
+const CACHE_NAME = 'splitapp-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately on install
@@ -62,7 +63,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network first for JS/CSS, cache first for static assets
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
@@ -74,11 +75,57 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(event.request.url);
+  const isDev = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  const isJS = url.pathname.endsWith('.js') || url.pathname.includes('/src/');
+  const isCSS = url.pathname.endsWith('.css');
+  const isHTML = event.request.mode === 'navigate' || url.pathname.endsWith('.html');
+
+  // In development, skip caching JS/CSS files to avoid stale code
+  if (isDev && (isJS || isCSS)) {
+    // Network only - don't cache in dev
+    event.respondWith(fetch(event.request).catch(() => {
+      return new Response('Offline', { status: 503 });
+    }));
+    return;
+  }
+
+  // For JavaScript and CSS in production: Network first, cache fallback
+  if (isJS || isCSS) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache successful responses
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Network failed, try cache
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            // No cache, return offline response
+            if (isHTML) {
+              return caches.match(OFFLINE_URL);
+            }
+            return new Response('Offline', { status: 503 });
+          });
+        })
+    );
+    return;
+  }
+
+  // For other assets (images, fonts, etc.): Cache first, network fallback
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
         if (cachedResponse) {
-          // Return cached version
           return cachedResponse;
         }
 
