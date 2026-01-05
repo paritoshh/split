@@ -20,6 +20,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import api from './services/api'
 import * as biometricService from './services/biometric'
+import { initSyncService } from './services/offline/syncService'
 
 // Pages
 import LandingPage from './pages/LandingPage'

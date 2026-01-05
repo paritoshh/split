@@ -1,0 +1,180 @@
+/**
+ * ===========================================
+ * SYNC QUEUE SERVICE
+ * ===========================================
+ * Manages queue of operations to sync when online.
+ * 
+ * Queue Item Structure:
+ * {
+ *   id: number (auto-increment),
+ *   type: 'CREATE_EXPENSE' | 'UPDATE_EXPENSE' | 'DELETE_EXPENSE',
+ *   data: object (operation data),
+ *   status: 'pending' | 'syncing' | 'completed' | 'failed',
+ *   createdAt: timestamp,
+ *   syncedAt: timestamp | null,
+ *   retryCount: number,
+ *   error: string | null
+ * }
+ * ===========================================
+ */
+
+import db from './database.js'
+
+// Queue item statuses
+export const QUEUE_STATUS = {
+  PENDING: 'pending',
+  SYNCING: 'syncing',
+  COMPLETED: 'completed',
+  FAILED: 'failed'
+}
+
+// Queue item types
+export const QUEUE_TYPE = {
+  CREATE_EXPENSE: 'CREATE_EXPENSE',
+  UPDATE_EXPENSE: 'UPDATE_EXPENSE',
+  DELETE_EXPENSE: 'DELETE_EXPENSE',
+  CREATE_GROUP: 'CREATE_GROUP',
+  UPDATE_GROUP: 'UPDATE_GROUP',
+  DELETE_GROUP: 'DELETE_GROUP'
+}
+
+/**
+ * Add operation to sync queue
+ */
+export const addToQueue = async (type, data) => {
+  const queueItem = {
+    type,
+    data,
+    status: QUEUE_STATUS.PENDING,
+    createdAt: Date.now(),
+    syncedAt: null,
+    retryCount: 0,
+    error: null
+  }
+  
+  const id = await db.syncQueue.add(queueItem)
+  console.log('📥 Added to sync queue:', { id, type, data })
+  return { ...queueItem, id }
+}
+
+/**
+ * Get all pending items from queue
+ */
+export const getPendingItems = async () => {
+  const items = await db.syncQueue
+    .where('status')
+    .equals(QUEUE_STATUS.PENDING)
+    .sortBy('createdAt')
+  
+  return items
+}
+
+/**
+ * Get all items (for UI display)
+ */
+export const getAllItems = async () => {
+  return await db.syncQueue.orderBy('createdAt').reverse().toArray()
+}
+
+/**
+ * Get items by status
+ */
+export const getItemsByStatus = async (status) => {
+  return await db.syncQueue
+    .where('status')
+    .equals(status)
+    .sortBy('createdAt')
+}
+
+/**
+ * Get count of pending items
+ */
+export const getPendingCount = async () => {
+  return await db.syncQueue
+    .where('status')
+    .equals(QUEUE_STATUS.PENDING)
+    .count()
+}
+
+/**
+ * Get count of syncing items
+ */
+export const getSyncingCount = async () => {
+  return await db.syncQueue
+    .where('status')
+    .equals(QUEUE_STATUS.SYNCING)
+    .count()
+}
+
+/**
+ * Get count of failed items
+ */
+export const getFailedCount = async () => {
+  return await db.syncQueue
+    .where('status')
+    .equals(QUEUE_STATUS.FAILED)
+    .count()
+}
+
+/**
+ * Update queue item status
+ */
+export const updateItemStatus = async (id, status, error = null) => {
+  const updates = {
+    status,
+    error: error || null
+  }
+  
+  if (status === QUEUE_STATUS.COMPLETED || status === QUEUE_STATUS.SYNCING) {
+    updates.syncedAt = Date.now()
+  }
+  
+  await db.syncQueue.update(id, updates)
+  console.log('📝 Updated queue item:', { id, status, error })
+}
+
+/**
+ * Increment retry count
+ */
+export const incrementRetryCount = async (id) => {
+  const item = await db.syncQueue.get(id)
+  if (item) {
+    await db.syncQueue.update(id, {
+      retryCount: (item.retryCount || 0) + 1
+    })
+  }
+}
+
+/**
+ * Remove completed item from queue (optional - for cleanup)
+ */
+export const removeItem = async (id) => {
+  await db.syncQueue.delete(id)
+  console.log('🗑️ Removed queue item:', id)
+}
+
+/**
+ * Clear all completed items (cleanup old items)
+ */
+export const clearCompleted = async () => {
+  const completed = await db.syncQueue
+    .where('status')
+    .equals(QUEUE_STATUS.COMPLETED)
+    .toArray()
+  
+  const ids = completed.map(item => item.id)
+  await db.syncQueue.bulkDelete(ids)
+  console.log('🧹 Cleared completed items:', ids.length)
+}
+
+/**
+ * Retry failed item
+ */
+export const retryItem = async (id) => {
+  await db.syncQueue.update(id, {
+    status: QUEUE_STATUS.PENDING,
+    error: null
+  })
+  console.log('🔄 Retrying queue item:', id)
+}
+

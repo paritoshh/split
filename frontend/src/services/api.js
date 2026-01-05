@@ -20,6 +20,7 @@
 import axios from 'axios'
 import { offlineDetector } from './offline/detector.js'
 import { apiCache } from './offline/cache.js'
+import { addToQueue, QUEUE_TYPE } from './offline/syncQueue.js'
 
 // Determine the API base URL
 // For mobile app: use AWS API Gateway URL
@@ -217,9 +218,54 @@ export const groupsAPI = {
     return api.get(`/api/groups/${id}`)
   },
   
-  create: (data) => api.post('/api/groups/', data),
-  update: (id, data) => api.put(`/api/groups/${id}`, data),
-  delete: (id) => api.delete(`/api/groups/${id}`),
+  create: async (data) => {
+    // If offline, add to queue
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing group creation')
+      const queueItem = await addToQueue(QUEUE_TYPE.CREATE_GROUP, data)
+      
+      return {
+        data: {
+          id: `pending-${queueItem.id}`,
+          ...data,
+          is_pending: true,
+          queue_id: queueItem.id
+        }
+      }
+    }
+    
+    return api.post('/api/groups/', data)
+  },
+  
+  update: async (id, data) => {
+    // If offline, add to queue
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing group update')
+      await addToQueue(QUEUE_TYPE.UPDATE_GROUP, { id, ...data })
+      
+      return {
+        data: {
+          id,
+          ...data,
+          is_pending: true
+        }
+      }
+    }
+    
+    return api.put(`/api/groups/${id}`, data)
+  },
+  
+  delete: async (id) => {
+    // If offline, add to queue
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing group deletion')
+      await addToQueue(QUEUE_TYPE.DELETE_GROUP, { id })
+      
+      return { data: { id, deleted: true, is_pending: true } }
+    }
+    
+    return api.delete(`/api/groups/${id}`)
+  },
   addMember: (groupId, data) => api.post(`/api/groups/${groupId}/members`, data),
   addMembersBulk: (groupId, userIds) => api.post(`/api/groups/${groupId}/members/bulk`, { user_ids: userIds }),
   removeMember: (groupId, userId) => api.delete(`/api/groups/${groupId}/members/${userId}`),
@@ -274,9 +320,60 @@ export const expensesAPI = {
     return api.get(`/api/expenses/${id}`)
   },
   
-  create: (data) => api.post('/api/expenses/', data),
-  update: (id, data) => api.put(`/api/expenses/${id}`, data),
-  delete: (id) => api.delete(`/api/expenses/${id}`),
+  create: async (data) => {
+    // If offline, add to queue instead of calling API
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing expense creation')
+      const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
+      
+      // Return optimistic response
+      return {
+        data: {
+          id: `pending-${queueItem.id}`, // Temporary ID
+          ...data,
+          is_pending: true,
+          queue_id: queueItem.id
+        }
+      }
+    }
+    
+    // Online - make API call
+    return api.post('/api/expenses/', data)
+  },
+  
+  update: async (id, data) => {
+    // If offline, add to queue
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing expense update')
+      await addToQueue(QUEUE_TYPE.UPDATE_EXPENSE, { id, ...data })
+      
+      // Return optimistic response
+      return {
+        data: {
+          id,
+          ...data,
+          is_pending: true
+        }
+      }
+    }
+    
+    // Online - make API call
+    return api.put(`/api/expenses/${id}`, data)
+  },
+  
+  delete: async (id) => {
+    // If offline, add to queue
+    if (!offlineDetector.getStatus()) {
+      console.log('📥 Offline - queuing expense deletion')
+      await addToQueue(QUEUE_TYPE.DELETE_EXPENSE, { id })
+      
+      // Return optimistic response
+      return { data: { id, deleted: true, is_pending: true } }
+    }
+    
+    // Online - make API call
+    return api.delete(`/api/expenses/${id}`)
+  },
   
   getOverallBalances: async () => {
     // If offline, try to get from cache

@@ -24,6 +24,7 @@ import {
 import { useState, lazy, Suspense } from 'react'
 import NotificationBell from './NotificationBell'
 import OfflineBanner from './OfflineBanner'
+import SyncIndicator from './SyncIndicator'
 // Lazy load OfflineIndicator to avoid module loading issues
 const OfflineIndicator = lazy(() => import('./OfflineIndicator'))
 
@@ -64,6 +65,7 @@ function Layout({ children }) {
           <Suspense fallback={null}>
             <OfflineIndicator />
           </Suspense>
+          <SyncIndicator />
           <NotificationBell />
           <button
             onClick={() => setSidebarOpen(true)}
@@ -193,10 +195,11 @@ function Layout({ children }) {
               </Link>
               <NotificationBell />
             </div>
-            <div className="mb-3">
+            <div className="mb-3 space-y-2">
               <Suspense fallback={null}>
                 <OfflineIndicator />
               </Suspense>
+              <SyncIndicator />
             </div>
             <button
               onClick={handleLogout}
