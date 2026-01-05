@@ -36,21 +36,36 @@ function PendingExpensesBanner() {
         // Wait a bit to ensure database is ready
         await new Promise(resolve => setTimeout(resolve, 100))
         
+        console.log('[PendingBanner] Loading pending expenses count...')
         const allItems = await getAllItems()
+        console.log('[PendingBanner] All queue items:', allItems.length, allItems)
+        
         // Count only CREATE_EXPENSE items with pending status
-        const count = allItems.filter(item => 
+        const pendingExpenses = allItems.filter(item => 
           item.type === QUEUE_TYPE.CREATE_EXPENSE && 
           item.status === QUEUE_STATUS.PENDING
-        ).length
+        )
+        const count = pendingExpenses.length
+        
+        console.log('[PendingBanner] Pending expenses:', count, pendingExpenses)
+        console.log('[PendingBanner] Filter details:', {
+          totalItems: allItems.length,
+          createExpenseItems: allItems.filter(i => i.type === QUEUE_TYPE.CREATE_EXPENSE),
+          pendingItems: allItems.filter(i => i.status === QUEUE_STATUS.PENDING),
+          pendingExpenses: pendingExpenses
+        })
         
         if (mountedRef.current) {
           setPendingCount(count)
+          console.log('[PendingBanner] Set pending count to:', count)
         }
       } catch (error) {
-        // Silently handle database errors (might be closed or not ready)
-        if (error.name !== 'DatabaseClosedError' && error.name !== 'UnknownError') {
-          console.error('Failed to load pending expenses:', error)
-        }
+        console.error('[PendingBanner] Error loading pending count:', error)
+        console.error('[PendingBanner] Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        })
         // Set count to 0 on error to hide banner
         if (mountedRef.current) {
           setPendingCount(0)
@@ -76,9 +91,13 @@ function PendingExpensesBanner() {
   }, [])
 
   // Don't show if no pending expenses
+  console.log('[PendingBanner] Render check - pendingCount:', pendingCount)
   if (pendingCount === 0) {
+    console.log('[PendingBanner] No pending expenses, hiding banner')
     return null
   }
+  
+  console.log('[PendingBanner] Showing banner with', pendingCount, 'pending expenses')
 
   // Position below offline banner if offline, otherwise at top
   const topOffset = isOffline ? '40px' : '0px'

@@ -43,6 +43,7 @@ export const QUEUE_TYPE = {
  */
 export const addToQueue = async (type, data) => {
   try {
+    console.log('[SyncQueue] Adding to queue:', { type, data })
     // Ensure database is open
     await ensureDbOpen()
     
@@ -56,9 +57,23 @@ export const addToQueue = async (type, data) => {
       error: null
     }
     
+    console.log('[SyncQueue] Queue item to add:', queueItem)
     const id = await db.syncQueue.add(queueItem)
-    return { ...queueItem, id }
+    const result = { ...queueItem, id }
+    console.log('[SyncQueue] Added to queue successfully:', result)
+    
+    // Verify it was added
+    const verify = await db.syncQueue.get(id)
+    console.log('[SyncQueue] Verification - item in DB:', verify)
+    
+    return result
   } catch (error) {
+    console.error('[SyncQueue] Error adding to queue:', error)
+    console.error('[SyncQueue] Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
     throw error
   }
 }
@@ -80,13 +95,22 @@ export const getPendingItems = async () => {
  */
 export const getAllItems = async () => {
   try {
+    console.log('[SyncQueue] Getting all items...')
     // Ensure database is open
     await ensureDbOpen()
-    return await db.syncQueue.orderBy('createdAt').reverse().toArray()
+    const items = await db.syncQueue.orderBy('createdAt').reverse().toArray()
+    console.log('[SyncQueue] Retrieved items:', items.length, items)
+    return items
   } catch (error) {
+    console.error('[SyncQueue] Error getting all items:', error)
+    console.error('[SyncQueue] Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
     // If database is closed or not accessible, return empty array
     if (error.name === 'DatabaseClosedError' || error.name === 'UnknownError') {
-      console.warn('Database not accessible, returning empty array')
+      console.warn('[SyncQueue] Database not accessible, returning empty array')
       return []
     }
     throw error
