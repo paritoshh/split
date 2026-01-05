@@ -131,30 +131,54 @@ export const getItemsByStatus = async (status) => {
  * Get count of pending items
  */
 export const getPendingCount = async () => {
-  return await db.syncQueue
-    .where('status')
-    .equals(QUEUE_STATUS.PENDING)
-    .count()
+  try {
+    await ensureDbOpen()
+    const count = await db.syncQueue
+      .where('status')
+      .equals(QUEUE_STATUS.PENDING)
+      .count()
+    console.log('[SyncQueue] Pending count:', count)
+    return count
+  } catch (error) {
+    console.error('[SyncQueue] Error getting pending count:', error)
+    return 0
+  }
 }
 
 /**
  * Get count of syncing items
  */
 export const getSyncingCount = async () => {
-  return await db.syncQueue
-    .where('status')
-    .equals(QUEUE_STATUS.SYNCING)
-    .count()
+  try {
+    await ensureDbOpen()
+    const count = await db.syncQueue
+      .where('status')
+      .equals(QUEUE_STATUS.SYNCING)
+      .count()
+    console.log('[SyncQueue] Syncing count:', count)
+    return count
+  } catch (error) {
+    console.error('[SyncQueue] Error getting syncing count:', error)
+    return 0
+  }
 }
 
 /**
  * Get count of failed items
  */
 export const getFailedCount = async () => {
-  return await db.syncQueue
-    .where('status')
-    .equals(QUEUE_STATUS.FAILED)
-    .count()
+  try {
+    await ensureDbOpen()
+    const count = await db.syncQueue
+      .where('status')
+      .equals(QUEUE_STATUS.FAILED)
+      .count()
+    console.log('[SyncQueue] Failed count:', count)
+    return count
+  } catch (error) {
+    console.error('[SyncQueue] Error getting failed count:', error)
+    return 0
+  }
 }
 
 /**

@@ -48,6 +48,22 @@ function PendingExpensesBanner() {
         const count = pendingExpenses.length
         
         console.log('[PendingBanner] Pending expenses:', count, pendingExpenses)
+        
+        // Log counts by type and status
+        const countsByType = {
+          CREATE_EXPENSE: allItems.filter(i => i.type === QUEUE_TYPE.CREATE_EXPENSE).length,
+          UPDATE_EXPENSE: allItems.filter(i => i.type === QUEUE_TYPE.UPDATE_EXPENSE).length,
+          DELETE_EXPENSE: allItems.filter(i => i.type === QUEUE_TYPE.DELETE_EXPENSE).length,
+        }
+        const countsByStatus = {
+          PENDING: allItems.filter(i => i.status === QUEUE_STATUS.PENDING).length,
+          SYNCING: allItems.filter(i => i.status === QUEUE_STATUS.SYNCING).length,
+          COMPLETED: allItems.filter(i => i.status === QUEUE_STATUS.COMPLETED).length,
+          FAILED: allItems.filter(i => i.status === QUEUE_STATUS.FAILED).length,
+        }
+        
+        console.log('[PendingBanner] Counts by type:', countsByType)
+        console.log('[PendingBanner] Counts by status:', countsByStatus)
         console.log('[PendingBanner] Filter details:', {
           totalItems: allItems.length,
           createExpenseItems: allItems.filter(i => i.type === QUEUE_TYPE.CREATE_EXPENSE),
