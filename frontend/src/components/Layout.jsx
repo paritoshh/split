@@ -24,6 +24,7 @@ import {
 import { useState, lazy, Suspense } from 'react'
 import NotificationBell from './NotificationBell'
 import OfflineBanner from './OfflineBanner'
+import PendingExpensesBanner from './PendingExpensesBanner'
 import SyncIndicator from './SyncIndicator'
 // Lazy load OfflineIndicator to avoid module loading issues
 const OfflineIndicator = lazy(() => import('./OfflineIndicator'))
@@ -51,6 +52,8 @@ function Layout({ children }) {
     <div className="min-h-screen bg-dark-300">
       {/* Offline Banner - shown at top when offline */}
       <OfflineBanner />
+      {/* Pending Expenses Banner - shown when there are pending expenses */}
+      <PendingExpensesBanner />
       
       {/* Mobile Header - compact with safe area for notch */}
       <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top">
