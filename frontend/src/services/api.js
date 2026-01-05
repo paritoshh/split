@@ -78,6 +78,13 @@ api.interceptors.request.use(
       delete config.headers['Content-Type']
     }
     
+    // Log request in development to debug canceled requests
+    if (import.meta.env.DEV) {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
+        baseURL: config.baseURL || '(proxy)',
+        hasToken: !!token
+      })
+    }
     
     return config
   },
@@ -131,6 +138,22 @@ api.interceptors.response.use(
   
   // Error handling
   (error) => {
+    // Log error in development to debug canceled requests
+    if (import.meta.env.DEV) {
+      console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+        code: error.code,
+        message: error.message,
+        status: error.response?.status,
+        canceled: error.code === 'ERR_CANCELED' || error.message?.includes('canceled')
+      })
+    }
+    
+    // Handle canceled requests - don't treat as error if it was intentionally canceled
+    if (error.code === 'ERR_CANCELED' || error.message?.includes('canceled')) {
+      // Request was canceled - return a specific error
+      return Promise.reject(new Error('Request was canceled'))
+    }
+    
     // Only clear token on actual 401 Unauthorized (not network errors)
     // Network errors (ERR_NETWORK) should NOT clear token - user might be offline
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
