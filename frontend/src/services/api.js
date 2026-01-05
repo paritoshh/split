@@ -22,6 +22,10 @@ import { offlineDetector } from './offline/detector.js'
 import { apiCache } from './offline/cache.js'
 import { addToQueue, QUEUE_TYPE } from './offline/syncQueue.js'
 
+// Flag to prevent redirects during initial auth check
+let isCheckingAuth = false
+export const setCheckingAuth = (value) => { isCheckingAuth = value }
+
 // Determine the API base URL
 // For mobile app: use AWS API Gateway URL
 // For web: use environment variable, AWS URL, or empty for local proxy
@@ -132,10 +136,20 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
       localStorage.removeItem('token')
       
-      // Only redirect if not already on login/register pages
-      if (!window.location.pathname.includes('login') && 
-          !window.location.pathname.includes('register')) {
-        window.location.href = '/login'
+      // Don't redirect during initial auth check or if already on login/register pages
+      const currentPath = window.location.pathname
+      const isAuthPage = currentPath.includes('login') || currentPath.includes('register')
+      
+      if (!isCheckingAuth && !isAuthPage) {
+        // Use setTimeout to avoid immediate redirect during app initialization
+        setTimeout(() => {
+          // Double-check we're still not on login/register (in case user navigated)
+          const stillNotOnAuth = !window.location.pathname.includes('login') && 
+                                  !window.location.pathname.includes('register')
+          if (stillNotOnAuth && !isCheckingAuth) {
+            window.location.href = '/login'
+          }
+        }, 100)
       }
     }
     

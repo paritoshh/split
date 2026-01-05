@@ -18,7 +18,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
-import api from './services/api'
+import api, { setCheckingAuth } from './services/api'
 import * as biometricService from './services/biometric'
 import { initSyncService } from './services/offline/syncService'
 
@@ -77,6 +77,7 @@ function AuthProvider({ children }) {
   // Check if user is logged in on app load
   useEffect(() => {
     const checkAuth = async () => {
+      setCheckingAuth(true) // Prevent redirects during auth check
       let biometricSuccess = false
       
       // First, try biometric login if enabled (native app only)
@@ -145,6 +146,7 @@ function AuthProvider({ children }) {
         }
       }
       setLoading(false)
+      setCheckingAuth(false) // Allow redirects after auth check completes
     }
     checkAuth()
   }, []) // Run only on mount
