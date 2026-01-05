@@ -97,7 +97,6 @@ function DashboardPage() {
   const fetchData = async () => {
     // Prevent duplicate calls
     if (fetchingRef.current) {
-      console.log('⏭️ Skipping duplicate fetchData call')
       return
     }
     
@@ -135,7 +134,6 @@ function DashboardPage() {
         setGroups(groupsRes.data)
       setExpenses(expensesRes.data)
       const draftsData = draftsRes.data || []
-      console.log('📝 Drafts fetched:', draftsData.length, draftsData)
       setDrafts(draftsData)
       
       // Load pending expenses from sync queue
@@ -417,7 +415,6 @@ function DashboardPage() {
           ) : activeTab === 'drafts' ? (
             // Drafts tab
             (() => {
-              console.log('📝 Dashboard Drafts Tab - activeTab:', activeTab, 'drafts:', drafts.length, drafts)
               return null
             })(),
             drafts.length === 0 ? (
