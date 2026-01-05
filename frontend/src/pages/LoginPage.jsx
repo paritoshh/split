@@ -32,7 +32,7 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
+    setSubmitting(true)
     
     try {
       await login(email, password)
@@ -40,7 +40,7 @@ function LoginPage() {
     } catch (err) {
       setError(err.message || 'Failed to login. Please check your credentials.')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
   
@@ -123,10 +123,10 @@ function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitting || loading}
               className="w-full btn-primary flex items-center justify-center gap-2"
             >
-              {loading ? (
+              {submitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
