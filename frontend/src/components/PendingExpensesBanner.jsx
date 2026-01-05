@@ -104,7 +104,13 @@ function PendingExpensesBanner() {
 
   // Debug logging
   useEffect(() => {
-    console.log('🎨 PendingExpensesBanner render:', { pendingCount, syncingCount, failedCount, status })
+    console.log('🎨 PendingExpensesBanner render:', { 
+      pendingCount, 
+      syncingCount, 
+      failedCount, 
+      status,
+      willShow: pendingCount > 0 || syncingCount > 0 || failedCount > 0
+    })
   }, [pendingCount, syncingCount, failedCount, status])
 
   // Don't show if nothing to sync
@@ -112,6 +118,8 @@ function PendingExpensesBanner() {
     console.log('🚫 PendingExpensesBanner: No items to sync, hiding banner')
     return null
   }
+  
+  console.log('✅ PendingExpensesBanner: Will show banner with counts:', { pendingCount, syncingCount, failedCount })
 
   // Calculate top offset - check if offline banner is visible
   // Offline banner is ~40px tall, so we position this below it if offline
@@ -136,7 +144,7 @@ function PendingExpensesBanner() {
   // Show failed status (highest priority)
   if (failedCount > 0) {
     return (
-      <div className="fixed left-0 right-0 z-35 bg-red-500/20 backdrop-blur-sm border-b border-red-500/30" style={{ top: topOffset }}>
+      <div className="fixed left-0 right-0 z-30 bg-red-500/20 backdrop-blur-sm border-b border-red-500/30" style={{ top: topOffset }}>
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center gap-2 flex-wrap">
             <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
@@ -152,7 +160,7 @@ function PendingExpensesBanner() {
   // Show syncing status
   if (syncingCount > 0 || status === 'syncing') {
     return (
-      <div className="fixed left-0 right-0 z-35 bg-blue-500/20 backdrop-blur-sm border-b border-blue-500/30" style={{ top: topOffset }}>
+      <div className="fixed left-0 right-0 z-30 bg-blue-500/20 backdrop-blur-sm border-b border-blue-500/30" style={{ top: topOffset }}>
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center gap-2 flex-wrap">
             <RefreshCw className="w-4 h-4 text-blue-400 flex-shrink-0 animate-spin" />
@@ -166,10 +174,11 @@ function PendingExpensesBanner() {
     )
   }
 
-  // Show pending status
+  // Show pending status - THIS IS THE KEY BANNER FOR PENDING EXPENSES
   if (pendingCount > 0) {
+    console.log('✅ Showing pending expenses banner with count:', pendingCount)
     return (
-      <div className="fixed left-0 right-0 z-35 bg-yellow-500/20 backdrop-blur-sm border-b border-yellow-500/30" style={{ top: topOffset }}>
+      <div className="fixed left-0 right-0 z-30 bg-yellow-500/20 backdrop-blur-sm border-b border-yellow-500/30" style={{ top: topOffset }}>
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center gap-2 flex-wrap">
             <Clock className="w-4 h-4 text-yellow-400 flex-shrink-0" />
