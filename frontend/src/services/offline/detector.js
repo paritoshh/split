@@ -35,29 +35,32 @@ class OfflineDetector {
     this.checkingConnectivity = true
     
     try {
-      const timeoutPromise = new Promise((resolve) => {
-        setTimeout(() => resolve(false), 2000)
-      })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       
       const fetchPromise = fetch('https://www.google.com/favicon.ico', {
         method: 'HEAD',
         mode: 'no-cors',
         cache: 'no-store',
-        signal: AbortSignal.timeout(2000)
-      }).then(() => true).catch(() => false)
+        signal: controller.signal
+      }).then(() => {
+        clearTimeout(timeoutId)
+        return true
+      }).catch(() => {
+        clearTimeout(timeoutId)
+        return false
+      })
       
-      const actuallyOnline = await Promise.race([fetchPromise, timeoutPromise])
+      const actuallyOnline = await fetchPromise
       
       if (actuallyOnline !== this.isOnline) {
         this.isOnline = actuallyOnline
-        console.log(actuallyOnline ? '🌐 Network: Actually Online' : '📴 Network: Actually Offline')
         this.notifyListeners(actuallyOnline)
       }
     } catch (error) {
       // If check fails, assume offline
       if (this.isOnline) {
         this.isOnline = false
-        console.log('📴 Network: Connectivity check failed, assuming offline')
         this.notifyListeners(false)
       }
     } finally {
@@ -71,7 +74,6 @@ class OfflineDetector {
   }
 
   handleOffline() {
-    console.log('📴 Network: Browser reports offline')
     this.isOnline = false
     this.notifyListeners(false)
   }

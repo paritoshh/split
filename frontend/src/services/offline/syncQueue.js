@@ -57,15 +57,8 @@ export const addToQueue = async (type, data) => {
     }
     
     const id = await db.syncQueue.add(queueItem)
-    console.log('📥 Added to sync queue:', { id, type, status: queueItem.status, dataKeys: Object.keys(data) })
-    
-    // Verify it was added
-    const verify = await db.syncQueue.get(id)
-    console.log('✅ Verified queue item added:', verify ? 'Yes' : 'No', verify)
-    
     return { ...queueItem, id }
   } catch (error) {
-    console.error('❌ Failed to add to queue:', error)
     throw error
   }
 }
@@ -174,7 +167,6 @@ export const incrementRetryCount = async (id) => {
  */
 export const removeItem = async (id) => {
   await db.syncQueue.delete(id)
-  console.log('🗑️ Removed queue item:', id)
 }
 
 /**
@@ -188,7 +180,6 @@ export const clearCompleted = async () => {
   
   const ids = completed.map(item => item.id)
   await db.syncQueue.bulkDelete(ids)
-  console.log('🧹 Cleared completed items:', ids.length)
 }
 
 /**
@@ -199,6 +190,5 @@ export const retryItem = async (id) => {
     status: QUEUE_STATUS.PENDING,
     error: null
   })
-  console.log('🔄 Retrying queue item:', id)
 }
 

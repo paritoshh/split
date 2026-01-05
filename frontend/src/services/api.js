@@ -152,7 +152,6 @@ api.interceptors.response.use(
       message = error.message
     }
     
-    console.error('API Error:', error.code, error.message) // For debugging
     return Promise.reject(new Error(message))
   }
 )
@@ -192,7 +191,6 @@ export const groupsAPI = {
     if (!offlineDetector.getStatus()) {
       const cached = await apiCache.getGroups()
       if (cached) {
-        console.log('📦 Serving groups from cache (offline)')
         return { data: cached }
       }
       throw new Error('No cached groups available. Please connect to the internet.')
@@ -208,7 +206,6 @@ export const groupsAPI = {
       if (cached) {
         const group = cached.find(g => g.id === id)
         if (group) {
-          console.log('📦 Serving group from cache (offline)')
           return { data: group }
         }
       }
@@ -221,7 +218,6 @@ export const groupsAPI = {
   create: async (data) => {
     // If offline, add to queue
     if (!offlineDetector.getStatus()) {
-      console.log('📥 Offline - queuing group creation')
       const queueItem = await addToQueue(QUEUE_TYPE.CREATE_GROUP, data)
       
       return {
@@ -240,7 +236,6 @@ export const groupsAPI = {
   update: async (id, data) => {
     // If offline, add to queue
     if (!offlineDetector.getStatus()) {
-      console.log('📥 Offline - queuing group update')
       await addToQueue(QUEUE_TYPE.UPDATE_GROUP, { id, ...data })
       
       return {
@@ -258,7 +253,6 @@ export const groupsAPI = {
   delete: async (id) => {
     // If offline, add to queue
     if (!offlineDetector.getStatus()) {
-      console.log('📥 Offline - queuing group deletion')
       await addToQueue(QUEUE_TYPE.DELETE_GROUP, { id })
       
       return { data: { id, deleted: true, is_pending: true } }
@@ -278,7 +272,6 @@ export const expensesAPI = {
     if (!offlineDetector.getStatus()) {
       const cached = await apiCache.getExpenses()
       if (cached) {
-        console.log('📦 Serving expenses from cache (offline)')
         return { data: cached }
       }
       throw new Error('No cached data available. Please connect to the internet.')
@@ -294,7 +287,6 @@ export const expensesAPI = {
       const cached = await apiCache.getExpenses()
       if (cached) {
         const filtered = cached.filter(e => e.group_id === groupId)
-        console.log('📦 Serving group expenses from cache (offline)')
         return { data: filtered }
       }
       throw new Error('No cached data available. Please connect to the internet.')
@@ -310,7 +302,6 @@ export const expensesAPI = {
       if (cached) {
         const expense = cached.find(e => e.id === id)
         if (expense) {
-          console.log('📦 Serving expense from cache (offline)')
           return { data: expense }
         }
       }
@@ -321,40 +312,28 @@ export const expensesAPI = {
   },
   
   create: async (data) => {
-    const isOffline = !offlineDetector.getStatus()
-    console.log('🔍 Expense creation - Offline status:', isOffline, 'navigator.onLine:', navigator.onLine)
-    
     // If offline, add to queue instead of calling API
-    if (isOffline) {
-      console.log('📥 Offline - queuing expense creation', data)
-      try {
-        const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
-        console.log('✅ Successfully queued expense:', queueItem)
-        
-        // Return optimistic response
-        return {
-          data: {
-            id: `pending-${queueItem.id}`, // Temporary ID
-            ...data,
-            is_pending: true,
-            queue_id: queueItem.id
-          }
+    if (!offlineDetector.getStatus()) {
+      const queueItem = await addToQueue(QUEUE_TYPE.CREATE_EXPENSE, data)
+      
+      // Return optimistic response
+      return {
+        data: {
+          id: `pending-${queueItem.id}`,
+          ...data,
+          is_pending: true,
+          queue_id: queueItem.id
         }
-      } catch (error) {
-        console.error('❌ Failed to queue expense:', error)
-        throw error
       }
     }
     
     // Online - make API call
-    console.log('🌐 Online - making API call for expense creation')
     return api.post('/api/expenses/', data)
   },
   
   update: async (id, data) => {
     // If offline, add to queue
     if (!offlineDetector.getStatus()) {
-      console.log('📥 Offline - queuing expense update')
       await addToQueue(QUEUE_TYPE.UPDATE_EXPENSE, { id, ...data })
       
       // Return optimistic response
@@ -374,7 +353,6 @@ export const expensesAPI = {
   delete: async (id) => {
     // If offline, add to queue
     if (!offlineDetector.getStatus()) {
-      console.log('📥 Offline - queuing expense deletion')
       await addToQueue(QUEUE_TYPE.DELETE_EXPENSE, { id })
       
       // Return optimistic response
@@ -391,7 +369,6 @@ export const expensesAPI = {
       const userId = localStorage.getItem('userId')
       const cached = await apiCache.getBalances(userId)
       if (cached) {
-        console.log('📦 Serving balances from cache (offline)')
         return { data: cached }
       }
       throw new Error('No cached balances available. Please connect to the internet.')
@@ -409,7 +386,6 @@ export const expensesAPI = {
     if (!offlineDetector.getStatus()) {
       const cached = await apiCache.getDrafts()
       if (cached) {
-        console.log('📦 Serving drafts from cache (offline)')
         return { data: cached }
       }
       return { data: [] } // Return empty array if no cache

@@ -168,36 +168,27 @@ function DashboardPage() {
   const loadPendingExpenses = async () => {
     try {
       const queueItems = await getAllItems()
-      console.log('🔍 All queue items:', queueItems.length, queueItems)
       
       const pending = queueItems
-        .filter(item => {
-          const isExpense = item.type === QUEUE_TYPE.CREATE_EXPENSE
-          const isPendingOrSyncing = item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.SYNCING
-          console.log('🔍 Queue item:', { type: item.type, status: item.status, isExpense, isPendingOrSyncing })
-          return isExpense && isPendingOrSyncing
-        })
-        .map(item => {
-          const expense = {
-            id: `pending-${item.id}`,
-            ...item.data,
-            is_pending: true,
-            queue_id: item.id,
-            queue_status: item.status,
-            created_at: new Date(item.createdAt).toISOString(),
-            expense_date: item.data.expense_date || new Date().toISOString().split('T')[0],
-            // Ensure required fields have defaults
-            category: item.data.category || 'other',
-            amount: item.data.amount || 0,
-            description: item.data.description || 'Pending expense',
-            paid_by_id: item.data.paid_by_id || user?.id,
-            splits: item.data.splits || []
-          }
-          console.log('📋 Mapped pending expense:', expense)
-          return expense
-        })
+        .filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && 
+          (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.SYNCING)
+        )
+        .map(item => ({
+          id: `pending-${item.id}`,
+          ...item.data,
+          is_pending: true,
+          queue_id: item.id,
+          queue_status: item.status,
+          created_at: new Date(item.createdAt).toISOString(),
+          expense_date: item.data.expense_date || new Date().toISOString().split('T')[0],
+          category: item.data.category || 'other',
+          amount: item.data.amount || 0,
+          description: item.data.description || 'Pending expense',
+          paid_by_id: item.data.paid_by_id || user?.id,
+          splits: item.data.splits || []
+        }))
       
-      console.log('📋 Pending expenses from queue:', pending.length, pending)
       setPendingExpenses(pending)
     } catch (error) {
       console.error('❌ Failed to load pending expenses:', error)
@@ -563,11 +554,10 @@ function DashboardPage() {
                               ₹{Math.abs(balance).toFixed(2)}
                             </p>
                           </div>
-                        </div>
                       </div>
-                    )
-                  })
-              })()}
+                    </div>
+                  )
+                })}
             </div>
           )}
         </div>
