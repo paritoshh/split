@@ -52,7 +52,7 @@ function Layout({ children }) {
       <OfflineBanner />
       
       {/* Mobile Header - compact with safe area for notch */}
-      <header className={`lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top ${!isOnline ? 'mt-16' : ''}`}>
+      <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top">
         <Link to="/dashboard" className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
             <Split className="w-4 h-4 text-white" />
