@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../App'
 import { expensesAPI, groupsAPI } from '../services/api'
 import { offlineDetector } from '../services/offline/detector'
+import { getAllItems, QUEUE_TYPE, QUEUE_STATUS } from '../services/offline/syncQueue'
 import Layout from '../components/Layout'
 import SettleUpModal from '../components/SettleUpModal'
 import VoiceExpenseModal from '../components/VoiceExpenseModal'
@@ -34,6 +35,7 @@ function DashboardPage() {
   const [groups, setGroups] = useState([])
   const [expenses, setExpenses] = useState([])
   const [drafts, setDrafts] = useState([])
+  const [pendingExpenses, setPendingExpenses] = useState([]) // Pending expenses from queue
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('recent') // 'recent' or 'drafts'
@@ -131,15 +133,18 @@ function DashboardPage() {
       if (mountedRef.current) {
         setBalances(balancesRes.data)
         setGroups(groupsRes.data)
-        setExpenses(expensesRes.data)
-        const draftsData = draftsRes.data || []
-        console.log('📝 Drafts fetched:', draftsData.length, draftsData)
-        setDrafts(draftsData)
-        
-        // Show cache indicator if we're offline
-        if (wasOffline) {
-          setUsingCache(true)
-        }
+      setExpenses(expensesRes.data)
+      const draftsData = draftsRes.data || []
+      console.log('📝 Drafts fetched:', draftsData.length, draftsData)
+      setDrafts(draftsData)
+      
+      // Load pending expenses from sync queue
+      await loadPendingExpenses()
+      
+      // Show cache indicator if we're offline
+      if (wasOffline) {
+        setUsingCache(true)
+      }
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -158,6 +163,42 @@ function DashboardPage() {
       fetchingRef.current = false
     }
   }
+
+  // Load pending expenses from sync queue
+  const loadPendingExpenses = async () => {
+    try {
+      const queueItems = await getAllItems()
+      const pending = queueItems
+        .filter(item => 
+          item.type === QUEUE_TYPE.CREATE_EXPENSE && 
+          (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.SYNCING)
+        )
+        .map(item => ({
+          id: `pending-${item.id}`,
+          ...item.data,
+          is_pending: true,
+          queue_id: item.id,
+          queue_status: item.status,
+          created_at: new Date(item.createdAt).toISOString(),
+          expense_date: item.data.expense_date || new Date().toISOString().split('T')[0]
+        }))
+      
+      setPendingExpenses(pending)
+      console.log('📋 Pending expenses from queue:', pending.length)
+    } catch (error) {
+      console.warn('Failed to load pending expenses:', error)
+    }
+  }
+
+  // Refresh pending expenses periodically
+  useEffect(() => {
+    loadPendingExpenses()
+    const interval = setInterval(() => {
+      loadPendingExpenses()
+    }, 2000) // Check every 2 seconds
+    
+    return () => clearInterval(interval)
+  }, [])
 
   // Handle opening voice modal - fetch group details first
   const handleOpenVoiceModal = async (group) => {
@@ -439,41 +480,59 @@ function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {expenses.filter(e => !e.is_draft).slice(0, 4).map(expense => {
-                // Determine if user paid or owes
-                const userPaid = expense.paid_by_id === user?.id
-                const userSplit = expense.splits?.find(s => s.user_id === user?.id)
-                const userShare = userSplit?.amount || 0
-                const balance = userPaid ? expense.amount - userShare : -userShare
+              {/* Merge regular expenses with pending expenses */}
+              {[...expenses.filter(e => !e.is_draft), ...pendingExpenses]
+                .sort((a, b) => {
+                  // Sort by date (newest first)
+                  const dateA = new Date(a.expense_date || a.created_at || 0)
+                  const dateB = new Date(b.expense_date || b.created_at || 0)
+                  return dateB - dateA
+                })
+                .slice(0, 4)
+                .map(expense => {
+                  // Determine if user paid or owes
+                  const userPaid = expense.paid_by_id === user?.id
+                  const userSplit = expense.splits?.find(s => s.user_id === user?.id)
+                  const userShare = userSplit?.amount || 0
+                  const balance = userPaid ? expense.amount - userShare : -userShare
+                  const isPending = expense.is_pending || expense.id?.startsWith('pending-')
 
-                return (
-                  <Link 
-                    key={expense.id} 
-                    to={`/expenses/${expense.id}`}
-                    className="card block hover:border-primary-500/30 transition-all"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                          ${getCategoryColor(expense.category)}`}>
-                          <Receipt className="w-4 h-4" />
+                  return (
+                    <div
+                      key={expense.id} 
+                      className={`card block hover:border-primary-500/30 transition-all ${
+                        isPending ? 'border-yellow-500/30 bg-yellow-500/5' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                            ${getCategoryColor(expense.category)}`}>
+                            <Receipt className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-white text-sm truncate">{expense.description}</h3>
+                              {isPending && (
+                                <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-[10px] rounded flex-shrink-0">
+                                  {expense.queue_status === 'syncing' ? 'Syncing...' : 'Pending'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                              {expense.group_name || 'Personal'} • {formatDate(expense.expense_date)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="font-medium text-white text-sm truncate">{expense.description}</h3>
-                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                            {expense.group_name || 'Personal'} • {formatDate(expense.expense_date)}
+                        <div className="text-right flex-shrink-0">
+                          <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            ₹{Math.abs(balance).toFixed(2)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className={`font-semibold text-sm ${balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          ₹{Math.abs(balance).toFixed(2)}
-                        </p>
-                      </div>
                     </div>
-                  </Link>
-                )
-              })}
+                  )
+                })}
             </div>
           )}
         </div>
