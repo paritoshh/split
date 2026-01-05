@@ -26,6 +26,9 @@ export default defineConfig({
   server: {
     port: 5173,  // Default Vite port
     open: true,  // Auto-open browser when starting
+    hmr: {
+      clientPort: 5173,  // Fix WebSocket connection
+    },
     
     // Proxy API requests to backend
     // This solves CORS issues during development
@@ -33,6 +36,7 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',  // Backend URL (use 127.0.0.1 instead of localhost)
         changeOrigin: true,
+        ws: true,  // Enable WebSocket proxying
       }
     }
   },

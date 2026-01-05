@@ -17,13 +17,15 @@ class OfflineDetector {
     window.addEventListener('online', this.handleOnline.bind(this))
     window.addEventListener('offline', this.handleOffline.bind(this))
     
-    // Initial connectivity check
-    this.checkConnectivity()
+    // Initial connectivity check (delayed to not interfere with app startup)
+    setTimeout(() => {
+      this.checkConnectivity()
+    }, 1000)
     
-    // Poll connectivity every 5 seconds
+    // Poll connectivity every 10 seconds (less frequent to avoid interference)
     setInterval(() => {
       this.checkConnectivity()
-    }, 5000)
+    }, 10000)
   }
 
   /**
@@ -36,8 +38,9 @@ class OfflineDetector {
     
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2000)
+      const timeoutId = setTimeout(() => controller.abort(), 1500)
       
+      // Use a lightweight check that won't interfere with API calls
       const fetchPromise = fetch('https://www.google.com/favicon.ico', {
         method: 'HEAD',
         mode: 'no-cors',
@@ -58,8 +61,8 @@ class OfflineDetector {
         this.notifyListeners(actuallyOnline)
       }
     } catch (error) {
-      // If check fails, assume offline
-      if (this.isOnline) {
+      // Silently handle errors - don't spam console
+      if (this.isOnline && error.name !== 'AbortError') {
         this.isOnline = false
         this.notifyListeners(false)
       }
