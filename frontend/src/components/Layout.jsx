@@ -73,13 +73,14 @@ function Layout({ children }) {
       
       {/* Mobile Header - compact with safe area for notch, positioned below banners */}
       <header 
-        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top transition-all duration-200"
+        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200"
         style={{ 
           position: 'fixed',
           top: mobileHeaderTop,
           left: 0,
           right: 0,
-          zIndex: 20
+          zIndex: 20,
+          paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)'
         }}
       >
         <Link to="/dashboard" className="flex items-center gap-1.5">
@@ -242,11 +243,9 @@ function Layout({ children }) {
         {/* Main Content - compact padding on mobile with safe area for bottom */}
         {/* Add padding-top on mobile when banners are visible to prevent overlap */}
         <main 
-          className={`flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom transition-all duration-200 ${
-            isOfflineBannerVisible || isPendingBannerVisible ? 'lg:pt-0 pt-20' : ''
-          }`}
+          className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom transition-all duration-200"
           style={{
-            paddingTop: (isOfflineBannerVisible || isPendingBannerVisible) && window.innerWidth < 1024
+            paddingTop: typeof window !== 'undefined' && window.innerWidth < 1024
               ? `${(isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0) + 60}px`
               : undefined
           }}
