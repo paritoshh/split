@@ -60,12 +60,12 @@ function Layout({ children }) {
       {/* Pending Expenses Banner - shown when there are pending expenses */}
       <PendingExpensesBanner onVisibilityChange={setIsPendingBannerVisible} />
       
-      {/* Mobile Header - add top padding to account for fixed banners */}
+      {/* Mobile Header - add top margin to push below fixed banners */}
       <header 
         className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200"
         style={{ 
-          paddingTop: `calc(env(safe-area-inset-top, 0px) + ${bannerHeight > 0 ? bannerHeight + 8 : 8}px)`,
-          marginTop: 0
+          marginTop: bannerHeight > 0 ? `${bannerHeight}px` : '0px',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)'
         }}
       >
         <Link to="/dashboard" className="flex items-center gap-1.5">
