@@ -167,13 +167,21 @@ TABLE_DEFINITIONS = {
         ],
         "AttributeDefinitions": [
             {"AttributeName": "user_id", "AttributeType": "S"},
-            {"AttributeName": "email", "AttributeType": "S"}
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "mobile", "AttributeType": "S"}
         ],
         "GlobalSecondaryIndexes": [
             {
                 "IndexName": "email-index",
                 "KeySchema": [
                     {"AttributeName": "email", "KeyType": "HASH"}
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            },
+            {
+                "IndexName": "mobile-index",
+                "KeySchema": [
+                    {"AttributeName": "mobile", "KeyType": "HASH"}
                 ],
                 "Projection": {"ProjectionType": "ALL"}
             }
@@ -303,6 +311,52 @@ TABLE_DEFINITIONS = {
         "AttributeDefinitions": [
             {"AttributeName": "user_id", "AttributeType": "S"},
             {"AttributeName": "notification_id", "AttributeType": "S"}
+        ]
+    },
+    "otps": {
+        "KeySchema": [
+            {"AttributeName": "mobile", "KeyType": "HASH"},
+            {"AttributeName": "otp_id", "KeyType": "RANGE"}
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "mobile", "AttributeType": "S"},
+            {"AttributeName": "otp_id", "AttributeType": "S"}
+        ]
+    },
+    "email_verification_codes": {
+        "KeySchema": [
+            {"AttributeName": "email", "KeyType": "HASH"},
+            {"AttributeName": "code_id", "KeyType": "RANGE"}
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "code_id", "AttributeType": "S"}
+        ]
+    },
+    "support_queries": {
+        "KeySchema": [
+            {"AttributeName": "enquiry_id", "KeyType": "HASH"}
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "enquiry_id", "AttributeType": "S"},
+            {"AttributeName": "mobile", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"}
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "mobile-index",
+                "KeySchema": [
+                    {"AttributeName": "mobile", "KeyType": "HASH"}
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            },
+            {
+                "IndexName": "email-index",
+                "KeySchema": [
+                    {"AttributeName": "email", "KeyType": "HASH"}
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            }
         ]
     }
 }

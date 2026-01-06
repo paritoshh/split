@@ -94,19 +94,19 @@ async def get_current_user(
             algorithms=[settings.algorithm]
         )
         
-        email: str = payload.get("sub")
+        mobile: str = payload.get("sub")  # Changed from email to mobile
         user_id = payload.get("user_id")
         
-        if email is None:
+        if mobile is None:
             raise credentials_exception
             
-        token_data = TokenData(email=email, user_id=user_id)
+        token_data = TokenData(mobile=mobile, user_id=user_id)
         
     except JWTError:
         raise credentials_exception
     
-    # Get user from database using the service
-    user = db_service.get_user_by_email(token_data.email)
+    # Get user from database using mobile
+    user = db_service.get_user_by_mobile(token_data.mobile)
     
     if user is None:
         raise credentials_exception
@@ -120,13 +120,13 @@ async def get_current_user(
     return user
 
 
-def authenticate_user(db_service: DBService, email: str, password: str) -> Optional[dict]:
+def authenticate_user(db_service: DBService, mobile: str, password: str) -> Optional[dict]:
     """
-    Authenticate a user with email and password.
+    Authenticate a user with mobile and password.
     
     Returns user dict if credentials are valid, None otherwise.
     """
-    user = db_service.get_user_by_email(email)
+    user = db_service.get_user_by_mobile(mobile)
     
     if not user:
         return None

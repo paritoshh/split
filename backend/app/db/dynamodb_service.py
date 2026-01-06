@@ -101,10 +101,9 @@ class DynamoDBService:
     # USER OPERATIONS
     # ===========================================
     
-    def create_user(self, email: str, name: str, hashed_password: str, 
-                   phone: Optional[str] = None) -> dict:
+    def create_user(self, mobile: str, name: str, hashed_password: str, 
+                   email: Optional[str] = None, email_verified: bool = False) -> dict:
         """Create a new user."""
-        # Use get_dynamodb_client() to ensure endpoint_url is included for local DynamoDB
         from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
         client = get_dynamodb_client()
@@ -114,21 +113,25 @@ class DynamoDBService:
         
         item = {
             "user_id": user_id,
-            "email": email.lower(),
+            "mobile": mobile,
             "name": name,
             "hashed_password": hashed_password,
-            "phone": phone,
             "is_active": True,
+            "mobile_verified": True,  # OTP was verified
+            "email_verified": email_verified,
             "created_at": now_iso(),
             "updated_at": now_iso()
         }
         
-        # Remove None values
-        item = {k: v for k, v in item.items() if v is not None}
+        # Add email if provided
+        if email:
+            item["email"] = email.lower()
         
         # Convert to DynamoDB format
         dynamodb_item = {}
         for key, value in item.items():
+            if value is None:
+                continue
             if isinstance(value, str):
                 dynamodb_item[key] = {"S": value}
             elif isinstance(value, bool):
@@ -139,7 +142,7 @@ class DynamoDBService:
                 dynamodb_item[key] = {"S": str(value)}
         
         client.put_item(TableName=table_name, Item=dynamodb_item)
-        return self._user_to_response(item)
+        return self._user_to_response(dynamodb_item)
     
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         """Get user by ID."""
@@ -201,6 +204,28 @@ class DynamoDBService:
             return None
         
         # _user_to_response will handle deserialization
+        return self._user_to_response(items[0])
+    
+    def get_user_by_mobile(self, mobile: str) -> Optional[dict]:
+        """Get user by mobile number."""
+        from app.db.dynamodb_client import get_table_name, get_dynamodb_client
+        
+        client = get_dynamodb_client()
+        table_name = get_table_name("users")
+        
+        response = client.query(
+            TableName=table_name,
+            IndexName="mobile-index",
+            KeyConditionExpression="mobile = :mobile",
+            ExpressionAttributeValues={
+                ":mobile": {"S": mobile}
+            }
+        )
+        items = response.get("Items", [])
+        
+        if not items:
+            return None
+        
         return self._user_to_response(items[0])
     
     def search_users(self, query: str, exclude_ids: List[str] = None) -> List[dict]:
@@ -313,11 +338,13 @@ class DynamoDBService:
         item = deserialize_dynamodb_item(item)
         return {
             "id": item.get("user_id"),
+            "mobile": item.get("mobile"),
             "email": item.get("email"),
             "name": item.get("name"),
-            "phone": item.get("phone"),
             "hashed_password": item.get("hashed_password"),
             "is_active": item.get("is_active", True),
+            "email_verified": item.get("email_verified", False),
+            "mobile_verified": item.get("mobile_verified", True),
             "created_at": item.get("created_at"),
             "updated_at": item.get("updated_at")
         }

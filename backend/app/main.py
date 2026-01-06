@@ -33,7 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.routers import auth, groups, expenses, notifications, settlements, ai
+from app.routers import auth, groups, expenses, notifications, settlements, ai, support
 
 
 # --- Lifespan Event Handler ---
@@ -135,6 +135,7 @@ app.include_router(expenses.router)       # /api/expenses/* endpoints
 app.include_router(notifications.router)  # /api/notifications/* endpoints
 app.include_router(settlements.router)    # /api/settlements/* endpoints
 app.include_router(ai.router)             # /api/ai/* endpoints
+app.include_router(support.router)        # /api/support/* endpoints
 
 
 # --- Root Endpoint ---

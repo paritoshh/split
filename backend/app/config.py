@@ -13,6 +13,7 @@ Why use a config file?
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional, Literal
 
 
@@ -67,6 +68,23 @@ class Settings(BaseSettings):
     # --- AI Features ---
     # OpenAI API key for smart features
     openai_api_key: Optional[str] = None
+    
+    # --- SMS Service (AWS SNS) ---
+    # AWS SNS is used for sending OTP via SMS
+    # No API key needed - uses IAM role in Lambda, or AWS credentials locally
+    # Note: SMS costs ~₹0.50-0.80 per message in India
+    
+    # --- Email Service (AWS SES) ---
+    # AWS SES is used for sending email verification codes
+    # Free tier: 62,000 emails/month
+    # No API key needed - uses IAM role in Lambda, or AWS credentials locally
+    # Email sender address (must be verified in SES)
+    ses_sender_email: Optional[str] = Field(None, description="Verified sender email address in AWS SES")
+    
+    # --- OTP Settings ---
+    otp_expiry_minutes: int = 5  # OTP expires in 5 minutes
+    otp_rate_limit_per_hour: int = 3  # Max 3 OTPs per mobile per hour
+    email_verification_expiry_days: int = 3  # Email verification code expires in 3 days
     
     # --- CORS ---
     # Which frontend URLs can access our API
