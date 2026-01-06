@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../App'
 import { expensesAPI, aiAPI } from '../services/api'
+import { offlineDetector } from '../services/offline/detector'
 import { 
   parseVoiceExpense, 
   isSpeechRecognitionSupported,
@@ -71,6 +72,7 @@ function VoiceExpenseModal({
   
   // AI status
   const [aiEnabled, setAiEnabled] = useState(false)
+  const [isOffline, setIsOffline] = useState(!offlineDetector.getStatus())
   
   // Speech recognition ref
   const recognitionRef = useRef(null)
@@ -78,20 +80,40 @@ function VoiceExpenseModal({
   // Check if speech recognition is supported
   const isSupported = isSpeechRecognitionSupported()
 
-  // Check AI status on mount
+  // Check AI status and offline status on mount
   useEffect(() => {
-    aiAPI.getStatus()
-      .then(res => {
-        console.log('🤖 AI Status Response:', res.data)
-        const enabled = res.data?.ai_enabled || false
-        console.log('🤖 AI Enabled:', enabled)
-        setAiEnabled(enabled)
-      })
-      .catch((err) => {
-        console.error('❌ Failed to check AI status:', err)
-        setAiEnabled(false)
-      })
-  }, [])
+    // Check offline status
+    const checkOffline = () => {
+      setIsOffline(!offlineDetector.getStatus())
+    }
+    checkOffline()
+    
+    const unsubscribe = offlineDetector.onStatusChange((isOnline) => {
+      setIsOffline(!isOnline)
+    })
+    
+    // Only check AI status if online
+    if (!isOffline) {
+      aiAPI.getStatus()
+        .then(res => {
+          console.log('🤖 AI Status Response:', res.data)
+          const enabled = res.data?.ai_enabled || false
+          console.log('🤖 AI Enabled:', enabled)
+          setAiEnabled(enabled)
+        })
+        .catch((err) => {
+          console.error('❌ Failed to check AI status:', err)
+          setAiEnabled(false)
+        })
+    } else {
+      // Offline - disable AI
+      setAiEnabled(false)
+    }
+    
+    return () => {
+      unsubscribe()
+    }
+  }, [isOffline])
 
   useEffect(() => {
     if (isOpen) {
@@ -218,56 +240,65 @@ function VoiceExpenseModal({
 
     let parsed = null
 
-    // Try AI parsing first if enabled
-    if (aiEnabled) {
-      try {
-        console.log('🤖 Attempting AI parsing...')
-        const response = await aiAPI.parseVoiceExpense(fullTranscript, groupMembers)
-        const aiResult = response.data
-
-        if (aiResult.success) {
-          console.log('✅ AI parsing successful')
-          setParsingMode('ai')
-          parsed = {
-            amount: aiResult.amount,
-            description: aiResult.description,
-            expenseDate: aiResult.expense_date,  // YYYY-MM-DD or null
-            matchedMembers: aiResult.matched_members.map(m => ({
-              user_id: m.user_id,
-              user_name: m.user_name,
-              confidence: m.confidence
-            })),
-            ambiguousNames: aiResult.ambiguous_names.map(a => ({
-              searchedName: a.searched_name,
-              possibleMatches: a.possible_matches.map(p => ({
-                user_id: p.user_id,
-                user_name: p.user_name,
-                confidence: p.confidence
-              }))
-            })),
-            unmatchedNames: aiResult.unmatched_names,
-            confidence: aiResult.confidence,
-            rawTranscript: fullTranscript
-          }
-        } else {
-          console.warn('⚠️ AI parsing returned success=false:', aiResult.error)
-        }
-      } catch (err) {
-        console.error('❌ AI parsing failed, falling back to local:', err)
-        console.error('Error details:', err.response?.data || err.message)
-        // Show user-friendly error if AI fails
-        if (err.response?.status === 503) {
-          setError('AI features are not configured. Using local parsing instead.')
-        }
-      }
-    } else {
-      console.log('ℹ️ AI not enabled, using local parsing')
-    }
-
-    // Fallback to local parsing
-    if (!parsed) {
+    // Check if offline - if so, skip AI and use regex parsing directly
+    const isCurrentlyOffline = !offlineDetector.getStatus()
+    
+    if (isCurrentlyOffline) {
+      console.log('📴 Offline detected - using local regex parsing')
       setParsingMode('local')
       parsed = parseVoiceExpense(fullTranscript, groupMembers)
+    } else {
+      // Try AI parsing first if enabled and online
+      if (aiEnabled) {
+        try {
+          console.log('🤖 Attempting AI parsing...')
+          const response = await aiAPI.parseVoiceExpense(fullTranscript, groupMembers)
+          const aiResult = response.data
+
+          if (aiResult.success) {
+            console.log('✅ AI parsing successful')
+            setParsingMode('ai')
+            parsed = {
+              amount: aiResult.amount,
+              description: aiResult.description,
+              expenseDate: aiResult.expense_date,  // YYYY-MM-DD or null
+              matchedMembers: aiResult.matched_members.map(m => ({
+                user_id: m.user_id,
+                user_name: m.user_name,
+                confidence: m.confidence
+              })),
+              ambiguousNames: aiResult.ambiguous_names.map(a => ({
+                searchedName: a.searched_name,
+                possibleMatches: a.possible_matches.map(p => ({
+                  user_id: p.user_id,
+                  user_name: p.user_name,
+                  confidence: p.confidence
+                }))
+              })),
+              unmatchedNames: aiResult.unmatched_names,
+              confidence: aiResult.confidence,
+              rawTranscript: fullTranscript
+            }
+          } else {
+            console.warn('⚠️ AI parsing returned success=false:', aiResult.error)
+          }
+        } catch (err) {
+          console.error('❌ AI parsing failed, falling back to local:', err)
+          console.error('Error details:', err.response?.data || err.message)
+          // Show user-friendly error if AI fails
+          if (err.response?.status === 503) {
+            setError('AI features are not configured. Using local parsing instead.')
+          }
+        }
+      } else {
+        console.log('ℹ️ AI not enabled, using local parsing')
+      }
+
+      // Fallback to local parsing
+      if (!parsed) {
+        setParsingMode('local')
+        parsed = parseVoiceExpense(fullTranscript, groupMembers)
+      }
     }
 
     setParsedExpense(parsed)
@@ -600,7 +631,7 @@ function VoiceExpenseModal({
                 ) : (
                   <>
                     <Zap className="w-4 h-4" />
-                    Parsed locally (regex)
+                    {isOffline ? 'Parsed offline (regex)' : 'Parsed locally (regex)'}
                   </>
                 )}
               </div>
