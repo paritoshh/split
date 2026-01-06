@@ -50,8 +50,9 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path
 
-  // Calculate total banner height
-  const bannerHeight = (isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0)
+  // Calculate total banner height (each banner is approximately 40-45px tall)
+  // Using 45px to be safe and account for padding
+  const bannerHeight = (isOfflineBannerVisible ? 45 : 0) + (isPendingBannerVisible ? 45 : 0)
 
   return (
     <div className="min-h-screen bg-dark-300">
