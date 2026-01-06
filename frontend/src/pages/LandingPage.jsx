@@ -279,7 +279,7 @@ function LandingPage() {
           </p>
           
           <p className="text-gray-500 text-sm">
-            © 2024 Hisab. All rights reserved.
+            © 2026 Hisab. All rights reserved.
           </p>
         </div>
       </footer>

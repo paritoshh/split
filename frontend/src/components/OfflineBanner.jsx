@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { WifiOff, AlertCircle } from 'lucide-react'
 
-function OfflineBanner() {
+function OfflineBanner({ onVisibilityChange }) {
   const [isOnline, setIsOnline] = useState(() => {
     try {
       return typeof navigator !== 'undefined' && navigator.onLine !== undefined 
@@ -21,6 +21,13 @@ function OfflineBanner() {
     }
   })
   const mountedRef = useRef(true)
+  
+  // Notify parent when visibility changes
+  useEffect(() => {
+    if (onVisibilityChange) {
+      onVisibilityChange(!isOnline)
+    }
+  }, [isOnline, onVisibilityChange])
 
   useEffect(() => {
     mountedRef.current = true

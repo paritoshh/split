@@ -11,10 +11,17 @@ import { useState, useEffect, useRef } from 'react'
 import { Clock } from 'lucide-react'
 import { getAllItems, QUEUE_TYPE, QUEUE_STATUS } from '../services/offline/syncQueue.js'
 
-function PendingExpensesBanner() {
+function PendingExpensesBanner({ onVisibilityChange }) {
   const [pendingCount, setPendingCount] = useState(0)
   const [isOffline, setIsOffline] = useState(false)
   const mountedRef = useRef(true)
+  
+  // Notify parent when visibility changes
+  useEffect(() => {
+    if (onVisibilityChange) {
+      onVisibilityChange(pendingCount > 0)
+    }
+  }, [pendingCount, onVisibilityChange])
 
   useEffect(() => {
     mountedRef.current = true

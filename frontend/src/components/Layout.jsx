@@ -34,6 +34,8 @@ function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isOfflineBannerVisible, setIsOfflineBannerVisible] = useState(false)
+  const [isPendingBannerVisible, setIsPendingBannerVisible] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -48,15 +50,38 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path
 
+  // Calculate top offset for mobile header based on banners
+  const mobileHeaderTop = isOfflineBannerVisible && isPendingBannerVisible 
+    ? '80px' 
+    : (isOfflineBannerVisible || isPendingBannerVisible) 
+      ? '40px' 
+      : '0px'
+  
+  // Calculate padding-top for main content on mobile
+  const mobileContentPadding = isOfflineBannerVisible && isPendingBannerVisible 
+    ? 'pt-20' 
+    : (isOfflineBannerVisible || isPendingBannerVisible) 
+      ? 'pt-10' 
+      : 'pt-0'
+
   return (
     <div className="min-h-screen bg-dark-300">
       {/* Offline Banner - shown at top when offline */}
-      <OfflineBanner />
+      <OfflineBanner onVisibilityChange={setIsOfflineBannerVisible} />
       {/* Pending Expenses Banner - shown when there are pending expenses */}
-      <PendingExpensesBanner />
+      <PendingExpensesBanner onVisibilityChange={setIsPendingBannerVisible} />
       
-      {/* Mobile Header - compact with safe area for notch */}
-      <header className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top">
+      {/* Mobile Header - compact with safe area for notch, positioned below banners */}
+      <header 
+        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top transition-all duration-200"
+        style={{ 
+          position: 'fixed',
+          top: mobileHeaderTop,
+          left: 0,
+          right: 0,
+          zIndex: 20
+        }}
+      >
         <Link to="/dashboard" className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
             <Split className="w-4 h-4 text-white" />
@@ -215,7 +240,17 @@ function Layout({ children }) {
         </aside>
 
         {/* Main Content - compact padding on mobile with safe area for bottom */}
-        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom">
+        {/* Add padding-top on mobile when banners are visible to prevent overlap */}
+        <main 
+          className={`flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom transition-all duration-200 ${
+            isOfflineBannerVisible || isPendingBannerVisible ? 'lg:pt-0 pt-20' : ''
+          }`}
+          style={{
+            paddingTop: (isOfflineBannerVisible || isPendingBannerVisible) && window.innerWidth < 1024
+              ? `${(isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0) + 60}px`
+              : undefined
+          }}
+        >
           {children}
         </main>
       </div>
