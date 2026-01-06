@@ -104,8 +104,12 @@ function OfflineBanner({ onVisibilityChange }) {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-40 bg-yellow-500/20 backdrop-blur-sm border-b border-yellow-500/30">
-      <div className="max-w-7xl mx-auto px-4 py-2">
+    <div 
+      className="fixed top-0 left-0 right-0 z-40 bg-yellow-500/20 backdrop-blur-sm border-b border-yellow-500/30"
+      id="offline-banner"
+      data-banner-height="48"
+    >
+      <div className="max-w-7xl mx-auto px-4 py-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           <WifiOff className="w-4 h-4 text-yellow-400 flex-shrink-0" />
           <span className="text-sm font-medium text-yellow-300">

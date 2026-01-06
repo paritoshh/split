@@ -50,9 +50,42 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path
 
-  // Calculate total banner height (each banner is approximately 40-45px tall)
-  // Using 45px to be safe and account for padding
-  const bannerHeight = (isOfflineBannerVisible ? 45 : 0) + (isPendingBannerVisible ? 45 : 0)
+  // Calculate total banner height (each banner is approximately 48px tall with padding)
+  // Measure actual height from DOM if available, otherwise use 48px per banner
+  const [actualBannerHeight, setActualBannerHeight] = useState(0)
+  
+  useEffect(() => {
+    const calculateBannerHeight = () => {
+      let totalHeight = 0
+      const offlineBanner = document.getElementById('offline-banner')
+      const pendingBanner = document.getElementById('pending-banner')
+      
+      if (offlineBanner && isOfflineBannerVisible) {
+        totalHeight += offlineBanner.offsetHeight || 48
+      }
+      if (pendingBanner && isPendingBannerVisible) {
+        totalHeight += pendingBanner.offsetHeight || 48
+      }
+      
+      setActualBannerHeight(totalHeight)
+    }
+    
+    // Calculate after a short delay to ensure banners are rendered
+    const timeoutId = setTimeout(calculateBannerHeight, 100)
+    
+    // Recalculate on window resize
+    window.addEventListener('resize', calculateBannerHeight)
+    
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener('resize', calculateBannerHeight)
+    }
+  }, [isOfflineBannerVisible, isPendingBannerVisible])
+  
+  // Use actual height if available, otherwise fallback to calculated
+  const bannerHeight = actualBannerHeight > 0 
+    ? actualBannerHeight 
+    : (isOfflineBannerVisible ? 48 : 0) + (isPendingBannerVisible ? 48 : 0)
 
   return (
     <div className="min-h-screen bg-dark-300">
