@@ -21,7 +21,7 @@ import {
   User,
   Settings
 } from 'lucide-react'
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import NotificationBell from './NotificationBell'
 import OfflineBanner from './OfflineBanner'
 import PendingExpensesBanner from './PendingExpensesBanner'
