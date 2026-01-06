@@ -50,19 +50,8 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path
 
-  // Calculate top offset for mobile header based on banners
-  const mobileHeaderTop = isOfflineBannerVisible && isPendingBannerVisible 
-    ? '80px' 
-    : (isOfflineBannerVisible || isPendingBannerVisible) 
-      ? '40px' 
-      : '0px'
-  
-  // Calculate padding-top for main content on mobile
-  const mobileContentPadding = isOfflineBannerVisible && isPendingBannerVisible 
-    ? 'pt-20' 
-    : (isOfflineBannerVisible || isPendingBannerVisible) 
-      ? 'pt-10' 
-      : 'pt-0'
+  // Calculate padding-top for main content on mobile when banners are visible
+  const bannerHeight = (isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0)
 
   return (
     <div className="min-h-screen bg-dark-300">
@@ -71,16 +60,11 @@ function Layout({ children }) {
       {/* Pending Expenses Banner - shown when there are pending expenses */}
       <PendingExpensesBanner onVisibilityChange={setIsPendingBannerVisible} />
       
-      {/* Mobile Header - compact with safe area for notch, positioned below banners */}
+      {/* Mobile Header - compact with safe area for notch */}
       <header 
-        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200"
+        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top transition-all duration-200"
         style={{ 
-          position: 'fixed',
-          top: mobileHeaderTop,
-          left: 0,
-          right: 0,
-          zIndex: 20,
-          paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)'
+          marginTop: bannerHeight > 0 ? `${bannerHeight}px` : '0px'
         }}
       >
         <Link to="/dashboard" className="flex items-center gap-1.5">
@@ -241,15 +225,8 @@ function Layout({ children }) {
         </aside>
 
         {/* Main Content - compact padding on mobile with safe area for bottom */}
-        {/* Add padding-top on mobile when banners are visible to prevent overlap */}
-        <main 
-          className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom transition-all duration-200"
-          style={{
-            paddingTop: typeof window !== 'undefined' && window.innerWidth < 1024
-              ? `${(isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0) + 60}px`
-              : undefined
-          }}
-        >
+        {/* No extra padding needed - header already has margin-top when banners are visible */}
+        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom">
           {children}
         </main>
       </div>
