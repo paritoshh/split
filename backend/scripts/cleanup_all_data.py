@@ -62,11 +62,25 @@ def delete_all_items_from_table(client, table_name: str):
             delete_requests = []
             for item in batch:
                 # Extract key attributes (varies by table)
+                # DynamoDB items are in low-level format: {"field": {"S": "value"}}
                 key = {}
+                
+                # Helper to get value from DynamoDB format
+                def get_value(field_name):
+                    if field_name in item:
+                        field_data = item[field_name]
+                        # Handle DynamoDB low-level format
+                        if isinstance(field_data, dict):
+                            # Get the type and value
+                            for dtype in ['S', 'N', 'BOOL']:
+                                if dtype in field_data:
+                                    return field_data[dtype] if dtype != 'BOOL' else field_data[dtype]
+                        return field_data
+                    return None
                 
                 # Determine key structure based on table name
                 if 'user_id' in item:
-                    key['user_id'] = item['user_id']
+                    key['user_id'] = item['user_id']  # Keep in DynamoDB format
                 elif 'group_id' in item:
                     key['group_id'] = item['group_id']
                     if 'user_id' in item:  # Composite key
@@ -119,6 +133,7 @@ def delete_all_items_from_table(client, table_name: str):
                     
                     for item in batch:
                         key = {}
+                        # Keep keys in DynamoDB format (they're already in correct format from scan)
                         if 'user_id' in item:
                             key['user_id'] = item['user_id']
                         elif 'group_id' in item:
