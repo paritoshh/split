@@ -63,7 +63,7 @@ function Layout({ children }) {
       
       {/* Mobile Header - add top margin to push below fixed banners */}
       <header 
-        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200"
+        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200 relative z-10"
         style={{ 
           marginTop: bannerHeight > 0 ? `${bannerHeight}px` : '0px',
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)'
@@ -98,7 +98,12 @@ function Layout({ children }) {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-dark-200 p-4 animate-slide-right safe-top">
+          <aside 
+            className="absolute left-0 top-0 bottom-0 w-64 bg-dark-200 p-4 animate-slide-right"
+            style={{
+              paddingTop: `calc(env(safe-area-inset-top, 0px) + ${bannerHeight > 0 ? bannerHeight + 16 : 16}px)`
+            }}
+          >
             <div className="flex items-center justify-between mb-4">
               <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
