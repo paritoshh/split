@@ -50,7 +50,7 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path
 
-  // Calculate padding-top for main content on mobile when banners are visible
+  // Calculate total banner height
   const bannerHeight = (isOfflineBannerVisible ? 40 : 0) + (isPendingBannerVisible ? 40 : 0)
 
   return (
@@ -60,11 +60,12 @@ function Layout({ children }) {
       {/* Pending Expenses Banner - shown when there are pending expenses */}
       <PendingExpensesBanner onVisibilityChange={setIsPendingBannerVisible} />
       
-      {/* Mobile Header - compact with safe area for notch */}
+      {/* Mobile Header - add top padding to account for fixed banners */}
       <header 
-        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 safe-top transition-all duration-200"
+        className="lg:hidden flex items-center justify-between p-2 sm:p-3 bg-dark-200 border-b border-gray-800 transition-all duration-200"
         style={{ 
-          marginTop: bannerHeight > 0 ? `${bannerHeight}px` : '0px'
+          paddingTop: `calc(env(safe-area-inset-top, 0px) + ${bannerHeight > 0 ? bannerHeight + 8 : 8}px)`,
+          marginTop: 0
         }}
       >
         <Link to="/dashboard" className="flex items-center gap-1.5">
@@ -224,9 +225,15 @@ function Layout({ children }) {
           </div>
         </aside>
 
-        {/* Main Content - compact padding on mobile with safe area for bottom */}
-        {/* No extra padding needed - header already has margin-top when banners are visible */}
-        <main className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom">
+        {/* Main Content - add top padding on desktop when banners are visible */}
+        <main 
+          className="flex-1 lg:ml-64 p-3 sm:p-4 lg:p-8 pb-6 safe-bottom"
+          style={{
+            paddingTop: typeof window !== 'undefined' && window.innerWidth >= 1024 && bannerHeight > 0
+              ? `calc(2rem + ${bannerHeight}px)`
+              : undefined
+          }}
+        >
           {children}
         </main>
       </div>
