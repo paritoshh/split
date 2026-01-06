@@ -109,12 +109,12 @@ function PendingExpensesBanner({ onVisibilityChange }) {
 
     loadPendingCount()
 
-    // Poll for updates every 5 seconds (reduced frequency to avoid performance issues)
+    // Poll for updates every 30 seconds (reduced frequency to save battery/resources)
     const interval = setInterval(() => {
       if (mountedRef.current) {
         loadPendingCount()
       }
-    }, 5000)
+    }, 30000)
 
     return () => {
       mountedRef.current = false

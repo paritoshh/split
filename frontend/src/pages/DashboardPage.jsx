@@ -198,7 +198,7 @@ function DashboardPage() {
     loadPendingExpenses()
     const interval = setInterval(() => {
       loadPendingExpenses()
-    }, 2000) // Check every 2 seconds
+    }, 30000) // Check every 30 seconds (reduced frequency to save battery/resources)
     
     return () => clearInterval(interval)
   }, [])

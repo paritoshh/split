@@ -215,12 +215,12 @@ export const startAutoSync = () => {
     processQueue()
   }
   
-  // Sync every 30 seconds when online
+  // Sync every 60 seconds when online (reduced frequency to save battery/resources)
   autoSyncInterval = setInterval(() => {
     if (offlineDetector.getStatus()) {
       processQueue()
     }
-  }, 30000) // 30 seconds
+  }, 60000) // 60 seconds
   
   console.log('🔄 Auto-sync started')
 }

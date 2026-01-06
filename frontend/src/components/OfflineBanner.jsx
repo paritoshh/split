@@ -83,12 +83,12 @@ function OfflineBanner({ onVisibilityChange }) {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     
-    // Poll connectivity every 10 seconds
+    // Poll connectivity every 30 seconds (reduced frequency to save battery/resources)
     const statusCheckInterval = setInterval(() => {
       if (mountedRef.current) {
         updateStatus()
       }
-    }, 10000)
+    }, 30000)
     
     return () => {
       mountedRef.current = false
