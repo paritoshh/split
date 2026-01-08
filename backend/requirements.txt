@@ -37,6 +37,7 @@ python-dotenv==1.0.0      # Load environment variables from .env file
 # --- AWS / Serverless ---
 mangum==0.17.0            # Lambda adapter for FastAPI (ASGI to AWS Lambda)
 boto3==1.34.25            # AWS SDK for Python (DynamoDB, S3, etc.)
+jose[cryptography]==1.0.0 # Additional JWT library for Cognito token verification
 
 # --- Development ---
 pytest==7.4.4             # Testing framework

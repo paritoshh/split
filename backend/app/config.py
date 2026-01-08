@@ -55,15 +55,8 @@ class Settings(BaseSettings):
     aws_secret_access_key: Optional[str] = None
     
     # --- Security ---
-    # Secret key for creating JWT tokens
-    # IMPORTANT: Change this in production!
-    secret_key: str = "your-super-secret-key-change-this"
-    
-    # How long before a login token expires (in minutes)
-    access_token_expire_minutes: int = 1440  # 24 hours
-    
-    # Algorithm for JWT encoding
-    algorithm: str = "HS256"
+    # Note: Authentication is handled by AWS Cognito
+    # No JWT secret key needed
     
     # --- AI Features ---
     # OpenAI API key for smart features
@@ -80,6 +73,13 @@ class Settings(BaseSettings):
     # No API key needed - uses IAM role in Lambda, or AWS credentials locally
     # Email sender address (must be verified in SES)
     ses_sender_email: Optional[str] = Field(None, description="Verified sender email address in AWS SES")
+    
+    # --- AWS Cognito ---
+    # AWS Cognito User Pool for authentication
+    # Get these values from AWS Cognito Console
+    cognito_user_pool_id: str = Field(..., description="Cognito User Pool ID (e.g., ap-south-1_XXXXXXXXX)")
+    cognito_app_client_id: str = Field(..., description="Cognito App Client ID")
+    cognito_region: str = "ap-south-1"  # Region where Cognito User Pool is created
     
     # --- OTP Settings ---
     otp_expiry_minutes: int = 5  # OTP expires in 5 minutes

@@ -3,98 +3,33 @@
 AUTHENTICATION ROUTER
 ===========================================
 API endpoints for:
-- OTP sending and verification
-- User registration (with mobile + OTP)
-- User login (mobile + password)
-- Email verification
-- Mobile number update
+- User registration (with email + password, Cognito handles verification)
+- User login (email + password)
+- Email verification confirmation
 - Get current user profile
 - Update user profile
+- Password reset (forgot password)
 
 All endpoints are prefixed with /api/auth
+
+Uses AWS Cognito for all authentication.
 ===========================================
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from datetime import timedelta
 from typing import List
 
 from app.db import get_db_service, DBService
 from app.schemas.user import (
-    UserCreate, UserResponse, Token, UserUpdate, UserLogin,
-    SendOTPRequest, VerifyOTPRequest, VerifyOTPResponse,
-    SendEmailVerificationRequest, VerifyEmailRequest, VerifyEmailResponse
+    UserCreate, UserResponse, Token, UserUpdate, UserLogin
 )
-from app.services.auth import (
-    get_password_hash,
-    create_access_token,
-    authenticate_user,
-    get_current_user
-)
-from app.services.otp_service import (
-    generate_otp, check_rate_limit, store_otp, verify_otp, verify_otp_token
-)
-from app.services.sms_service import send_otp_sms
-from app.services.email_verification_service import (
-    generate_verification_code, store_verification_code, verify_email_code
-)
-from app.services.email_service import send_email_verification_code
-from app.config import settings
+from app.services.auth import get_current_user
+from app.services.cognito_service import get_cognito_service
 
 router = APIRouter(
     prefix="/api/auth",
     tags=["Authentication"]
 )
-
-
-@router.post("/send-otp", response_model=dict)
-async def send_otp(request: SendOTPRequest):
-    """
-    Send OTP to mobile number.
-    Used for registration and mobile number updates.
-    """
-    # Check rate limit
-    allowed, error_msg = check_rate_limit(request.mobile)
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=error_msg
-        )
-    
-    # Generate and store OTP
-    otp = generate_otp()
-    store_otp(request.mobile, otp)
-    
-    # Send SMS
-    success, error_msg = send_otp_sms(request.mobile, otp)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_msg or "Failed to send OTP"
-        )
-    
-    return {"message": "OTP sent successfully"}
-
-
-@router.post("/verify-otp", response_model=VerifyOTPResponse)
-async def verify_otp_endpoint(request: VerifyOTPRequest):
-    """
-    Verify OTP and get registration token.
-    This token must be used within 10 minutes to complete registration.
-    """
-    is_valid, result = verify_otp(request.mobile, request.otp)
-    
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result or "Invalid or expired OTP"
-        )
-    
-    return VerifyOTPResponse(
-        success=True,
-        otp_token=result,
-        message="OTP verified successfully"
-    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -103,16 +38,11 @@ async def register(
     db_service: DBService = Depends(get_db_service)
 ):
     """
-    Register a new user.
-    Requires OTP token from /api/auth/verify-otp.
+    Register a new user in Cognito.
+    Creates user in Cognito (mobile verification required).
+    Creates user record in database.
+    Returns user data (mobile not verified yet).
     """
-    # Verify OTP token
-    if not verify_otp_token(user_data.mobile, user_data.otp_token):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired OTP token. Please verify OTP again."
-        )
-    
     # Check if mobile already exists
     existing_user = db_service.get_user_by_mobile(user_data.mobile)
     if existing_user:
@@ -122,7 +52,6 @@ async def register(
         )
     
     # Check if email already exists (if provided)
-    email_verified = False
     if user_data.email:
         existing_email_user = db_service.get_user_by_email(user_data.email)
         if existing_email_user:
@@ -130,181 +59,158 @@ async def register(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
+    
+    try:
+        cognito_service = get_cognito_service()
+        cognito_result = cognito_service.register_user(
+            mobile=user_data.mobile,
+            password=user_data.password,
+            name=user_data.name,
+            email=user_data.email
+        )
         
-        # Send email verification code if email provided
-        verification_code = generate_verification_code()
-        store_verification_code(user_data.email, verification_code)
-        send_email_verification_code(user_data.email, verification_code)
-        # Email will be verified later, so email_verified = False
-    
-    # Create new user
-    hashed_password = get_password_hash(user_data.password)
-    
-    new_user = db_service.create_user(
-        mobile=user_data.mobile,
-        name=user_data.name,
-        hashed_password=hashed_password,
-        email=user_data.email,
-        email_verified=email_verified
-    )
-    
-    return UserResponse(
-        id=new_user["id"],
-        mobile=new_user["mobile"],
-        email=new_user.get("email"),
-        name=new_user["name"],
-        is_active=new_user.get("is_active", True),
-        email_verified=new_user.get("email_verified", False),
-        mobile_verified=new_user.get("mobile_verified", True),
-        created_at=new_user.get("created_at")
-    )
+        # Create user in database
+        # Note: mobile_verified will be False until user confirms via Cognito
+        try:
+            # Try mobile-based signature (DynamoDB)
+            new_user = db_service.create_user(
+                mobile=user_data.mobile,
+                name=user_data.name,
+                hashed_password="",  # Not used with Cognito
+                email=user_data.email,
+                email_verified=False
+            )
+        except TypeError:
+            # Fallback to email-based signature (SQLite) - shouldn't happen but handle it
+            new_user = db_service.create_user(
+                email=user_data.email or user_data.mobile,  # Use mobile as email if no email
+                name=user_data.name,
+                hashed_password="",  # Not used with Cognito
+                phone=user_data.mobile
+            )
+        
+        # Update with Cognito sub if possible
+        try:
+            db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
+        except:
+            pass  # Ignore if update fails
+        
+        return UserResponse(
+            id=new_user["id"],
+            mobile=new_user.get("mobile") or user_data.mobile,
+            email=new_user.get("email"),
+            name=new_user["name"],
+            is_active=new_user.get("is_active", True),
+            mobile_verified=False,  # User needs to verify via Cognito
+            email_verified=new_user.get("email_verified", False),
+            created_at=new_user.get("created_at")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@router.post("/confirm-signup", response_model=dict)
+async def confirm_signup(
+    mobile: str,
+    confirmation_code: str
+):
+    """
+    Confirm user signup with verification code from Cognito.
+    Verifies mobile number.
+    """
+    try:
+        cognito_service = get_cognito_service()
+        cognito_service.confirm_signup(mobile, confirmation_code)
+        
+        # Update user in database to mark mobile as verified
+        from app.db import get_db_service
+        db_service = get_db_service()
+        user = db_service.get_user_by_mobile(mobile)
+        if user:
+            db_service.update_user(user["id"], mobile_verified=True)
+        
+        return {"message": "Mobile verified successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Confirmation failed: {str(e)}"
+        )
+
+
+@router.post("/resend-confirmation", response_model=dict)
+async def resend_confirmation(mobile: str):
+    """
+    Resend confirmation code to user's mobile.
+    """
+    try:
+        cognito_service = get_cognito_service()
+        cognito_service.resend_confirmation_code(email)
+        return {"message": "Confirmation code sent successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to resend code: {str(e)}"
+        )
 
 
 @router.post("/login", response_model=Token)
-async def login(
-    login_data: UserLogin,
-    db_service: DBService = Depends(get_db_service)
-):
+async def login(login_data: UserLogin):
     """
     Login with mobile number and password.
-    Returns JWT access token.
+    Authenticates via Cognito and returns tokens.
     """
-    user = authenticate_user(db_service, login_data.mobile, login_data.password)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect mobile number or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = create_access_token(
-        data={"sub": user["mobile"], "user_id": user["id"]},
-        expires_delta=access_token_expires
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-@router.post("/send-email-verification", response_model=dict)
-async def send_email_verification(
-    request: SendEmailVerificationRequest,
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Send email verification code.
-    Can be called during registration (if email provided) or later from profile.
-    """
-    # Check if email belongs to current user or is being added
-    if current_user.get("email") and current_user.get("email") != request.email.lower():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email does not match your account"
-        )
-    
-    # Check if email is already verified
-    if current_user.get("email_verified"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email is already verified"
-        )
-    
-    # Generate and store verification code
-    verification_code = generate_verification_code()
-    store_verification_code(request.email, verification_code)
-    
-    # Send email
-    success, error_msg = send_email_verification_code(request.email, verification_code)
-    if not success:
+    try:
+        cognito_service = get_cognito_service()
+        tokens = cognito_service.authenticate_user(login_data.mobile, login_data.password)
+        
+        # Return Cognito tokens
+        # Note: We return access_token in the Token schema for compatibility
+        # Frontend should use id_token for user info and access_token for API calls
+        return {
+            "access_token": tokens["access_token"],
+            "id_token": tokens.get("id_token"),
+            "refresh_token": tokens.get("refresh_token"),
+            "token_type": tokens["token_type"],
+            "expires_in": tokens["expires_in"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_msg or "Failed to send verification email"
+            detail=f"Login failed: {str(e)}"
         )
-    
-    return {"message": "Verification code sent to email"}
-
-
-@router.post("/verify-email", response_model=VerifyEmailResponse)
-async def verify_email(
-    request: VerifyEmailRequest,
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Verify email with verification code.
-    """
-    # Verify code
-    is_valid, error_msg = verify_email_code(request.email, request.verification_code)
-    
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_msg or "Invalid or expired verification code"
-        )
-    
-    # Update user's email_verified status
-    # Also update email if it's different from current
-    update_data = {"email_verified": True}
-    if current_user.get("email") != request.email.lower():
-        update_data["email"] = request.email.lower()
-    
-    db_service.update_user(current_user["id"], **update_data)
-    
-    return VerifyEmailResponse(
-        success=True,
-        message="Email verified successfully"
-    )
-
-
-@router.post("/update-mobile", response_model=dict)
-async def update_mobile(
-    new_mobile: str,
-    otp: str,
-    current_user: dict = Depends(get_current_user),
-    db_service: DBService = Depends(get_db_service)
-):
-    """
-    Update mobile number. Requires OTP verification on new number.
-    """
-    # Verify OTP for new mobile
-    is_valid, result = verify_otp(new_mobile, otp)
-    
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result or "Invalid or expired OTP"
-        )
-    
-    # Check if new mobile is already registered
-    existing_user = db_service.get_user_by_mobile(new_mobile)
-    if existing_user and existing_user["id"] != current_user["id"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mobile number already registered"
-        )
-    
-    # Update mobile
-    db_service.update_user(current_user["id"], mobile=new_mobile, mobile_verified=True)
-    
-    return {"message": "Mobile number updated successfully"}
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(
+    current_user: dict = Depends(get_current_user),
+    db_service: DBService = Depends(get_db_service)
+):
     """
     Get current logged-in user's profile.
     """
     return UserResponse(
         id=current_user["id"],
-        mobile=current_user["mobile"],
+        mobile=current_user.get("mobile"),
         email=current_user.get("email"),
         name=current_user["name"],
         is_active=current_user.get("is_active", True),
+        mobile_verified=current_user.get("mobile_verified", False),
         email_verified=current_user.get("email_verified", False),
-        mobile_verified=current_user.get("mobile_verified", True),
         created_at=current_user.get("created_at")
     )
 
@@ -317,7 +223,7 @@ async def update_me(
 ):
     """
     Update current user's profile.
-    Note: Email can only be updated if not verified, or must be re-verified.
+    Updates attributes in Cognito and user record in database.
     """
     update_fields = {}
     
@@ -325,29 +231,26 @@ async def update_me(
         update_fields["name"] = user_data.name
     
     if user_data.email is not None:
-        # If email is already verified and user is changing it, require re-verification
-        if current_user.get("email_verified") and current_user.get("email") != user_data.email.lower():
-            # New email requires verification
-            update_fields["email"] = user_data.email.lower()
-            update_fields["email_verified"] = False
-        elif not current_user.get("email_verified"):
-            # Can update unverified email
-            update_fields["email"] = user_data.email.lower()
-        # If email is verified and same, no change needed
+        update_fields["email"] = user_data.email
+        # Email verification will be handled separately if needed
     
+    # Update database
     if update_fields:
         updated_user = db_service.update_user(current_user["id"], **update_fields)
     else:
         updated_user = current_user
     
+    # TODO: Update Cognito attributes if needed
+    # This would require passing the access token through context
+    
     return UserResponse(
         id=updated_user["id"],
-        mobile=updated_user["mobile"],
+        mobile=updated_user.get("mobile"),
         email=updated_user.get("email"),
         name=updated_user["name"],
         is_active=updated_user.get("is_active", True),
+        mobile_verified=updated_user.get("mobile_verified", False),
         email_verified=updated_user.get("email_verified", False),
-        mobile_verified=updated_user.get("mobile_verified", True),
         created_at=updated_user.get("created_at")
     )
 
@@ -370,9 +273,51 @@ async def search_users(
             email=u.get("email"),
             name=u["name"],
             is_active=u.get("is_active", True),
+            mobile_verified=u.get("mobile_verified", False),
             email_verified=u.get("email_verified", False),
-            mobile_verified=u.get("mobile_verified", True),
             created_at=u.get("created_at")
         )
         for u in users
     ]
+
+
+@router.post("/forgot-password", response_model=dict)
+async def forgot_password(mobile: str):
+    """
+    Initiate forgot password flow.
+    """
+    try:
+        cognito_service = get_cognito_service()
+        cognito_service.forgot_password(mobile)
+        return {"message": "Password reset code sent to mobile"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initiate password reset: {str(e)}"
+        )
+
+
+@router.post("/confirm-forgot-password", response_model=dict)
+async def confirm_forgot_password(
+    mobile: str,
+    confirmation_code: str,
+    new_password: str
+):
+    """
+    Confirm forgot password with verification code.
+    """
+    try:
+        cognito_service = get_cognito_service()
+        cognito_service.confirm_forgot_password(mobile, confirmation_code, new_password)
+        return {"message": "Password reset successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset password: {str(e)}"
+        )

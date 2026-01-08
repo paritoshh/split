@@ -29,8 +29,8 @@ class UserBase(BaseModel):
     Base schema with common user fields.
     Other schemas inherit from this to avoid repetition.
     """
-    name: str = Field(..., min_length=1, max_length=100)
     mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code (e.g., +91XXXXXXXXXX)")
+    name: str = Field(..., min_length=1, max_length=100)
     email: Optional[EmailStr] = Field(None, description="Optional email address")
 
 
@@ -39,15 +39,14 @@ class UserCreate(UserBase):
     Schema for creating a new user (signup).
     
     Requires:
-    - mobile: Mobile number with country code (e.g., +91XXXXXXXXXX)
+    - mobile: Mobile number with country code (mandatory, must be verified)
     - name: User's display name
-    - password: Plain text password (will be hashed before storing)
+    - password: Plain text password
     
     Optional:
-    - email: Email address (optional, must be verified before use)
+    - email: Email address (optional, can be verified later)
     """
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
-    otp_token: str = Field(..., description="OTP verification token from /api/auth/verify-otp")
 
 
 class UserLogin(BaseModel):
@@ -69,8 +68,8 @@ class UserResponse(UserBase):
     """
     id: Union[int, str]  # int for SQLite, str (UUID) for DynamoDB
     is_active: bool
-    email_verified: bool = False
-    mobile_verified: bool = True  # Always true if OTP was used
+    mobile_verified: bool = False  # Mobile verification is mandatory
+    email_verified: bool = False  # Email verification is optional
     created_at: Optional[datetime] = None
     
     class Config:
@@ -85,54 +84,20 @@ class UserUpdate(BaseModel):
     All fields are optional - only update what's provided.
     """
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    email: Optional[EmailStr] = Field(None, description="Email address (must be verified before use)")
+    email: Optional[EmailStr] = Field(None, description="Optional email address")
 
 
 class Token(BaseModel):
     """
-    Schema for JWT token response after login.
+    Schema for Cognito token response after login.
     
-    What is a JWT?
-    - JSON Web Token
-    - A secure way to prove "I am logged in"
-    - Client stores this and sends it with each request
-    - Server verifies it to know who the user is
+    Returns access_token, id_token, and refresh_token from Cognito.
     """
     access_token: str
-    token_type: str = "bearer"  # Always "bearer" for JWT
-
-
-class TokenData(BaseModel):
-    """
-    Schema for data stored inside the JWT token.
-    
-    When we create a token, we encode the user's mobile inside it.
-    When we verify a token, we extract this data.
-    """
-    mobile: Optional[str] = None
-    user_id: Optional[Union[int, str]] = None  # int for SQLite, str (UUID) for DynamoDB
-
-
-# ===========================================
-# OTP SCHEMAS
-# ===========================================
-
-class SendOTPRequest(BaseModel):
-    """Request to send OTP to mobile number."""
-    mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code")
-
-
-class VerifyOTPRequest(BaseModel):
-    """Request to verify OTP."""
-    mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code")
-    otp: str = Field(..., min_length=4, max_length=6, description="OTP code received via SMS")
-
-
-class VerifyOTPResponse(BaseModel):
-    """Response after OTP verification."""
-    success: bool
-    otp_token: Optional[str] = Field(None, description="Token to use for registration (valid for 10 minutes)")
-    message: str
+    id_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: str = "Bearer"
+    expires_in: Optional[int] = None
 
 
 # ===========================================
@@ -157,14 +122,27 @@ class VerifyEmailResponse(BaseModel):
 
 
 # ===========================================
+# COGNITO SCHEMAS
+# ===========================================
+
+class CognitoTokenResponse(BaseModel):
+    """Response after Cognito authentication."""
+    access_token: str
+    id_token: str
+    refresh_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+
+
+# ===========================================
 # SUPPORT QUERY SCHEMAS
 # ===========================================
 
 class SupportQueryCreate(BaseModel):
     """Schema for creating a support query."""
     name: str = Field(..., min_length=1, max_length=100)
-    mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code")
     email: EmailStr
+    mobile: Optional[str] = Field(None, min_length=10, max_length=20, description="Optional mobile number with country code")
     query: str = Field(..., min_length=10, max_length=2000, description="Query text")
 
 

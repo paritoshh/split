@@ -224,18 +224,34 @@ export default api
 
 // Auth
 export const authAPI = {
-  login: (email, password) => {
-    const formData = new FormData()
-    formData.append('username', email)
-    formData.append('password', password)
-    return api.post('/api/auth/login', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+  login: (mobile, password) => {
+    // Use JSON for Cognito login
+    return api.post('/api/auth/login', { mobile, password })
   },
   register: (data) => api.post('/api/auth/register', data),
+  confirmSignup: (mobile, confirmationCode) => 
+    api.post('/api/auth/confirm-signup', null, { 
+      params: { mobile, confirmation_code: confirmationCode } 
+    }),
+  resendConfirmation: (mobile) => 
+    api.post('/api/auth/resend-confirmation', null, { 
+      params: { mobile } 
+    }),
   getMe: () => api.get('/api/auth/me'),
   updateMe: (data) => api.put('/api/auth/me', data),
   searchUsers: (query) => api.get('/api/auth/search', { params: { q: query } }),
+  forgotPassword: (mobile) => 
+    api.post('/api/auth/forgot-password', null, { 
+      params: { mobile } 
+    }),
+  confirmForgotPassword: (mobile, confirmationCode, newPassword) =>
+    api.post('/api/auth/confirm-forgot-password', null, {
+      params: { 
+        mobile, 
+        confirmation_code: confirmationCode, 
+        new_password: newPassword 
+      }
+    }),
 }
 
 // Groups - Note: trailing slashes to avoid 307 redirects

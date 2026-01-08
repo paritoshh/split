@@ -21,6 +21,7 @@ import { useState, useEffect, createContext, useContext } from 'react'
 import api, { setCheckingAuth } from './services/api'
 import * as biometricService from './services/biometric'
 import { initSyncService } from './services/offline/syncService'
+import * as cognitoService from './services/cognito'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -118,11 +119,22 @@ function AuthProvider({ children }) {
         return
       }
       
-      // Fall back to regular token check (from localStorage)
-      const storedToken = localStorage.getItem('token')
-      if (storedToken) {
+      // Check if Cognito is configured
+      if (cognitoService.isCognitoConfigured()) {
+        // Try to get Cognito session
         try {
-          // Add timeout to prevent hanging if backend is down
+          const session = await cognitoService.getCurrentUserSession()
+          const accessToken = session.accessToken
+          
+          localStorage.setItem('token', accessToken)
+          if (session.idToken) {
+            localStorage.setItem('idToken', session.idToken)
+          }
+          if (session.refreshToken) {
+            localStorage.setItem('refreshToken', session.refreshToken)
+          }
+          
+          // Fetch user data from backend
           const response = await Promise.race([
             api.get('/api/auth/me'),
             new Promise((_, reject) => 
@@ -131,37 +143,56 @@ function AuthProvider({ children }) {
           ])
           localStorage.setItem('userId', response.data.id)
           setUser(response.data)
-          setToken(storedToken)
+          setToken(accessToken)
         } catch (error) {
-          // Only clear token on actual auth errors (401), not network errors
-          // Network errors mean user might be offline - keep token
-          if (error.response?.status === 401) {
-            // Clear token only on 401 (unauthorized)
-            console.log('Stored token invalid (401), clearing...')
-            localStorage.removeItem('token')
-            setToken(null)
-            setUser(null)
-          } else if (error.code === 'ERR_NETWORK' || 
-                     error.message?.includes('Network') || 
-                     error.message?.includes('timeout') ||
-                     error.code === 'ECONNABORTED') {
-            // Network error or timeout - don't clear token, user might be offline or backend down
-            console.log('Network/timeout error during auth check, keeping token for offline mode')
-            // Don't set user - we'll show login page but keep token for when online
-            setToken(null) // Clear token state so user sees login page
-            setUser(null)
-          } else {
-            // Other errors - clear token to be safe
-            console.log('Auth check failed, clearing token:', error.message)
-            localStorage.removeItem('token')
-            setToken(null)
-            setUser(null)
-          }
+          // No valid Cognito session - clear everything
+          console.log('No valid Cognito session:', error.message)
+          localStorage.removeItem('token')
+          localStorage.removeItem('idToken')
+          localStorage.removeItem('refreshToken')
+          setToken(null)
+          setUser(null)
         }
       } else {
-        // No token - make sure state is clear
-        setToken(null)
-        setUser(null)
+        // Fall back to regular token check (from localStorage) for backward compatibility
+        const storedToken = localStorage.getItem('token')
+        if (storedToken) {
+          try {
+            // Add timeout to prevent hanging if backend is down
+            const response = await Promise.race([
+              api.get('/api/auth/me'),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+              )
+            ])
+            localStorage.setItem('userId', response.data.id)
+            setUser(response.data)
+            setToken(storedToken)
+          } catch (error) {
+            // Only clear token on actual auth errors (401), not network errors
+            if (error.response?.status === 401) {
+              console.log('Stored token invalid (401), clearing...')
+              localStorage.removeItem('token')
+              setToken(null)
+              setUser(null)
+            } else if (error.code === 'ERR_NETWORK' || 
+                       error.message?.includes('Network') || 
+                       error.message?.includes('timeout') ||
+                       error.code === 'ECONNABORTED') {
+              console.log('Network/timeout error during auth check, keeping token for offline mode')
+              setToken(null)
+              setUser(null)
+            } else {
+              console.log('Auth check failed, clearing token:', error.message)
+              localStorage.removeItem('token')
+              setToken(null)
+              setUser(null)
+            }
+          }
+        } else {
+          setToken(null)
+          setUser(null)
+        }
       }
       setLoading(false)
       // Wait a bit before allowing redirects to ensure state is stable
@@ -173,43 +204,59 @@ function AuthProvider({ children }) {
   }, []) // Run only on mount
 
   // Login function
-  const login = async (email, password) => {
-    const formData = new FormData()
-    formData.append('username', email)
-    formData.append('password', password)
-    
-    const response = await api.post('/api/auth/login', formData)
-    const { access_token } = response.data
-    
-    localStorage.setItem('token', access_token)
-    setToken(access_token)
-    
-    // Fetch user data
-    const userResponse = await api.get('/api/auth/me', {
-      headers: { Authorization: `Bearer ${access_token}` }
-    })
-    localStorage.setItem('userId', userResponse.data.id)
-    setUser(userResponse.data)
-    
-    // Check if we should offer biometric setup (native app only)
-    // Re-check availability here to avoid race condition with initial state
-    if (biometricService.isNativeApp()) {
-      try {
-        const { isAvailable } = await biometricService.isBiometricAvailable()
-        const isEnabled = await biometricService.isBiometricEnabled()
-        
-        console.log('Biometric check after login:', { isAvailable, isEnabled })
-        
-        if (isAvailable && !isEnabled) {
-          setBiometricAvailable(true)
-          setShowBiometricPrompt(true)
-        }
-      } catch (error) {
-        console.log('Biometric check failed:', error)
+  const login = async (mobile, password) => {
+    if (cognitoService.isCognitoConfigured()) {
+      // Use Cognito login
+      const tokens = await cognitoService.loginUser(mobile, password)
+      
+      localStorage.setItem('token', tokens.accessToken)
+      if (tokens.idToken) {
+        localStorage.setItem('idToken', tokens.idToken)
       }
+      if (tokens.refreshToken) {
+        localStorage.setItem('refreshToken', tokens.refreshToken)
+      }
+      setToken(tokens.accessToken)
+      
+      // Fetch user data from backend
+      const userResponse = await api.get('/api/auth/me', {
+        headers: { Authorization: `Bearer ${tokens.accessToken}` }
+      })
+      localStorage.setItem('userId', userResponse.data.id)
+      setUser(userResponse.data)
+      
+      // Check if we should offer biometric setup (native app only)
+      if (biometricService.isNativeApp()) {
+        try {
+          const { isAvailable } = await biometricService.isBiometricAvailable()
+          const isEnabled = await biometricService.isBiometricEnabled()
+          
+          if (isAvailable && !isEnabled) {
+            setBiometricAvailable(true)
+            setShowBiometricPrompt(true)
+          }
+        } catch (error) {
+          console.log('Biometric check failed:', error)
+        }
+      }
+      
+      return userResponse.data
+    } else {
+      // Fallback to backend login (for backward compatibility)
+      const response = await api.post('/api/auth/login', { mobile, password })
+      const { access_token } = response.data
+      
+      localStorage.setItem('token', access_token)
+      setToken(access_token)
+      
+      const userResponse = await api.get('/api/auth/me', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      })
+      localStorage.setItem('userId', userResponse.data.id)
+      setUser(userResponse.data)
+      
+      return userResponse.data
     }
-    
-    return userResponse.data
   }
 
   // Enable biometric login
@@ -240,13 +287,33 @@ function AuthProvider({ children }) {
 
   // Register function
   const register = async (userData) => {
-    const response = await api.post('/api/auth/register', userData)
-    return response.data
+    if (cognitoService.isCognitoConfigured()) {
+      // Register in Cognito first
+      await cognitoService.registerUser(
+        userData.mobile,
+        userData.password,
+        userData.name,
+        userData.email  // Email is optional
+      )
+      
+      // Then register in backend
+      const response = await api.post('/api/auth/register', userData)
+      return response.data
+    } else {
+      // Fallback to backend registration
+      const response = await api.post('/api/auth/register', userData)
+      return response.data
+    }
   }
 
   // Logout function
   const logout = async () => {
+    if (cognitoService.isCognitoConfigured()) {
+      cognitoService.logout()
+    }
     localStorage.removeItem('token')
+    localStorage.removeItem('idToken')
+    localStorage.removeItem('refreshToken')
     setToken(null)
     setUser(null)
     // Note: We don't disable biometric on logout - user may want to login with fingerprint again

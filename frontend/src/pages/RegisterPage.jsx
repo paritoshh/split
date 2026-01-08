@@ -2,32 +2,38 @@
  * ===========================================
  * REGISTER PAGE
  * ===========================================
+ * Handles user registration with Cognito email verification
  */
 
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
+import * as cognitoService from '../services/cognito'
 import { 
   Split, Mail, Lock, Eye, EyeOff, ArrowRight, 
-  AlertCircle, User, Phone, CheckCircle 
+  AlertCircle, User, Phone, CheckCircle, Check 
 } from 'lucide-react'
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
+    mobile: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: ''
   })
+  const [verificationCode, setVerificationCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState('register') // 'register' or 'verify'
+  const [registeredMobile, setRegisteredMobile] = useState('')
   
-  const { register, login, isAuthenticated } = useAuth()
+  const { register, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   
-  // Redirect if already logged in (using useEffect to avoid render issues)
+  // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true })
@@ -38,9 +44,10 @@ function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
   
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -57,20 +64,86 @@ function RegisterPage() {
     setLoading(true)
     
     try {
-      // Register user
+      // Register user (this will register in Cognito and backend)
       await register({
         name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
+        mobile: formData.mobile,
+        email: formData.email || null,  // Email is optional
         password: formData.password
       })
       
-      // Auto-login after registration
-      await login(formData.email, formData.password)
-      navigate('/dashboard')
+      // If Cognito is configured, show verification step
+      if (cognitoService.isCognitoConfigured()) {
+        setRegisteredMobile(formData.mobile)
+        setStep('verify')
+        setSuccess('Registration successful! Please check your mobile for verification code.')
+      } else {
+        // If Cognito is not configured, auto-login (backward compatibility)
+        navigate('/login')
+      }
       
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.')
+      // Handle Cognito-specific errors
+      let errorMessage = 'Registration failed. Please try again.'
+      
+      if (err.code === 'UsernameExistsException') {
+        errorMessage = 'Mobile number already registered. Please login instead.'
+      } else if (err.code === 'InvalidPasswordException') {
+        errorMessage = 'Password does not meet requirements. Please use a stronger password.'
+      } else if (err.code === 'InvalidParameterException') {
+        errorMessage = err.message || 'Invalid input. Please check your details.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleVerify = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    
+    try {
+      await cognitoService.confirmSignup(registeredMobile, verificationCode)
+      setSuccess('Mobile verified successfully! You can now login.')
+      
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { message: 'Mobile verified successfully! Please login.' }
+        })
+      }, 2000)
+      
+    } catch (err) {
+      let errorMessage = 'Verification failed. Please try again.'
+      
+      if (err.code === 'CodeMismatchException') {
+        errorMessage = 'Invalid verification code. Please check and try again.'
+      } else if (err.code === 'ExpiredCodeException') {
+        errorMessage = 'Verification code has expired. Please request a new one.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleResendCode = async () => {
+    setError('')
+    setLoading(true)
+    
+    try {
+      await cognitoService.resendConfirmationCode(registeredMobile)
+      setSuccess('Verification code sent! Please check your mobile.')
+    } catch (err) {
+      setError(err.message || 'Failed to resend code. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -101,6 +174,107 @@ function RegisterPage() {
   
   const passwordStrength = getPasswordStrength()
   
+  // Verification step
+  if (step === 'verify') {
+    return (
+      <div className="min-h-screen bg-dark-300 flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2 mb-8">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
+              <Split className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-display font-bold text-white">Hisab</span>
+          </Link>
+          
+          {/* Heading */}
+          <h1 className="text-3xl font-display font-bold text-white mb-2">
+            Verify your mobile
+          </h1>
+          <p className="text-gray-400 mb-8">
+            We've sent a verification code to <strong>{registeredMobile}</strong>
+          </p>
+          
+          {/* Success Message */}
+          {success && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <p className="text-green-400 text-sm">{success}</p>
+            </div>
+          )}
+          
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+          
+          {/* Verification Form */}
+          <form onSubmit={handleVerify} className="space-y-4">
+            <div>
+              <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-300 mb-2">
+                Verification Code
+              </label>
+              <input
+                type="text"
+                id="verificationCode"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                className="input-field"
+                placeholder="Enter 6-digit code"
+                required
+                maxLength={6}
+                pattern="[0-9]{6}"
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading || verificationCode.length !== 6}
+              className="w-full btn-primary flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  Verify Mobile
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </form>
+          
+          {/* Resend Code */}
+          <div className="mt-6 text-center">
+            <p className="text-gray-400 text-sm mb-2">
+              Didn't receive the code?
+            </p>
+            <button
+              onClick={handleResendCode}
+              disabled={loading}
+              className="text-primary-400 hover:text-primary-300 font-medium text-sm"
+            >
+              Resend code
+            </button>
+          </div>
+          
+          {/* Back to Register */}
+          <p className="text-center text-gray-400 mt-6">
+            <button
+              onClick={() => setStep('register')}
+              className="text-primary-400 hover:text-primary-300 font-medium"
+            >
+              Back to registration
+            </button>
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Registration step
   return (
     <div className="min-h-screen bg-dark-300 flex safe-y">
       {/* Left Side - Decorative */}
@@ -155,7 +329,7 @@ function RegisterPage() {
           )}
           
           {/* Register Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
@@ -176,10 +350,31 @@ function RegisterPage() {
               </div>
             </div>
             
-            {/* Email Field */}
+            {/* Mobile Field (Mandatory) */}
+            <div>
+              <label htmlFor="mobile" className="block text-sm font-medium text-gray-300 mb-2">
+                Mobile Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="tel"
+                  id="mobile"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleChange}
+                  className="input-field pl-12"
+                  placeholder="+91XXXXXXXXXX"
+                  required
+                  pattern="\+?[0-9]{10,15}"
+                />
+              </div>
+            </div>
+            
+            {/* Email Field (Optional) */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                Email
+                Email <span className="text-gray-500">(optional)</span>
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -191,26 +386,6 @@ function RegisterPage() {
                   onChange={handleChange}
                   className="input-field pl-12"
                   placeholder="you@example.com"
-                  required
-                />
-              </div>
-            </div>
-            
-            {/* Phone Field (Optional) */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-300 mb-2">
-                Phone Number <span className="text-gray-500">(optional)</span>
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="input-field pl-12"
-                  placeholder="9876543210"
                 />
               </div>
             </div>
@@ -310,4 +485,3 @@ function RegisterPage() {
 }
 
 export default RegisterPage
-

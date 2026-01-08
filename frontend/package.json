@@ -18,6 +18,7 @@
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/preferences": "^8.0.0",
+    "amazon-cognito-identity-js": "^6.3.16",
     "axios": "^1.6.2",
     "capacitor-native-biometric": "^4.2.2",
     "dexie": "^4.2.1",
