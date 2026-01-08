@@ -99,6 +99,9 @@ class Settings(BaseSettings):
         # Make variable names case-insensitive
         # So DATABASE_URL in .env maps to database_url here
         env_file_encoding = "utf-8"
+        # Ignore extra fields in .env (for backward compatibility)
+        # Old JWT fields (secret_key, access_token_expire_minutes) can remain in .env
+        extra = "ignore"
 
 
 # Create a single instance to use throughout the app
