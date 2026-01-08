@@ -207,9 +207,9 @@ class CognitoService:
             if error_code == 'NotAuthorizedException':
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Incorrect email or password"
+                    detail="Incorrect mobile number or password"
                 )
-            el            if error_code == 'UserNotConfirmedException':
+            elif error_code == 'UserNotConfirmedException':
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Mobile not verified. Please check your mobile for verification code."
