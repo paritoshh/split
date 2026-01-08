@@ -22,6 +22,25 @@ export default defineConfig({
   // Plugins extend Vite's functionality
   plugins: [react()],
   
+  // Polyfills for Node.js globals (required by amazon-cognito-identity-js)
+  define: {
+    'global': 'globalThis',
+    'process.env': JSON.stringify({}),
+  },
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+      process: 'process/browser',
+    },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
+  
   // Development server settings
   server: {
     port: 5173,  // Default Vite port

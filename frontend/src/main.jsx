@@ -17,6 +17,12 @@
  * ===========================================
  */
 
+// Polyfills for Node.js globals (required by amazon-cognito-identity-js)
+import { Buffer } from 'buffer'
+window.Buffer = Buffer
+globalThis.Buffer = Buffer
+globalThis.global = globalThis
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
