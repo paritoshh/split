@@ -9,8 +9,7 @@ from app.schemas.user import (
     UserCreate, 
     UserResponse, 
     UserLogin,
-    Token,
-    TokenData
+    Token
 )
 from app.schemas.group import (
     GroupCreate,
