@@ -21,6 +21,7 @@
     "amazon-cognito-identity-js": "^6.3.16",
     "axios": "^1.6.2",
     "capacitor-native-biometric": "^4.2.2",
+    "crypto-js": "^4.2.0",
     "dexie": "^4.2.1",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",

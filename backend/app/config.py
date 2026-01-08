@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     # --- AWS Cognito ---
     # AWS Cognito User Pool for authentication
     # Get these values from AWS Cognito Console
+    # IMPORTANT: App Client should be created WITHOUT client secret (for web apps)
     cognito_user_pool_id: str = Field(..., description="Cognito User Pool ID (e.g., ap-south-1_XXXXXXXXX)")
     cognito_app_client_id: str = Field(..., description="Cognito App Client ID")
     cognito_region: str = "ap-south-1"  # Region where Cognito User Pool is created

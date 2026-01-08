@@ -59,6 +59,7 @@ class CognitoService:
                 user_attributes.append({'Name': 'email', 'Value': email})
             
             # Sign up user - use mobile as username
+            # Note: App Client should be created WITHOUT client secret for web apps
             response = self.client.sign_up(
                 ClientId=self.app_client_id,
                 Username=mobile,  # Use mobile as username
