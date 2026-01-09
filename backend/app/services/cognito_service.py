@@ -48,6 +48,20 @@ class CognitoService:
         Returns:
             Dict with user attributes and confirmation status
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Ensure mobile number is in E.164 format (required by Cognito)
+        # E.164 format: +[country code][number] (e.g., +919876543210)
+        if not mobile.startswith('+'):
+            logger.warning(f"Mobile number '{mobile}' doesn't start with '+'. Cognito requires E.164 format.")
+            # Try to add + if it's missing (assumes Indian number if starts with 91)
+            if mobile.startswith('91') and len(mobile) >= 12:
+                mobile = '+' + mobile
+                logger.info(f"Auto-corrected mobile to: {mobile}")
+            else:
+                logger.error(f"Mobile number '{mobile}' is not in E.164 format. Expected format: +91XXXXXXXXXX")
+        
         try:
             # Prepare user attributes
             user_attributes = [
@@ -58,6 +72,8 @@ class CognitoService:
             if email:
                 user_attributes.append({'Name': 'email', 'Value': email})
             
+            logger.info(f"Registering user with mobile: {mobile}, email: {email or 'None'}")
+            
             # Sign up user - use mobile as username
             response = self.client.sign_up(
                 ClientId=self.app_client_id,
@@ -66,9 +82,19 @@ class CognitoService:
                 UserAttributes=user_attributes
             )
             
+            # Log code delivery details for debugging
+            code_delivery = response.get('CodeDeliveryDetails', {})
+            logger.info(f"Code delivery details: {code_delivery}")
+            if code_delivery:
+                logger.info(f"  - Destination: {code_delivery.get('Destination', 'N/A')}")
+                logger.info(f"  - Delivery medium: {code_delivery.get('DeliveryMedium', 'N/A')}")
+                logger.info(f"  - Attribute name: {code_delivery.get('AttributeName', 'N/A')}")
+            else:
+                logger.warning("No code delivery details in response - verification code may not be sent!")
+            
             return {
                 'user_sub': response['UserSub'],
-                'code_delivery_details': response.get('CodeDeliveryDetails'),
+                'code_delivery_details': code_delivery,
                 'user_confirmed': response.get('UserConfirmed', False)
             }
             
