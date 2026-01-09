@@ -15,6 +15,7 @@ Why use a config file?
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Optional, Literal
+import os
 
 
 class Settings(BaseSettings):
@@ -77,7 +78,6 @@ class Settings(BaseSettings):
     # --- AWS Cognito ---
     # AWS Cognito User Pool for authentication
     # Get these values from AWS Cognito Console
-    # IMPORTANT: App Client should be created WITHOUT client secret (for web apps)
     cognito_user_pool_id: str = Field(..., description="Cognito User Pool ID (e.g., ap-south-1_XXXXXXXXX)")
     cognito_app_client_id: str = Field(..., description="Cognito App Client ID")
     cognito_region: str = "ap-south-1"  # Region where Cognito User Pool is created
@@ -96,7 +96,9 @@ class Settings(BaseSettings):
     
     class Config:
         # Tell Pydantic to read from .env file
-        env_file = ".env"
+        # Look for .env in the backend directory (where this config file is)
+        _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env_file = os.path.join(_backend_dir, ".env")
         # Make variable names case-insensitive
         # So DATABASE_URL in .env maps to database_url here
         env_file_encoding = "utf-8"
