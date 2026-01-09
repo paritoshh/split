@@ -26,7 +26,6 @@ if (!isCognitoEnabled) {
 }
 
 // Create Cognito User Pool instance
-// IMPORTANT: App Client should be created WITHOUT client secret for web apps
 const poolData = isCognitoEnabled ? {
   UserPoolId: COGNITO_USER_POOL_ID,
   ClientId: COGNITO_APP_CLIENT_ID

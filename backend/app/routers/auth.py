@@ -43,23 +43,11 @@ async def register(
     Creates user record in database.
     Returns user data (mobile not verified yet).
     """
-    # Check if mobile already exists
-    existing_user = db_service.get_user_by_mobile(user_data.mobile)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mobile number already registered"
-        )
+    import logging
+    logger = logging.getLogger(__name__)
     
-    # Check if email already exists (if provided)
-    if user_data.email:
-        existing_email_user = db_service.get_user_by_email(user_data.email)
-        if existing_email_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
-    
+    # Try to create in Cognito first (Cognito is source of truth)
+    # If mobile already exists, Cognito will throw UsernameExistsException
     try:
         cognito_service = get_cognito_service()
         cognito_result = cognito_service.register_user(
@@ -68,51 +56,102 @@ async def register(
             name=user_data.name,
             email=user_data.email
         )
-        
-        # Create user in database
-        # Note: mobile_verified will be False until user confirms via Cognito
+    except HTTPException as e:
+        # If Cognito says user exists, check DynamoDB to see if we have a record
+        if e.status_code == status.HTTP_400_BAD_REQUEST and "already registered" in e.detail.lower():
+            # Check if user exists in our database
+            existing_user = db_service.get_user_by_mobile(user_data.mobile)
+            if existing_user:
+                logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Mobile number already registered"
+                )
+            else:
+                # User exists in Cognito but not in our DB - this can happen if previous registration failed
+                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Mobile number already registered in Cognito. Please try logging in or contact support."
+                )
+        else:
+            # Re-raise other HTTP exceptions
+            raise e
+    
+    # Cognito registration succeeded - now create/update in database
+    # Check if user already exists in database (might have been created in Cognito but DB creation failed)
+    existing_user = db_service.get_user_by_mobile(user_data.mobile)
+    if existing_user:
+        # User exists in DB - update with Cognito sub if missing
         try:
-            # Try mobile-based signature (DynamoDB)
-            new_user = db_service.create_user(
-                mobile=user_data.mobile,
-                name=user_data.name,
-                hashed_password="",  # Not used with Cognito
-                email=user_data.email,
-                email_verified=False
+            if not existing_user.get("cognito_sub"):
+                db_service.update_user(existing_user["id"], cognito_sub=cognito_result['user_sub'])
+            logger.info(f"Updated existing user {user_data.mobile} with Cognito sub")
+            return UserResponse(
+                id=existing_user["id"],
+                mobile=existing_user.get("mobile") or user_data.mobile,
+                email=existing_user.get("email"),
+                name=existing_user["name"],
+                is_active=existing_user.get("is_active", True),
+                mobile_verified=False,  # User needs to verify via Cognito
+                email_verified=existing_user.get("email_verified", False),
+                created_at=existing_user.get("created_at")
             )
-        except TypeError:
-            # Fallback to email-based signature (SQLite) - shouldn't happen but handle it
-            new_user = db_service.create_user(
-                email=user_data.email or user_data.mobile,  # Use mobile as email if no email
-                name=user_data.name,
-                hashed_password="",  # Not used with Cognito
-                phone=user_data.mobile
-            )
-        
-        # Update with Cognito sub if possible
-        try:
-            db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
-        except:
-            pass  # Ignore if update fails
-        
-        return UserResponse(
-            id=new_user["id"],
-            mobile=new_user.get("mobile") or user_data.mobile,
-            email=new_user.get("email"),
-            name=new_user["name"],
-            is_active=new_user.get("is_active", True),
-            mobile_verified=False,  # User needs to verify via Cognito
-            email_verified=new_user.get("email_verified", False),
-            created_at=new_user.get("created_at")
+        except Exception as e:
+            logger.error(f"Failed to update existing user: {e}")
+            # Continue to create new user record
+    
+    # Create new user in database
+    # Note: mobile_verified will be False until user confirms via Cognito
+    try:
+        # Try mobile-based signature (DynamoDB)
+        new_user = db_service.create_user(
+            mobile=user_data.mobile,
+            name=user_data.name,
+            hashed_password="",  # Not used with Cognito
+            email=user_data.email,
+            email_verified=False
         )
-        
-    except HTTPException:
-        raise
+    except TypeError:
+        # Fallback to email-based signature (SQLite) - shouldn't happen but handle it
+        new_user = db_service.create_user(
+            email=user_data.email or user_data.mobile,  # Use mobile as email if no email
+            name=user_data.name,
+            hashed_password="",  # Not used with Cognito
+            phone=user_data.mobile
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+        # If DB creation fails, log but don't fail registration (user is in Cognito)
+        logger.error(f"Failed to create user in database: {e}")
+        # Return a minimal user response
+        return UserResponse(
+            id="",  # Will be set after DB creation
+            mobile=user_data.mobile,
+            email=user_data.email,
+            name=user_data.name,
+            is_active=True,
+            mobile_verified=False,
+            email_verified=False,
+            created_at=None
         )
+    
+    # Update with Cognito sub if possible
+    try:
+        db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
+    except Exception as e:
+        logger.warning(f"Failed to update user with Cognito sub: {e}")
+        # Don't fail - user is created
+    
+    return UserResponse(
+        id=new_user["id"],
+        mobile=new_user.get("mobile") or user_data.mobile,
+        email=new_user.get("email"),
+        name=new_user["name"],
+        is_active=new_user.get("is_active", True),
+        mobile_verified=False,  # User needs to verify via Cognito
+        email_verified=new_user.get("email_verified", False),
+        created_at=new_user.get("created_at")
+    )
 
 
 @router.post("/confirm-signup", response_model=dict)
