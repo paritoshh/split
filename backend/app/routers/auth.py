@@ -56,37 +56,42 @@ async def register(
             name=user_data.name,
             email=user_data.email
         )
+        logger.info(f"Successfully created user {user_data.mobile} in Cognito")
     except HTTPException as e:
-        # If Cognito says user exists, check DynamoDB to see if we have a record
-        if e.status_code == status.HTTP_400_BAD_REQUEST and "already registered" in e.detail.lower():
+        # If Cognito says user exists, check if it's a duplicate registration
+        if e.status_code == status.HTTP_400_BAD_REQUEST and ("already registered" in e.detail.lower() or "username exists" in e.detail.lower()):
+            logger.info(f"User {user_data.mobile} already exists in Cognito")
+            
             # Check if user exists in our database
             existing_user = db_service.get_user_by_mobile(user_data.mobile)
             if existing_user:
-                logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB")
+                logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB - tell user to login")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile number already registered"
+                    detail="Mobile number already registered. Please try logging in instead."
                 )
             else:
-                # User exists in Cognito but not in our DB - this can happen if previous registration failed
-                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB")
+                # User exists in Cognito but not in DynamoDB
+                # This can happen if previous registration created Cognito user but DB creation failed
+                # Tell user to login - the DB record will be created on first login via get_current_user
+                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB. User should login to sync.")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile number already registered in Cognito. Please try logging in or contact support."
+                    detail="Mobile number already registered in Cognito. Please try logging in instead. If login fails, contact support."
                 )
         else:
             # Re-raise other HTTP exceptions
             raise e
     
     # Cognito registration succeeded - now create/update in database
-    # Check if user already exists in database (might have been created in Cognito but DB creation failed)
+    # Check if user already exists in database (might have been created in a previous attempt)
     existing_user = db_service.get_user_by_mobile(user_data.mobile)
     if existing_user:
         # User exists in DB - update with Cognito sub if missing
         try:
-            if not existing_user.get("cognito_sub"):
+            if cognito_result and cognito_result.get('user_sub') and not existing_user.get("cognito_sub"):
                 db_service.update_user(existing_user["id"], cognito_sub=cognito_result['user_sub'])
-            logger.info(f"Updated existing user {user_data.mobile} with Cognito sub")
+                logger.info(f"Updated existing user {user_data.mobile} with Cognito sub")
             return UserResponse(
                 id=existing_user["id"],
                 mobile=existing_user.get("mobile") or user_data.mobile,
@@ -136,11 +141,13 @@ async def register(
         )
     
     # Update with Cognito sub if possible
-    try:
-        db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
-    except Exception as e:
-        logger.warning(f"Failed to update user with Cognito sub: {e}")
-        # Don't fail - user is created
+    if cognito_result and cognito_result.get('user_sub'):
+        try:
+            db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
+            logger.info(f"Updated user {user_data.mobile} with Cognito sub: {cognito_result['user_sub']}")
+        except Exception as e:
+            logger.warning(f"Failed to update user with Cognito sub: {e}")
+            # Don't fail - user is created, sub will be updated on first login
     
     return UserResponse(
         id=new_user["id"],
