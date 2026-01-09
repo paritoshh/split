@@ -27,12 +27,35 @@ The messaging configuration location varies by Cognito console version. Try thes
 
 ### Option 1: Use Cognito's Built-in SMS (Easiest, but limited)
 
-1. Find the "Message delivery" or "SMS configuration" section (see above)
-2. Under "SMS message delivery", select "Use Cognito's built-in SMS"
-3. **Note:** This only works in the **SMS sandbox** mode (free tier, limited to verified numbers)
-4. To verify phone numbers for sandbox:
-   - Go to SNS → Text messaging (SMS) → Phone numbers → Add phone number
-   - Verify the phone number
+**This is the recommended option if you don't have SNS production access.**
+
+1. **Switch to Cognito's Built-in SMS:**
+   - Go to Cognito → User pools → Your pool → "Sign-in experience" tab → "Authentication methods" section
+   - Click "Edit" in the SMS section
+   - Change from "Use your own Amazon SNS" to **"Use Cognito's built-in SMS"**
+   - Click "Save changes"
+
+2. **Verify Phone Numbers (Required for Sandbox Mode):**
+   - Go to AWS Console → SNS → Text messaging (SMS) → Phone numbers
+   - Click "Add phone number"
+   - Enter the phone number in E.164 format: `+91XXXXXXXXXX`
+   - Click "Add phone number"
+   - You'll receive a verification code via SMS
+   - Enter the code to verify the number
+   - **Important:** Only verified phone numbers can receive SMS in sandbox mode
+   - Repeat for each phone number you want to test with
+
+3. **Limitations of Sandbox Mode:**
+   - ✅ Free (no cost)
+   - ✅ No production access needed
+   - ❌ Only verified phone numbers can receive SMS
+   - ❌ You must verify each phone number manually in SNS
+   - ❌ Not suitable for production with many users
+
+4. **For Production:**
+   - Once you have more users, you'll need to:
+     - Request SNS production access again (with better justification)
+     - Or use a third-party SMS provider (Twilio, MSG91, etc.) via Lambda
 
 ### Option 2: Use AWS SNS (Recommended for production)
 
