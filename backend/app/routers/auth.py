@@ -48,6 +48,9 @@ async def register(
     
     # Try to create in Cognito first (Cognito is source of truth)
     # If mobile already exists, Cognito will throw UsernameExistsException
+    cognito_result = None
+    user_already_in_cognito = False
+    
     try:
         cognito_service = get_cognito_service()
         cognito_result = cognito_service.register_user(
@@ -61,6 +64,7 @@ async def register(
         # If Cognito says user exists, check if it's a duplicate registration
         if e.status_code == status.HTTP_400_BAD_REQUEST and ("already registered" in e.detail.lower() or "username exists" in e.detail.lower()):
             logger.info(f"User {user_data.mobile} already exists in Cognito")
+            user_already_in_cognito = True
             
             # Check if user exists in our database
             existing_user = db_service.get_user_by_mobile(user_data.mobile)
@@ -73,17 +77,16 @@ async def register(
             else:
                 # User exists in Cognito but not in DynamoDB
                 # This can happen if previous registration created Cognito user but DB creation failed
-                # Tell user to login - the DB record will be created on first login via get_current_user
-                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB. User should login to sync.")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile number already registered in Cognito. Please try logging in instead. If login fails, contact support."
-                )
+                # We'll create the DynamoDB record now to sync them
+                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB. Creating DynamoDB record to sync...")
+                # We'll create the DB record below, but we don't have cognito_result['user_sub']
+                # We'll need to get it from Cognito or leave it null (will be updated on login)
+                cognito_result = {'user_sub': None, 'code_delivery_details': None, 'user_confirmed': False}
         else:
             # Re-raise other HTTP exceptions
             raise e
     
-    # Cognito registration succeeded - now create/update in database
+    # Cognito registration succeeded OR user already exists in Cognito - now create/update in database
     # Check if user already exists in database (might have been created in a previous attempt)
     existing_user = db_service.get_user_by_mobile(user_data.mobile)
     if existing_user:
@@ -92,6 +95,8 @@ async def register(
             if cognito_result and cognito_result.get('user_sub') and not existing_user.get("cognito_sub"):
                 db_service.update_user(existing_user["id"], cognito_sub=cognito_result['user_sub'])
                 logger.info(f"Updated existing user {user_data.mobile} with Cognito sub")
+            elif user_already_in_cognito:
+                logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB")
             return UserResponse(
                 id=existing_user["id"],
                 mobile=existing_user.get("mobile") or user_data.mobile,
@@ -117,6 +122,7 @@ async def register(
             email=user_data.email,
             email_verified=False
         )
+        logger.info(f"Successfully created user {user_data.mobile} in DynamoDB")
     except TypeError:
         # Fallback to email-based signature (SQLite) - shouldn't happen but handle it
         new_user = db_service.create_user(
@@ -125,19 +131,13 @@ async def register(
             hashed_password="",  # Not used with Cognito
             phone=user_data.mobile
         )
+        logger.info(f"Successfully created user {user_data.mobile} in DynamoDB (SQLite fallback)")
     except Exception as e:
-        # If DB creation fails, log but don't fail registration (user is in Cognito)
-        logger.error(f"Failed to create user in database: {e}")
-        # Return a minimal user response
-        return UserResponse(
-            id="",  # Will be set after DB creation
-            mobile=user_data.mobile,
-            email=user_data.email,
-            name=user_data.name,
-            is_active=True,
-            mobile_verified=False,
-            email_verified=False,
-            created_at=None
+        # If DB creation fails, log the error and raise it (don't silently fail)
+        logger.error(f"Failed to create user in database: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"User created in Cognito but failed to create database record. Please contact support. Error: {str(e)}"
         )
     
     # Update with Cognito sub if possible
