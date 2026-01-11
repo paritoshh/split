@@ -53,18 +53,44 @@ async def get_current_user(
         user = db_service.get_user_by_email(email)
         
         if user is None:
-            logger.warning(f"User {email} exists in Cognito but not in DB. Creating basic record.")
-            # User exists in Cognito but not in our DB - create a basic record
-            # This can happen if user was created directly in Cognito
-            user = {
-                'id': cognito_user['sub'],
-                'email': email,
-                'mobile': mobile,
-                'name': cognito_user['attributes'].get('name', 'User'),
-                'email_verified': cognito_user['attributes'].get('email_verified', 'false') == 'true',
-                'mobile_verified': cognito_user['attributes'].get('phone_number_verified', 'false') == 'true' if mobile else False,
-                'is_active': cognito_user['user_status'] != 'ARCHIVED'
-            }
+            logger.warning(f"User {email} exists in Cognito but not in DB. Creating database record.")
+            # User exists in Cognito but not in our DB - create a database record
+            # This can happen if user was created directly in Cognito or registration failed partway
+            try:
+                email_verified = cognito_user['attributes'].get('email_verified', 'false') == 'true'
+                name = cognito_user['attributes'].get('name', 'User')
+                
+                # Create user in database (password is empty since Cognito manages it)
+                user = db_service.create_user(
+                    email=email,
+                    name=name,
+                    hashed_password="",  # Not used with Cognito
+                    mobile=mobile,
+                    email_verified=email_verified
+                )
+                
+                # Update with Cognito sub if we have it
+                if cognito_user.get('sub'):
+                    try:
+                        db_service.update_user(user['id'], cognito_sub=cognito_user['sub'])
+                        logger.info(f"Updated user {email} with Cognito sub: {cognito_user['sub']}")
+                    except Exception as e:
+                        logger.warning(f"Failed to update user with Cognito sub: {e}")
+                
+                logger.info(f"Successfully created user {email} in database from Cognito")
+            except Exception as e:
+                logger.error(f"Failed to create user in database: {e}", exc_info=True)
+                # Fallback to basic dict if DB creation fails
+                user = {
+                    'id': cognito_user.get('sub', ''),
+                    'email': email,
+                    'mobile': mobile,
+                    'name': cognito_user['attributes'].get('name', 'User'),
+                    'email_verified': cognito_user['attributes'].get('email_verified', 'false') == 'true',
+                    'mobile_verified': cognito_user['attributes'].get('phone_number_verified', 'false') == 'true' if mobile else False,
+                    'is_active': cognito_user['user_status'] != 'ARCHIVED',
+                    'created_at': None
+                }
         else:
             logger.info(f"User found in DB: {user.get('id')}")
             # Update verification status from Cognito
