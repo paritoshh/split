@@ -16,7 +16,7 @@
  * ===========================================
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import api, { setCheckingAuth } from './services/api'
 import * as biometricService from './services/biometric'
@@ -145,13 +145,17 @@ function AuthProvider({ children }) {
           setUser(response.data)
           setToken(accessToken)
         } catch (error) {
-          // No valid Cognito session - clear everything
-          console.log('No valid Cognito session:', error.message)
+          // No valid Cognito session - clear everything silently
+          // Don't log errors during initial check to avoid console spam
+          if (error.message !== 'No user logged in') {
+            console.log('No valid Cognito session:', error.message)
+          }
           localStorage.removeItem('token')
           localStorage.removeItem('idToken')
           localStorage.removeItem('refreshToken')
           setToken(null)
           setUser(null)
+          // Don't throw - just continue without auth
         }
       } else {
         // Fall back to regular token check (from localStorage) for backward compatibility
@@ -349,6 +353,20 @@ function AuthProvider({ children }) {
 // Redirects to login if user is not authenticated
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
+  const [shouldRedirect, setShouldRedirect] = useState(false)
+
+  // Only redirect after loading is complete and we're sure user is not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      // Small delay to prevent rapid redirects
+      const timer = setTimeout(() => {
+        setShouldRedirect(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    } else {
+      setShouldRedirect(false)
+    }
+  }, [loading, isAuthenticated])
 
   if (loading) {
     return (
@@ -358,7 +376,7 @@ function ProtectedRoute({ children }) {
     )
   }
 
-  if (!isAuthenticated) {
+  if (shouldRedirect) {
     return <Navigate to="/login" replace />
   }
 

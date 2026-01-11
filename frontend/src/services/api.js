@@ -157,19 +157,19 @@ api.interceptors.response.use(
     // Only clear token on actual 401 Unauthorized (not network errors)
     // Network errors (ERR_NETWORK) should NOT clear token - user might be offline
     if (error.response?.status === 401 && error.code !== 'ERR_NETWORK') {
-      localStorage.removeItem('token')
-      
-      // NEVER redirect during auth check or on auth pages - this causes infinite loops
+      // Don't clear token if we're checking auth or on auth pages
       const currentPath = window.location.pathname
       const isAuthPage = currentPath === '/login' || 
                          currentPath === '/register' || 
                          currentPath.includes('/login') || 
                          currentPath.includes('/register')
       
-      // Only redirect if NOT on auth pages, NOT checking auth, and NOT during initial load
-      // Add a longer delay and more checks to prevent infinite loops
+      // Only clear token if not on auth pages and not checking auth
       if (!isAuthPage && !isCheckingAuth) {
-        // Use a longer delay to ensure auth check is complete
+        localStorage.removeItem('token')
+        
+        // Only redirect if NOT on auth pages, NOT checking auth, and NOT during initial load
+        // Add a longer delay and more checks to prevent infinite loops
         setTimeout(() => {
           // Triple check - path, checking auth flag, and make sure we're not in a loop
           const path = window.location.pathname
@@ -183,12 +183,13 @@ api.interceptors.response.use(
             // Check if we've redirected recently (prevent loops)
             const lastRedirect = sessionStorage.getItem('lastRedirect')
             const now = Date.now()
-            if (!lastRedirect || (now - parseInt(lastRedirect)) > 2000) {
+            if (!lastRedirect || (now - parseInt(lastRedirect)) > 3000) {
               sessionStorage.setItem('lastRedirect', now.toString())
-              window.location.href = '/login'
+              // Use replace to avoid adding to history
+              window.location.replace('/login')
             }
           }
-        }, 500)
+        }, 1000)
       }
     }
     
@@ -224,14 +225,14 @@ export default api
 
 // Auth
 export const authAPI = {
-  login: (mobile, password) => {
+  login: (email, password) => {
     // Use JSON for Cognito login
-    return api.post('/api/auth/login', { mobile, password })
+    return api.post('/api/auth/login', { email, password })
   },
   register: (data) => api.post('/api/auth/register', data),
-  confirmSignup: (mobile, confirmationCode) => 
+  confirmSignup: (email, confirmationCode) => 
     api.post('/api/auth/confirm-signup', null, { 
-      params: { mobile, confirmation_code: confirmationCode } 
+      params: { email, confirmation_code: confirmationCode } 
     }),
   resendConfirmation: (mobile) => 
     api.post('/api/auth/resend-confirmation', null, { 
