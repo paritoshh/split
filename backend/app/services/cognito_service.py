@@ -13,11 +13,14 @@ Uses boto3 to interact with AWS Cognito User Pool.
 """
 
 import boto3
+import logging
 from botocore.exceptions import ClientError
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class CognitoService:
@@ -256,16 +259,26 @@ class CognitoService:
         try:
             response = self.client.get_user(AccessToken=access_token)
             
+            # Log response keys for debugging (but not sensitive data)
+            logger.debug(f"Cognito get_user response keys: {list(response.keys())}")
+            
             # Parse user attributes
             user_attributes = {}
             for attr in response.get('UserAttributes', []):
                 user_attributes[attr['Name']] = attr['Value']
             
+            # UserStatus might not be present in all Cognito responses
+            # Use .get() with a default value
+            user_status = response.get('UserStatus', 'CONFIRMED')
+            username = response.get('Username', '')
+            
+            logger.info(f"Retrieved user from Cognito: {username}, status: {user_status}")
+            
             return {
-                'username': response['Username'],
-                'user_status': response['UserStatus'],
+                'username': username,
+                'user_status': user_status,
                 'attributes': user_attributes,
-                'sub': user_attributes.get('sub', response['Username'])
+                'sub': user_attributes.get('sub', username)
             }
             
         except ClientError as e:
