@@ -167,6 +167,8 @@ api.interceptors.response.use(
       // Only clear token if not on auth pages and not checking auth
       if (!isAuthPage && !isCheckingAuth) {
         localStorage.removeItem('token')
+        localStorage.removeItem('idToken')
+        localStorage.removeItem('refreshToken')
         
         // Only redirect if NOT on auth pages, NOT checking auth, and NOT during initial load
         // Add a longer delay and more checks to prevent infinite loops
@@ -183,8 +185,8 @@ api.interceptors.response.use(
             // Check if we've redirected recently (prevent loops)
             const lastRedirect = sessionStorage.getItem('lastRedirect')
             const now = Date.now()
-            // Increased timeout to 5 seconds to prevent rapid redirects
-            if (!lastRedirect || (now - parseInt(lastRedirect)) > 5000) {
+            // Increased timeout to 10 seconds to prevent rapid redirects
+            if (!lastRedirect || (now - parseInt(lastRedirect)) > 10000) {
               sessionStorage.setItem('lastRedirect', now.toString())
               // Use replace to avoid adding to history
               console.log('[API] Redirecting to login due to 401')
@@ -192,8 +194,13 @@ api.interceptors.response.use(
             } else {
               console.log('[API] Skipping redirect - too soon since last redirect')
             }
+          } else {
+            console.log('[API] Skipping redirect - already on auth page or checking auth')
           }
-        }, 1500) // Increased delay
+        }, 2000) // Increased delay to 2 seconds
+      } else {
+        // On auth page or checking auth - don't redirect
+        console.log('[API] Skipping 401 redirect - on auth page or checking auth')
       }
     }
     

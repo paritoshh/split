@@ -78,91 +78,79 @@ function AuthProvider({ children }) {
   // Check if user is logged in on app load
   useEffect(() => {
     const checkAuth = async () => {
-      setCheckingAuth(true) // Prevent redirects during auth check
-      let biometricSuccess = false
+      // Don't run auth check if we're already on login/register page
+      const currentPath = window.location.pathname
+      const isAuthPage = currentPath === '/login' || 
+                         currentPath === '/register' || 
+                         currentPath.includes('/login') || 
+                         currentPath.includes('/register')
       
-      // First, try biometric login if enabled (native app only)
-      if (biometricService.isNativeApp()) {
-        try {
-          const isEnabled = await biometricService.isBiometricEnabled()
-          if (isEnabled) {
-            const result = await biometricService.authenticateWithBiometric()
-            if (result.success && result.token) {
-              // Verify token is still valid
-              try {
-                const response = await api.get('/api/auth/me', {
-                  headers: { Authorization: `Bearer ${result.token}` }
-                })
-                localStorage.setItem('token', result.token)
-                localStorage.setItem('userId', response.data.id)
-                setToken(result.token)
-                setUser(response.data)
-                biometricSuccess = true
-              } catch (error) {
-                // Token expired, clear biometric credentials
-                console.log('Biometric token expired, clearing...')
-                await biometricService.disableBiometric()
-                setBiometricEnabled(false)
-              }
-            }
-            // If user cancelled biometric, just continue to normal login screen
-          }
-        } catch (error) {
-          console.log('Biometric check failed:', error)
-          // Continue to regular auth check
-        }
-      }
-      
-      // If biometric login succeeded, we're done
-      if (biometricSuccess) {
+      if (isAuthPage) {
+        // On auth pages, just set loading to false and skip auth check
         setLoading(false)
+        setCheckingAuth(false)
         return
       }
       
-      // Check if Cognito is configured
-      if (cognitoService.isCognitoConfigured()) {
-        // Try to get Cognito session
-        try {
-          const session = await cognitoService.getCurrentUserSession()
-          const accessToken = session.accessToken
-          
-          localStorage.setItem('token', accessToken)
-          if (session.idToken) {
-            localStorage.setItem('idToken', session.idToken)
-          }
-          if (session.refreshToken) {
-            localStorage.setItem('refreshToken', session.refreshToken)
-          }
-          
-          // Fetch user data from backend
-          const response = await Promise.race([
-            api.get('/api/auth/me'),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-            )
-          ])
-          localStorage.setItem('userId', response.data.id)
-          setUser(response.data)
-          setToken(accessToken)
-        } catch (error) {
-          // No valid Cognito session - clear everything silently
-          // Don't log errors during initial check to avoid console spam
-          if (error.message !== 'No user logged in') {
-            console.log('No valid Cognito session:', error.message)
-          }
-          localStorage.removeItem('token')
-          localStorage.removeItem('idToken')
-          localStorage.removeItem('refreshToken')
-          setToken(null)
-          setUser(null)
-          // Don't throw - just continue without auth
-        }
-      } else {
-        // Fall back to regular token check (from localStorage) for backward compatibility
-        const storedToken = localStorage.getItem('token')
-        if (storedToken) {
+      setCheckingAuth(true) // Prevent redirects during auth check
+      let biometricSuccess = false
+      
+      try {
+        // First, try biometric login if enabled (native app only)
+        if (biometricService.isNativeApp()) {
           try {
-            // Add timeout to prevent hanging if backend is down
+            const isEnabled = await biometricService.isBiometricEnabled()
+            if (isEnabled) {
+              const result = await biometricService.authenticateWithBiometric()
+              if (result.success && result.token) {
+                // Verify token is still valid
+                try {
+                  const response = await api.get('/api/auth/me', {
+                    headers: { Authorization: `Bearer ${result.token}` }
+                  })
+                  localStorage.setItem('token', result.token)
+                  localStorage.setItem('userId', response.data.id)
+                  setToken(result.token)
+                  setUser(response.data)
+                  biometricSuccess = true
+                } catch (error) {
+                  // Token expired, clear biometric credentials
+                  console.log('Biometric token expired, clearing...')
+                  await biometricService.disableBiometric()
+                  setBiometricEnabled(false)
+                }
+              }
+              // If user cancelled biometric, just continue to normal login screen
+            }
+          } catch (error) {
+            console.log('Biometric check failed:', error)
+            // Continue to regular auth check
+          }
+        }
+        
+        // If biometric login succeeded, we're done
+        if (biometricSuccess) {
+          setLoading(false)
+          setCheckingAuth(false)
+          return
+        }
+        
+        // Check if Cognito is configured
+        if (cognitoService.isCognitoConfigured()) {
+          // Try to get Cognito session
+          try {
+            const session = await cognitoService.getCurrentUserSession()
+            const accessToken = session.accessToken
+            
+            localStorage.setItem('token', accessToken)
+            if (session.idToken) {
+              localStorage.setItem('idToken', session.idToken)
+            }
+            if (session.refreshToken) {
+              localStorage.setItem('refreshToken', session.refreshToken)
+            }
+            
+            // Fetch user data from backend
             const response = await Promise.race([
               api.get('/api/auth/me'),
               new Promise((_, reject) => 
@@ -171,38 +159,67 @@ function AuthProvider({ children }) {
             ])
             localStorage.setItem('userId', response.data.id)
             setUser(response.data)
-            setToken(storedToken)
+            setToken(accessToken)
           } catch (error) {
-            // Only clear token on actual auth errors (401), not network errors
-            if (error.response?.status === 401) {
-              console.log('Stored token invalid (401), clearing...')
-              localStorage.removeItem('token')
-              setToken(null)
-              setUser(null)
-            } else if (error.code === 'ERR_NETWORK' || 
-                       error.message?.includes('Network') || 
-                       error.message?.includes('timeout') ||
-                       error.code === 'ECONNABORTED') {
-              console.log('Network/timeout error during auth check, keeping token for offline mode')
-              setToken(null)
-              setUser(null)
-            } else {
-              console.log('Auth check failed, clearing token:', error.message)
-              localStorage.removeItem('token')
-              setToken(null)
-              setUser(null)
+            // No valid Cognito session - clear everything silently
+            // Don't log errors during initial check to avoid console spam
+            if (error.message !== 'No user logged in') {
+              console.log('No valid Cognito session:', error.message)
             }
+            localStorage.removeItem('token')
+            localStorage.removeItem('idToken')
+            localStorage.removeItem('refreshToken')
+            setToken(null)
+            setUser(null)
+            // Don't throw - just continue without auth
           }
         } else {
-          setToken(null)
-          setUser(null)
+          // Fall back to regular token check (from localStorage) for backward compatibility
+          const storedToken = localStorage.getItem('token')
+          if (storedToken) {
+            try {
+              // Add timeout to prevent hanging if backend is down
+              const response = await Promise.race([
+                api.get('/api/auth/me'),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+                )
+              ])
+              localStorage.setItem('userId', response.data.id)
+              setUser(response.data)
+              setToken(storedToken)
+            } catch (error) {
+              // Only clear token on actual auth errors (401), not network errors
+              if (error.response?.status === 401) {
+                console.log('Stored token invalid (401), clearing...')
+                localStorage.removeItem('token')
+                setToken(null)
+                setUser(null)
+              } else if (error.code === 'ERR_NETWORK' || 
+                         error.message?.includes('Network') || 
+                         error.message?.includes('timeout') ||
+                         error.code === 'ECONNABORTED') {
+                console.log('Network/timeout error during auth check, keeping token for offline mode')
+                setToken(null)
+                setUser(null)
+              } else {
+                console.log('Auth check failed, clearing token:', error.message)
+                localStorage.removeItem('token')
+                setToken(null)
+                setUser(null)
+              }
+            }
+          } else {
+            setToken(null)
+            setUser(null)
+          }
         }
-      }
-      setLoading(false)
-      // Wait a bit before allowing redirects to ensure state is stable
-      setTimeout(() => {
+      } finally {
+        // Always set loading and checkingAuth to false, even if there was an error
+        setLoading(false)
+        // Clear checkingAuth flag immediately to allow redirects if needed
         setCheckingAuth(false)
-      }, 2000) // Increased delay to ensure auth check completes
+      }
     }
     checkAuth()
   }, []) // Run only on mount
