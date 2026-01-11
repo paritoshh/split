@@ -124,7 +124,8 @@ class DynamoDBService:
         }
         
         # Add mobile if provided (optional, hidden from UI)
-        if mobile:
+        # Convert empty string to None
+        if mobile and mobile.strip():
             item["mobile"] = mobile
         
         # Convert to DynamoDB format

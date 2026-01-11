@@ -31,7 +31,17 @@ class UserBase(BaseModel):
     """
     email: EmailStr = Field(..., description="Email address (mandatory)")
     name: str = Field(..., min_length=1, max_length=100)
-    mobile: Optional[str] = Field(None, min_length=10, max_length=20, description="Optional mobile number with country code (e.g., +91XXXXXXXXXX)")
+    mobile: Optional[str] = Field(None, description="Optional mobile number with country code (e.g., +91XXXXXXXXXX)")
+    
+    @field_validator('mobile', mode='before')
+    @classmethod
+    def validate_mobile(cls, v):
+        """Convert empty strings to None and validate mobile if provided."""
+        if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
+            return None
+        if isinstance(v, str) and (len(v) < 10 or len(v) > 20):
+            raise ValueError("Mobile number must be between 10 and 20 characters")
+        return v
 
 
 class UserCreate(UserBase):

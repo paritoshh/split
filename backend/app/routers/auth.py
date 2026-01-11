@@ -57,7 +57,7 @@ async def register(
             email=user_data.email,
             password=user_data.password,
             name=user_data.name,
-            mobile=user_data.mobile  # Optional, hidden from UI
+            mobile=user_data.mobile if user_data.mobile else None  # Optional, hidden from UI - convert empty string to None
         )
         logger.info(f"Successfully created user {user_data.email} in Cognito")
     except HTTPException as e:
