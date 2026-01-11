@@ -43,9 +43,27 @@ async def get_current_user(
         cognito_service = get_cognito_service()
         cognito_user = cognito_service.verify_token(token)
         logger.info(f"Token verified successfully. Username: {cognito_user.get('username')}")
+        logger.debug(f"Cognito user attributes keys: {list(cognito_user.get('attributes', {}).keys())}")
         
-        # Extract email from Cognito user attributes (username is email)
-        email = cognito_user['username']  # Username is email address
+        # Extract email from Cognito user attributes
+        # Email should be in attributes, but fallback to username if not found
+        email_from_attrs = cognito_user['attributes'].get('email')
+        email_from_username = cognito_user.get('username', '')
+        
+        # Prefer email from attributes, but use username if it's a valid email
+        if email_from_attrs and '@' in email_from_attrs:
+            email = email_from_attrs
+            logger.info(f"Using email from attributes: {email}")
+        elif email_from_username and '@' in email_from_username:
+            email = email_from_username
+            logger.info(f"Using email from username: {email}")
+        else:
+            logger.error(f"Could not extract valid email from Cognito user. Username: {email_from_username}, Email from attrs: {email_from_attrs}, All attributes: {cognito_user.get('attributes', {})}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not extract email from user token"
+            )
+        
         mobile = cognito_user['attributes'].get('phone_number')
         
         # Get user from database using email
