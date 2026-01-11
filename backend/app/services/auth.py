@@ -78,6 +78,9 @@ async def get_current_user(
                 detail="Inactive user"
             )
         
+        # Add access_token to user dict for consistency (some code might expect it)
+        user['access_token'] = token
+        
         return user
         
     except HTTPException:
