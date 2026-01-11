@@ -10,11 +10,14 @@ All authentication is handled by AWS Cognito.
 ===========================================
 """
 
+import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 from app.db import get_db_service, DBService
 from app.services.cognito_service import get_cognito_service
+
+logger = logging.getLogger(__name__)
 
 # --- OAuth2 Setup ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -36,17 +39,21 @@ async def get_current_user(
     )
     
     try:
+        logger.info(f"Verifying token for /api/auth/me (token length: {len(token) if token else 0})")
         cognito_service = get_cognito_service()
         cognito_user = cognito_service.verify_token(token)
+        logger.info(f"Token verified successfully. Username: {cognito_user.get('username')}")
         
         # Extract email from Cognito user attributes (username is email)
         email = cognito_user['username']  # Username is email address
         mobile = cognito_user['attributes'].get('phone_number')
         
         # Get user from database using email
+        logger.info(f"Looking up user by email: {email}")
         user = db_service.get_user_by_email(email)
         
         if user is None:
+            logger.warning(f"User {email} exists in Cognito but not in DB. Creating basic record.")
             # User exists in Cognito but not in our DB - create a basic record
             # This can happen if user was created directly in Cognito
             user = {
@@ -59,6 +66,7 @@ async def get_current_user(
                 'is_active': cognito_user['user_status'] != 'ARCHIVED'
             }
         else:
+            logger.info(f"User found in DB: {user.get('id')}")
             # Update verification status from Cognito
             user['email_verified'] = cognito_user['attributes'].get('email_verified', 'false') == 'true'
             if mobile:
@@ -75,4 +83,5 @@ async def get_current_user(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error in get_current_user: {type(e).__name__}: {str(e)}", exc_info=True)
         raise credentials_exception
