@@ -183,13 +183,17 @@ api.interceptors.response.use(
             // Check if we've redirected recently (prevent loops)
             const lastRedirect = sessionStorage.getItem('lastRedirect')
             const now = Date.now()
-            if (!lastRedirect || (now - parseInt(lastRedirect)) > 3000) {
+            // Increased timeout to 5 seconds to prevent rapid redirects
+            if (!lastRedirect || (now - parseInt(lastRedirect)) > 5000) {
               sessionStorage.setItem('lastRedirect', now.toString())
               // Use replace to avoid adding to history
+              console.log('[API] Redirecting to login due to 401')
               window.location.replace('/login')
+            } else {
+              console.log('[API] Skipping redirect - too soon since last redirect')
             }
           }
-        }, 1000)
+        }, 1500) // Increased delay
       }
     }
     

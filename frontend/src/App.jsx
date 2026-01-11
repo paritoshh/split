@@ -202,7 +202,7 @@ function AuthProvider({ children }) {
       // Wait a bit before allowing redirects to ensure state is stable
       setTimeout(() => {
         setCheckingAuth(false)
-      }, 1000)
+      }, 2000) // Increased delay to ensure auth check completes
     }
     checkAuth()
   }, []) // Run only on mount
