@@ -29,9 +29,9 @@ class UserBase(BaseModel):
     Base schema with common user fields.
     Other schemas inherit from this to avoid repetition.
     """
-    mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code (e.g., +91XXXXXXXXXX)")
+    email: EmailStr = Field(..., description="Email address (mandatory)")
     name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[EmailStr] = Field(None, description="Optional email address")
+    mobile: Optional[str] = Field(None, min_length=10, max_length=20, description="Optional mobile number with country code (e.g., +91XXXXXXXXXX)")
 
 
 class UserCreate(UserBase):
@@ -39,12 +39,12 @@ class UserCreate(UserBase):
     Schema for creating a new user (signup).
     
     Requires:
-    - mobile: Mobile number with country code (mandatory, must be verified)
+    - email: Email address (mandatory, must be verified)
     - name: User's display name
     - password: Plain text password
     
     Optional:
-    - email: Email address (optional, can be verified later)
+    - mobile: Mobile number with country code (optional, hidden from UI)
     """
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
 
@@ -53,9 +53,9 @@ class UserLogin(BaseModel):
     """
     Schema for user login.
     
-    We need mobile number and password to authenticate.
+    We need email and password to authenticate.
     """
-    mobile: str = Field(..., min_length=10, max_length=20, description="Mobile number with country code")
+    email: EmailStr = Field(..., description="Email address")
     password: str
 
 
@@ -68,8 +68,8 @@ class UserResponse(UserBase):
     """
     id: Union[int, str]  # int for SQLite, str (UUID) for DynamoDB
     is_active: bool
-    mobile_verified: bool = False  # Mobile verification is mandatory
-    email_verified: bool = False  # Email verification is optional
+    email_verified: bool = False  # Email verification is mandatory
+    mobile_verified: bool = False  # Mobile verification is optional (if mobile provided)
     created_at: Optional[datetime] = None
     
     class Config:

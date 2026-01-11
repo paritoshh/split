@@ -39,30 +39,30 @@ async def get_current_user(
         cognito_service = get_cognito_service()
         cognito_user = cognito_service.verify_token(token)
         
-        # Extract mobile from Cognito user attributes (username is mobile)
-        mobile = cognito_user['username']  # Username is mobile number
-        email = cognito_user['attributes'].get('email')
+        # Extract email from Cognito user attributes (username is email)
+        email = cognito_user['username']  # Username is email address
+        mobile = cognito_user['attributes'].get('phone_number')
         
-        # Get user from database using mobile
-        user = db_service.get_user_by_mobile(mobile)
+        # Get user from database using email
+        user = db_service.get_user_by_email(email)
         
         if user is None:
             # User exists in Cognito but not in our DB - create a basic record
             # This can happen if user was created directly in Cognito
             user = {
                 'id': cognito_user['sub'],
-                'mobile': mobile,
                 'email': email,
+                'mobile': mobile,
                 'name': cognito_user['attributes'].get('name', 'User'),
-                'mobile_verified': cognito_user['attributes'].get('phone_number_verified', 'false') == 'true',
-                'email_verified': cognito_user['attributes'].get('email_verified', 'false') == 'true' if email else False,
+                'email_verified': cognito_user['attributes'].get('email_verified', 'false') == 'true',
+                'mobile_verified': cognito_user['attributes'].get('phone_number_verified', 'false') == 'true' if mobile else False,
                 'is_active': cognito_user['user_status'] != 'ARCHIVED'
             }
         else:
             # Update verification status from Cognito
-            user['mobile_verified'] = cognito_user['attributes'].get('phone_number_verified', 'false') == 'true'
-            if email:
-                user['email_verified'] = cognito_user['attributes'].get('email_verified', 'false') == 'true'
+            user['email_verified'] = cognito_user['attributes'].get('email_verified', 'false') == 'true'
+            if mobile:
+                user['mobile_verified'] = cognito_user['attributes'].get('phone_number_verified', 'false') == 'true'
         
         if not user.get("is_active", True):
             raise HTTPException(

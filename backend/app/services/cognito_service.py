@@ -38,12 +38,12 @@ class CognitoService:
         self.user_pool_id = settings.cognito_user_pool_id
         self.app_client_id = settings.cognito_app_client_id
     
-    def register_user(self, mobile: str, password: str, name: str, email: Optional[str] = None) -> Dict[str, Any]:
+    def register_user(self, email: str, password: str, name: str, mobile: Optional[str] = None) -> Dict[str, Any]:
         """
         Register a new user in Cognito.
         
-        Uses mobile number as username. Mobile verification is mandatory.
-        Email is optional.
+        Uses email as username. Email verification is mandatory.
+        Mobile is optional (hidden from UI but kept in code).
         
         Returns:
             Dict with user attributes and confirmation status
@@ -51,33 +51,28 @@ class CognitoService:
         import logging
         logger = logging.getLogger(__name__)
         
-        # Ensure mobile number is in E.164 format (required by Cognito)
-        # E.164 format: +[country code][number] (e.g., +919876543210)
-        if not mobile.startswith('+'):
-            logger.warning(f"Mobile number '{mobile}' doesn't start with '+'. Cognito requires E.164 format.")
-            # Try to add + if it's missing (assumes Indian number if starts with 91)
-            if mobile.startswith('91') and len(mobile) >= 12:
-                mobile = '+' + mobile
-                logger.info(f"Auto-corrected mobile to: {mobile}")
-            else:
-                logger.error(f"Mobile number '{mobile}' is not in E.164 format. Expected format: +91XXXXXXXXXX")
-        
         try:
             # Prepare user attributes
             user_attributes = [
-                {'Name': 'phone_number', 'Value': mobile},
+                {'Name': 'email', 'Value': email},
                 {'Name': 'name', 'Value': name},
             ]
             
-            if email:
-                user_attributes.append({'Name': 'email', 'Value': email})
+            # Add mobile if provided (optional, hidden from UI)
+            if mobile:
+                # Ensure mobile number is in E.164 format (required by Cognito)
+                if not mobile.startswith('+'):
+                    if mobile.startswith('91') and len(mobile) >= 12:
+                        mobile = '+' + mobile
+                        logger.info(f"Auto-corrected mobile to: {mobile}")
+                user_attributes.append({'Name': 'phone_number', 'Value': mobile})
             
-            logger.info(f"Registering user with mobile: {mobile}, email: {email or 'None'}")
+            logger.info(f"Registering user with email: {email}, mobile: {mobile or 'None'}")
             
-            # Sign up user - use mobile as username
+            # Sign up user - use email as username
             response = self.client.sign_up(
                 ClientId=self.app_client_id,
-                Username=mobile,  # Use mobile as username
+                Username=email,  # Use email as username
                 Password=password,
                 UserAttributes=user_attributes
             )
@@ -105,7 +100,7 @@ class CognitoService:
             if error_code == 'UsernameExistsException':
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile number already registered"
+                    detail="Email address already registered"
                 )
             elif error_code == 'InvalidPasswordException':
                 raise HTTPException(
@@ -123,7 +118,7 @@ class CognitoService:
                     detail=f"Registration failed: {error_message}"
                 )
     
-    def confirm_signup(self, mobile: str, confirmation_code: str) -> bool:
+    def confirm_signup(self, email: str, confirmation_code: str) -> bool:
         """
         Confirm user signup with verification code.
         
@@ -133,7 +128,7 @@ class CognitoService:
         try:
             self.client.confirm_sign_up(
                 ClientId=self.app_client_id,
-                Username=mobile,  # Use mobile as username
+                Username=email,  # Use email as username
                 ConfirmationCode=confirmation_code
             )
             return True
@@ -163,9 +158,9 @@ class CognitoService:
                     detail=f"Confirmation failed: {error_message}"
                 )
     
-    def resend_confirmation_code(self, mobile: str) -> Dict[str, Any]:
+    def resend_confirmation_code(self, email: str) -> Dict[str, Any]:
         """
-        Resend confirmation code to user's mobile.
+        Resend confirmation code to user's email.
         
         Returns:
             Dict with code delivery details
@@ -173,7 +168,7 @@ class CognitoService:
         try:
             response = self.client.resend_confirmation_code(
                 ClientId=self.app_client_id,
-                Username=mobile  # Use mobile as username
+                Username=email  # Use email as username
             )
             return response.get('CodeDeliveryDetails', {})
             
@@ -197,11 +192,11 @@ class CognitoService:
                     detail=f"Failed to resend code: {error_message}"
                 )
     
-    def authenticate_user(self, mobile: str, password: str) -> Dict[str, Any]:
+    def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
         """
         Authenticate user and get tokens.
         
-        Uses mobile number for authentication.
+        Uses email for authentication.
         
         Returns:
             Dict with access_token, id_token, refresh_token, etc.
@@ -211,7 +206,7 @@ class CognitoService:
                 ClientId=self.app_client_id,
                 AuthFlow='USER_PASSWORD_AUTH',
                 AuthParameters={
-                    'USERNAME': mobile,  # Use mobile as username
+                    'USERNAME': email,  # Use email as username
                     'PASSWORD': password
                 }
             )
@@ -233,17 +228,17 @@ class CognitoService:
             if error_code == 'NotAuthorizedException':
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Incorrect mobile number or password"
+                    detail="Incorrect email or password"
                 )
             elif error_code == 'UserNotConfirmedException':
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile not verified. Please check your mobile for verification code."
+                    detail="Email not verified. Please check your email for verification code."
                 )
             elif error_code == 'UserNotFoundException':
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Incorrect mobile number or password"
+                    detail="Incorrect email or password"
                 )
             else:
                 raise HTTPException(
@@ -371,7 +366,7 @@ class CognitoService:
                     detail=f"Failed to change password: {error_message}"
                 )
     
-    def forgot_password(self, mobile: str) -> Dict[str, Any]:
+    def forgot_password(self, email: str) -> Dict[str, Any]:
         """
         Initiate forgot password flow.
         
@@ -381,7 +376,7 @@ class CognitoService:
         try:
             response = self.client.forgot_password(
                 ClientId=self.app_client_id,
-                Username=mobile  # Use mobile as username
+                Username=email  # Use email as username
             )
             return response.get('CodeDeliveryDetails', {})
             
@@ -405,7 +400,7 @@ class CognitoService:
                     detail=f"Failed to initiate password reset: {error_message}"
                 )
     
-    def confirm_forgot_password(self, mobile: str, confirmation_code: str, new_password: str) -> bool:
+    def confirm_forgot_password(self, email: str, confirmation_code: str, new_password: str) -> bool:
         """
         Confirm forgot password with verification code.
         
@@ -415,7 +410,7 @@ class CognitoService:
         try:
             self.client.confirm_forgot_password(
                 ClientId=self.app_client_id,
-                Username=mobile,  # Use mobile as username
+                Username=email,  # Use email as username
                 ConfirmationCode=confirmation_code,
                 Password=new_password
             )

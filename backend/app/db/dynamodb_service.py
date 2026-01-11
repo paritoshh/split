@@ -101,8 +101,8 @@ class DynamoDBService:
     # USER OPERATIONS
     # ===========================================
     
-    def create_user(self, mobile: str, name: str, hashed_password: str, 
-                   email: Optional[str] = None, email_verified: bool = False) -> dict:
+    def create_user(self, email: str, name: str, hashed_password: str, 
+                   mobile: Optional[str] = None, email_verified: bool = False) -> dict:
         """Create a new user."""
         from app.db.dynamodb_client import get_table_name, get_dynamodb_client
         
@@ -113,19 +113,19 @@ class DynamoDBService:
         
         item = {
             "user_id": user_id,
-            "mobile": mobile,
+            "email": email.lower(),  # Email is mandatory
             "name": name,
             "hashed_password": hashed_password,
             "is_active": True,
-            "mobile_verified": True,  # OTP was verified
-            "email_verified": email_verified,
+            "email_verified": email_verified,  # Email verification is mandatory
+            "mobile_verified": False,  # Mobile is optional
             "created_at": now_iso(),
             "updated_at": now_iso()
         }
         
-        # Add email if provided
-        if email:
-            item["email"] = email.lower()
+        # Add mobile if provided (optional, hidden from UI)
+        if mobile:
+            item["mobile"] = mobile
         
         # Convert to DynamoDB format
         dynamodb_item = {}

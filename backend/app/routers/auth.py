@@ -39,46 +39,46 @@ async def register(
 ):
     """
     Register a new user in Cognito.
-    Creates user in Cognito (mobile verification required).
+    Creates user in Cognito (email verification required).
     Creates user record in database.
-    Returns user data (mobile not verified yet).
+    Returns user data (email not verified yet).
     """
     import logging
     logger = logging.getLogger(__name__)
     
     # Try to create in Cognito first (Cognito is source of truth)
-    # If mobile already exists, Cognito will throw UsernameExistsException
+    # If email already exists, Cognito will throw UsernameExistsException
     cognito_result = None
     user_already_in_cognito = False
     
     try:
         cognito_service = get_cognito_service()
         cognito_result = cognito_service.register_user(
-            mobile=user_data.mobile,
+            email=user_data.email,
             password=user_data.password,
             name=user_data.name,
-            email=user_data.email
+            mobile=user_data.mobile  # Optional, hidden from UI
         )
-        logger.info(f"Successfully created user {user_data.mobile} in Cognito")
+        logger.info(f"Successfully created user {user_data.email} in Cognito")
     except HTTPException as e:
         # If Cognito says user exists, check if it's a duplicate registration
         if e.status_code == status.HTTP_400_BAD_REQUEST and ("already registered" in e.detail.lower() or "username exists" in e.detail.lower()):
-            logger.info(f"User {user_data.mobile} already exists in Cognito")
+            logger.info(f"User {user_data.email} already exists in Cognito")
             user_already_in_cognito = True
             
             # Check if user exists in our database
-            existing_user = db_service.get_user_by_mobile(user_data.mobile)
+            existing_user = db_service.get_user_by_email(user_data.email)
             if existing_user:
-                logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB - tell user to login")
+                logger.info(f"User {user_data.email} exists in both Cognito and DynamoDB - tell user to login")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mobile number already registered. Please try logging in instead."
+                    detail="Email address already registered. Please try logging in instead."
                 )
             else:
                 # User exists in Cognito but not in DynamoDB
                 # This can happen if previous registration created Cognito user but DB creation failed
                 # We'll create the DynamoDB record now to sync them
-                logger.warning(f"User {user_data.mobile} exists in Cognito but not in DynamoDB. Creating DynamoDB record to sync...")
+                logger.warning(f"User {user_data.email} exists in Cognito but not in DynamoDB. Creating DynamoDB record to sync...")
                 # We'll create the DB record below, but we don't have cognito_result['user_sub']
                 # We'll need to get it from Cognito or leave it null (will be updated on login)
                 cognito_result = {'user_sub': None, 'code_delivery_details': None, 'user_confirmed': False}
@@ -88,7 +88,7 @@ async def register(
     
     # Cognito registration succeeded OR user already exists in Cognito - now create/update in database
     # Check if user already exists in database (might have been created in a previous attempt)
-    existing_user = db_service.get_user_by_mobile(user_data.mobile)
+    existing_user = db_service.get_user_by_email(user_data.email)
     if existing_user:
         # User exists in DB - update with Cognito sub if missing
         try:
@@ -99,12 +99,12 @@ async def register(
                 logger.info(f"User {user_data.mobile} exists in both Cognito and DynamoDB")
             return UserResponse(
                 id=existing_user["id"],
-                mobile=existing_user.get("mobile") or user_data.mobile,
-                email=existing_user.get("email"),
+                email=existing_user.get("email") or user_data.email,
+                mobile=existing_user.get("mobile"),
                 name=existing_user["name"],
                 is_active=existing_user.get("is_active", True),
-                mobile_verified=False,  # User needs to verify via Cognito
-                email_verified=existing_user.get("email_verified", False),
+                email_verified=existing_user.get("email_verified", False),  # User needs to verify via Cognito
+                mobile_verified=existing_user.get("mobile_verified", False),
                 created_at=existing_user.get("created_at")
             )
         except Exception as e:
@@ -112,26 +112,17 @@ async def register(
             # Continue to create new user record
     
     # Create new user in database
-    # Note: mobile_verified will be False until user confirms via Cognito
+    # Note: email_verified will be False until user confirms via Cognito
     try:
-        # Try mobile-based signature (DynamoDB)
+        # Use email-based signature (DynamoDB)
         new_user = db_service.create_user(
-            mobile=user_data.mobile,
+            email=user_data.email,
             name=user_data.name,
             hashed_password="",  # Not used with Cognito
-            email=user_data.email,
+            mobile=user_data.mobile,  # Optional, hidden from UI
             email_verified=False
         )
-        logger.info(f"Successfully created user {user_data.mobile} in DynamoDB")
-    except TypeError:
-        # Fallback to email-based signature (SQLite) - shouldn't happen but handle it
-        new_user = db_service.create_user(
-            email=user_data.email or user_data.mobile,  # Use mobile as email if no email
-            name=user_data.name,
-            hashed_password="",  # Not used with Cognito
-            phone=user_data.mobile
-        )
-        logger.info(f"Successfully created user {user_data.mobile} in DynamoDB (SQLite fallback)")
+        logger.info(f"Successfully created user {user_data.email} in DynamoDB")
     except Exception as e:
         # If DB creation fails, log the error and raise it (don't silently fail)
         logger.error(f"Failed to create user in database: {e}", exc_info=True)
@@ -144,44 +135,44 @@ async def register(
     if cognito_result and cognito_result.get('user_sub'):
         try:
             db_service.update_user(new_user["id"], cognito_sub=cognito_result['user_sub'])
-            logger.info(f"Updated user {user_data.mobile} with Cognito sub: {cognito_result['user_sub']}")
+            logger.info(f"Updated user {user_data.email} with Cognito sub: {cognito_result['user_sub']}")
         except Exception as e:
             logger.warning(f"Failed to update user with Cognito sub: {e}")
             # Don't fail - user is created, sub will be updated on first login
     
     return UserResponse(
         id=new_user["id"],
-        mobile=new_user.get("mobile") or user_data.mobile,
-        email=new_user.get("email"),
+        email=new_user.get("email") or user_data.email,
+        mobile=new_user.get("mobile"),
         name=new_user["name"],
         is_active=new_user.get("is_active", True),
-        mobile_verified=False,  # User needs to verify via Cognito
-        email_verified=new_user.get("email_verified", False),
+        email_verified=new_user.get("email_verified", False),  # User needs to verify via Cognito
+        mobile_verified=new_user.get("mobile_verified", False),
         created_at=new_user.get("created_at")
     )
 
 
 @router.post("/confirm-signup", response_model=dict)
 async def confirm_signup(
-    mobile: str,
+    email: str,
     confirmation_code: str
 ):
     """
     Confirm user signup with verification code from Cognito.
-    Verifies mobile number.
+    Verifies email address.
     """
     try:
         cognito_service = get_cognito_service()
-        cognito_service.confirm_signup(mobile, confirmation_code)
+        cognito_service.confirm_signup(email, confirmation_code)
         
-        # Update user in database to mark mobile as verified
+        # Update user in database to mark email as verified
         from app.db import get_db_service
         db_service = get_db_service()
-        user = db_service.get_user_by_mobile(mobile)
+        user = db_service.get_user_by_email(email)
         if user:
-            db_service.update_user(user["id"], mobile_verified=True)
+            db_service.update_user(user["id"], email_verified=True)
         
-        return {"message": "Mobile verified successfully"}
+        return {"message": "Email verified successfully"}
         
     except HTTPException:
         raise
@@ -193,9 +184,9 @@ async def confirm_signup(
 
 
 @router.post("/resend-confirmation", response_model=dict)
-async def resend_confirmation(mobile: str):
+async def resend_confirmation(email: str):
     """
-    Resend confirmation code to user's mobile.
+    Resend confirmation code to user's email.
     """
     try:
         cognito_service = get_cognito_service()
@@ -214,12 +205,12 @@ async def resend_confirmation(mobile: str):
 @router.post("/login", response_model=Token)
 async def login(login_data: UserLogin):
     """
-    Login with mobile number and password.
+    Login with email and password.
     Authenticates via Cognito and returns tokens.
     """
     try:
         cognito_service = get_cognito_service()
-        tokens = cognito_service.authenticate_user(login_data.mobile, login_data.password)
+        tokens = cognito_service.authenticate_user(login_data.email, login_data.password)
         
         # Return Cognito tokens
         # Note: We return access_token in the Token schema for compatibility
@@ -328,14 +319,14 @@ async def search_users(
 
 
 @router.post("/forgot-password", response_model=dict)
-async def forgot_password(mobile: str):
+async def forgot_password(email: str):
     """
     Initiate forgot password flow.
     """
     try:
         cognito_service = get_cognito_service()
-        cognito_service.forgot_password(mobile)
-        return {"message": "Password reset code sent to mobile"}
+        cognito_service.forgot_password(email)
+        return {"message": "Password reset code sent to email"}
         
     except HTTPException:
         raise
@@ -348,7 +339,7 @@ async def forgot_password(mobile: str):
 
 @router.post("/confirm-forgot-password", response_model=dict)
 async def confirm_forgot_password(
-    mobile: str,
+    email: str,
     confirmation_code: str,
     new_password: str
 ):
@@ -357,7 +348,7 @@ async def confirm_forgot_password(
     """
     try:
         cognito_service = get_cognito_service()
-        cognito_service.confirm_forgot_password(mobile, confirmation_code, new_password)
+        cognito_service.confirm_forgot_password(email, confirmation_code, new_password)
         return {"message": "Password reset successfully"}
         
     except HTTPException:

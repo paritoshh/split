@@ -28,7 +28,7 @@ function RegisterPage() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState('register') // 'register' or 'verify'
-  const [registeredMobile, setRegisteredMobile] = useState('')
+  const [registeredEmail, setRegisteredEmail] = useState('')
   
   const { register, isAuthenticated } = useAuth()
   const navigate = useNavigate()
@@ -67,16 +67,16 @@ function RegisterPage() {
       // Register user (this will register in Cognito and backend)
       await register({
         name: formData.name,
-        mobile: formData.mobile,
-        email: formData.email || null,  // Email is optional
+        email: formData.email,  // Email is mandatory
+        mobile: '',  // Hidden from UI, kept in code
         password: formData.password
       })
       
       // If Cognito is configured, show verification step
       if (cognitoService.isCognitoConfigured()) {
-        setRegisteredMobile(formData.mobile)
+        setRegisteredEmail(formData.email)
         setStep('verify')
-        setSuccess('Registration successful! Please check your mobile for verification code.')
+        setSuccess('Registration successful! Please check your email for verification code.')
       } else {
         // If Cognito is not configured, auto-login (backward compatibility)
         navigate('/login')
@@ -87,7 +87,7 @@ function RegisterPage() {
       let errorMessage = 'Registration failed. Please try again.'
       
       if (err.code === 'UsernameExistsException') {
-        errorMessage = 'Mobile number already registered. Please login instead.'
+        errorMessage = 'Email address already registered. Please login instead.'
       } else if (err.code === 'InvalidPasswordException') {
         errorMessage = 'Password does not meet requirements. Please use a stronger password.'
       } else if (err.code === 'InvalidParameterException') {
@@ -108,13 +108,13 @@ function RegisterPage() {
     setLoading(true)
     
     try {
-      await cognitoService.confirmSignup(registeredMobile, verificationCode)
-      setSuccess('Mobile verified successfully! You can now login.')
+      await cognitoService.confirmSignup(registeredEmail, verificationCode)
+      setSuccess('Email verified successfully! You can now login.')
       
       // Redirect to login after a short delay
       setTimeout(() => {
         navigate('/login', { 
-          state: { message: 'Mobile verified successfully! Please login.' }
+          state: { message: 'Email verified successfully! Please login.' }
         })
       }, 2000)
       
@@ -140,8 +140,8 @@ function RegisterPage() {
     setLoading(true)
     
     try {
-      await cognitoService.resendConfirmationCode(registeredMobile)
-      setSuccess('Verification code sent! Please check your mobile.')
+      await cognitoService.resendConfirmationCode(registeredEmail)
+      setSuccess('Verification code sent! Please check your email.')
     } catch (err) {
       setError(err.message || 'Failed to resend code. Please try again.')
     } finally {
@@ -189,10 +189,10 @@ function RegisterPage() {
           
           {/* Heading */}
           <h1 className="text-3xl font-display font-bold text-white mb-2">
-            Verify your mobile
+            Verify your email
           </h1>
           <p className="text-gray-400 mb-8">
-            We've sent a verification code to <strong>{registeredMobile}</strong>
+            We've sent a verification code to <strong>{registeredEmail}</strong>
           </p>
           
           {/* Success Message */}
@@ -239,7 +239,7 @@ function RegisterPage() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Verify Mobile
+                  Verify Email
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -350,31 +350,10 @@ function RegisterPage() {
               </div>
             </div>
             
-            {/* Mobile Field (Mandatory) */}
-            <div>
-              <label htmlFor="mobile" className="block text-sm font-medium text-gray-300 mb-2">
-                Mobile Number
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  type="tel"
-                  id="mobile"
-                  name="mobile"
-                  value={formData.mobile}
-                  onChange={handleChange}
-                  className="input-field pl-12"
-                  placeholder="+91XXXXXXXXXX"
-                  required
-                  pattern="\+?[0-9]{10,15}"
-                />
-              </div>
-            </div>
-            
-            {/* Email Field (Optional) */}
+            {/* Email Field (Mandatory) */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                Email <span className="text-gray-500">(optional)</span>
+                Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -386,9 +365,17 @@ function RegisterPage() {
                   onChange={handleChange}
                   className="input-field pl-12"
                   placeholder="you@example.com"
+                  required
                 />
               </div>
             </div>
+            
+            {/* Mobile Field (Hidden - kept in code but not shown in UI) */}
+            <input
+              type="hidden"
+              name="mobile"
+              value=""
+            />
             
             {/* Password Field */}
             <div>

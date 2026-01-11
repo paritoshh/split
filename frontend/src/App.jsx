@@ -204,10 +204,10 @@ function AuthProvider({ children }) {
   }, []) // Run only on mount
 
   // Login function
-  const login = async (mobile, password) => {
+  const login = async (email, password) => {
     if (cognitoService.isCognitoConfigured()) {
       // Use Cognito login
-      const tokens = await cognitoService.loginUser(mobile, password)
+      const tokens = await cognitoService.loginUser(email, password)
       
       localStorage.setItem('token', tokens.accessToken)
       if (tokens.idToken) {
@@ -243,7 +243,7 @@ function AuthProvider({ children }) {
       return userResponse.data
     } else {
       // Fallback to backend login (for backward compatibility)
-      const response = await api.post('/api/auth/login', { mobile, password })
+      const response = await api.post('/api/auth/login', { email, password })
       const { access_token } = response.data
       
       localStorage.setItem('token', access_token)
@@ -290,10 +290,10 @@ function AuthProvider({ children }) {
     if (cognitoService.isCognitoConfigured()) {
       // Register in Cognito first
       await cognitoService.registerUser(
-        userData.mobile,
+        userData.email,  // Email is mandatory
         userData.password,
         userData.name,
-        userData.email  // Email is optional
+        userData.mobile  // Mobile is optional, hidden from UI
       )
       
       // Then register in backend

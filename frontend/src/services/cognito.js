@@ -35,9 +35,9 @@ const userPool = isCognitoEnabled ? new CognitoUserPool(poolData) : null
 
 /**
  * Register a new user
- * Uses mobile as username. Mobile verification is mandatory.
+ * Uses email as username. Email verification is mandatory.
  */
-export const registerUser = (mobile, password, name, email = null) => {
+export const registerUser = (email, password, name, mobile = null) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -45,16 +45,17 @@ export const registerUser = (mobile, password, name, email = null) => {
     }
 
     const attributeList = [
-      new CognitoUserAttribute({ Name: 'phone_number', Value: mobile }),
+      new CognitoUserAttribute({ Name: 'email', Value: email }),
       new CognitoUserAttribute({ Name: 'name', Value: name })
     ]
 
-    if (email) {
-      attributeList.push(new CognitoUserAttribute({ Name: 'email', Value: email }))
+    // Add mobile if provided (optional, hidden from UI)
+    if (mobile) {
+      attributeList.push(new CognitoUserAttribute({ Name: 'phone_number', Value: mobile }))
     }
 
-    // Use mobile as username
-    userPool.signUp(mobile, password, attributeList, null, (err, result) => {
+    // Use email as username
+    userPool.signUp(email, password, attributeList, null, (err, result) => {
       if (err) {
         reject(err)
         return
@@ -66,9 +67,9 @@ export const registerUser = (mobile, password, name, email = null) => {
 
 /**
  * Confirm user signup with verification code
- * Uses mobile as username
+ * Uses email as username
  */
-export const confirmSignup = (mobile, confirmationCode) => {
+export const confirmSignup = (email, confirmationCode) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -76,7 +77,7 @@ export const confirmSignup = (mobile, confirmationCode) => {
     }
 
     const userData = {
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Pool: userPool
     }
 
@@ -94,9 +95,9 @@ export const confirmSignup = (mobile, confirmationCode) => {
 
 /**
  * Resend confirmation code
- * Uses mobile as username
+ * Uses email as username
  */
-export const resendConfirmationCode = (mobile) => {
+export const resendConfirmationCode = (email) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -104,7 +105,7 @@ export const resendConfirmationCode = (mobile) => {
     }
 
     const userData = {
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Pool: userPool
     }
 
@@ -122,9 +123,9 @@ export const resendConfirmationCode = (mobile) => {
 
 /**
  * Login user
- * Uses mobile number for authentication
+ * Uses email for authentication
  */
-export const loginUser = (mobile, password) => {
+export const loginUser = (email, password) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -132,12 +133,12 @@ export const loginUser = (mobile, password) => {
     }
 
     const authenticationDetails = new AuthenticationDetails({
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Password: password
     })
 
     const userData = {
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Pool: userPool
     }
 
@@ -244,7 +245,7 @@ export const logout = () => {
  * Forgot password - initiate password reset
  * Uses mobile as username
  */
-export const forgotPassword = (mobile) => {
+export const forgotPassword = (email) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -252,7 +253,7 @@ export const forgotPassword = (mobile) => {
     }
 
     const userData = {
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Pool: userPool
     }
 
@@ -271,9 +272,9 @@ export const forgotPassword = (mobile) => {
 
 /**
  * Confirm forgot password - reset password with verification code
- * Uses mobile as username
+ * Uses email as username
  */
-export const confirmForgotPassword = (mobile, verificationCode, newPassword) => {
+export const confirmForgotPassword = (email, verificationCode, newPassword) => {
   return new Promise((resolve, reject) => {
     if (!userPool) {
       reject(new Error('Cognito is not configured'))
@@ -281,7 +282,7 @@ export const confirmForgotPassword = (mobile, verificationCode, newPassword) => 
     }
 
     const userData = {
-      Username: mobile,  // Use mobile as username
+      Username: email,  // Use email as username
       Pool: userPool
     }
 

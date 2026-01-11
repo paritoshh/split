@@ -7,10 +7,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
-import { Split, Phone, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
+import { Split, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
 
 function LoginPage() {
-  const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -35,18 +35,18 @@ function LoginPage() {
     setSubmitting(true)
     
     try {
-      await login(mobile, password)
+      await login(email, password)
       navigate('/dashboard')
     } catch (err) {
       // Handle Cognito-specific errors
       let errorMessage = 'Failed to login. Please check your credentials.'
       
       if (err.code === 'UserNotConfirmedException') {
-        errorMessage = 'Mobile not verified. Please check your mobile for verification code.'
+        errorMessage = 'Email not verified. Please check your email for verification code.'
       } else if (err.code === 'NotAuthorizedException') {
-        errorMessage = 'Incorrect mobile number or password.'
+        errorMessage = 'Incorrect email or password.'
       } else if (err.code === 'UserNotFoundException') {
-        errorMessage = 'User not found. Please check your mobile number.'
+        errorMessage = 'User not found. Please check your email address.'
       } else if (err.message) {
         errorMessage = err.message
       }
@@ -88,22 +88,21 @@ function LoginPage() {
           
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Mobile Field */}
+            {/* Email Field */}
             <div>
-              <label htmlFor="mobile" className="block text-sm font-medium text-gray-300 mb-2">
-                Mobile Number
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address
               </label>
               <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
-                  type="tel"
-                  id="mobile"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="input-field pl-12"
-                  placeholder="+91XXXXXXXXXX"
+                  placeholder="you@example.com"
                   required
-                  pattern="\+?[0-9]{10,15}"
                 />
               </div>
             </div>
